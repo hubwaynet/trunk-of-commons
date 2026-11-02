@@ -23,6 +23,9 @@ export function createGame({ players, seed = 0, startBalance = 10, endRound = 10
     minPlayers,
     players: players.map((p) => ({ id: p.id, balance: startBalance, active: true, leftAfterRound: null })),
     rounds: [],
+    // The Commons is the platform's reserve: it funds top-ups and receives forfeited pools.
+    // In this prototype it is unlimited and only tracked, so it never changes the outcome.
+    commons: { paidOut: 0, received: 0 },
     status: 'playing',
     endReason: null,
   };
@@ -89,8 +92,12 @@ export function resolveRound(state, choices) {
   const players = state.players.map((p) =>
     p.active ? { ...p, balance: p.balance - contributions[p.id] + payouts[p.id] } : p,
   );
-  const outcome = { round: r, n, stakes: s, contributions, levels, pool, avg, result, payouts, topUp, forfeited };
-  const next = { ...state, players, rounds: [...state.rounds, outcome] };
+  const commons = { paidOut: state.commons.paidOut + topUp, received: state.commons.received + forfeited };
+  const outcome = {
+    round: r, n, stakes: s, contributions, levels, pool, avg, result, payouts, topUp, forfeited,
+    commonsNet: commons.received - commons.paidOut, // running balance after this round
+  };
+  const next = { ...state, players, commons, rounds: [...state.rounds, outcome] };
   if (result === 'fail') {
     next.status = 'ended';
     next.endReason = 'pool-failed';

@@ -216,6 +216,12 @@ function drawTable() {
   svg.append(el('text', { x: C, y: C + 7, 'text-anchor': 'middle', class: 'pool-avg' }, o ? fmt(o.avg) : '?'));
   svg.append(el('text', { x: C, y: C + 21, 'text-anchor': 'middle', class: 'pool-sub' }, o ? 'AVERAGE GIFT' : `ROUND ${round}`));
 
+  // Commons readout, top-left corner
+  const cn = G.game.commons.received - G.game.commons.paidOut;
+  svg.append(el('text', { x: 8, y: 16, class: 'ring-label' }, 'COMMONS'));
+  svg.append(el('text', { x: 8, y: 33, class: 'commons-val' }, signed(cn)));
+  svg.append(el('text', { x: 8, y: 45, class: 'ring-label' }, `paid ${G.game.commons.paidOut} · took ${G.game.commons.received}`));
+
   // seats
   G.seats.forEach((seat, i) => {
     const p = playerOf(G.game, seat.id);
@@ -331,19 +337,59 @@ function renderPanel() {
     panel.append(renderDebrief());
   }
 
-  panel.append(renderLog());
 }
 
+const LEVEL_CODE = { low: '0', medium: 'M', high: 'H' };
+
 function renderLog() {
-  const rows = G.game.rounds.map((r) => {
-    const mine = 'you' in r.levels ? r.payouts.you - r.contributions.you : null;
-    return `<tr><td>${r.round}</td><td>${r.n}</td><td>${r.pool}</td><td>${fmt(r.avg)}</td>
-      <td><span class="tag ${r.result}">${RESULT_TAG[r.result]}</span></td>
-      <td class="${mine > 0 ? 'pos' : mine < 0 ? 'neg' : ''}">${mine === null ? '–' : signed(mine)}</td></tr>`;
+  const box = document.getElementById('log');
+  const rounds = G.game.rounds;
+  const label = (id) => (id === 'you' && !G.watch ? 'You' : seatOf(id).name);
+  const head = rounds.map((r) => `<th scope="col">R${r.round}</th>`).join('');
+  const seatRows = G.seats.map((seat) => {
+    const p = playerOf(G.game, seat.id);
+    let gaveTotal = 0, gotTotal = 0, played = 0, levelSum = 0;
+    const cells = rounds.map((r) => {
+      if (!(seat.id in r.levels)) return '<td class="gone" title="Not at the table">·</td>';
+      const lv = r.levels[seat.id], gave = r.contributions[seat.id], got = r.payouts[seat.id];
+      gaveTotal += gave; gotTotal += got; played++; levelSum += LEVEL_INDEX[lv];
+      const short = lv !== 'low' && gave < r.stakes[lv] ? ' (all they had)' : '';
+      return `<td><span class="lv ${lv}" title="${esc(label(seat.id))}, round ${r.round}: chose ${lv === 'low' ? 'nothing' : lv}, gave ${gave}${short}, received ${got}">
+        <span class="code">${LEVEL_CODE[lv]}</span>${gave}</span></td>`;
+    }).join('');
+    const status = !p.active ? `<span class="muted small">left${p.leftAfterRound ? ` after R${p.leftAfterRound}` : ''}</span>` : '';
+    return `<tr><th scope="row"><span class="who"><span class="dot" style="background:${seat.hue}"></span>${esc(label(seat.id))}</span>${status}</th>
+      ${cells}<td class="sum">${gaveTotal}</td><td class="sum">${gotTotal}</td>
+      <td class="sum">${played ? fmt(Math.round((levelSum / played) * 100) / 100) : '–'}</td>
+      <td class="sum strong">${p.balance}</td></tr>`;
   }).join('');
-  return h(`<div class="card"><h3>Round log</h3><div class="log-wrap"><table>
-    <thead><tr><th>Round</th><th>Players</th><th>Pool</th><th>Avg</th><th>Result</th><th>${G.watch ? 'Stand-in' : 'You'}</th></tr></thead>
-    <tbody>${rows || '<tr><td colspan="6" class="muted">No rounds played yet.</td></tr>'}</tbody></table></div></div>`);
+  const foot = (name, fn, title = '') => `<tr class="foot-row"><th scope="row" ${title ? `title="${title}"` : ''}>${name}</th>${rounds.map(fn).join('')}<td colspan="4"></td></tr>`;
+  const commonsCell = (r) => {
+    if (r.forfeited) return `<td class="pos" title="Forfeited pool received">+${r.forfeited}</td>`;
+    if (r.topUp) return `<td class="neg" title="Top-up paid">−${r.topUp}</td>`;
+    return '<td>0</td>';
+  };
+  const net = G.game.commons.received - G.game.commons.paidOut;
+  box.replaceChildren(h(`<div class="card">
+    <div class="status-row"><h3>Round log</h3>
+      <span class="legend small"><span class="lv low"><span class="code">0</span></span> nothing
+      <span class="lv medium"><span class="code">M</span></span> medium
+      <span class="lv high"><span class="code">H</span></span> high · number = points given</span></div>
+    ${rounds.length ? `<div class="log-wrap"><table class="grid">
+      <thead><tr><th scope="col">Player</th>${head}<th scope="col" title="Total points given">Gave</th><th scope="col" title="Total points received">Got</th>
+        <th scope="col" title="Average choice: 0 nothing, 1 medium, 2 high">Avg</th><th scope="col">Points</th></tr></thead>
+      <tbody>${seatRows}</tbody>
+      <tfoot>
+        ${foot('Medium / high', (r) => `<td>${r.stakes.medium}/${r.stakes.high}</td>`)}
+        ${foot('Pool', (r) => `<td>${r.pool}</td>`)}
+        ${foot('Average gift', (r) => `<td>${fmt(Math.round(r.avg * 100) / 100)}</td>`)}
+        ${foot('Result', (r) => `<td><span class="tag ${r.result}" title="${RESULT_TAG[r.result]}">${r.result === 'fail' ? '✕' : r.result === 'bonus' ? 'B' : 'S'}</span></td>`)}
+        ${foot('Commons', commonsCell, 'Paid out as top-ups (−) or received from a failed pool (+)')}
+        ${foot('Commons balance', (r) => `<td class="${r.commonsNet < 0 ? 'neg' : r.commonsNet > 0 ? 'pos' : ''}">${signed(r.commonsNet)}</td>`)}
+      </tfoot></table></div>
+      <p class="muted small">The Commons has paid out ${G.game.commons.paidOut} in top-ups and received ${G.game.commons.received} from failed pools: ${signed(net)} so far. S shared, B bonus, ✕ failed.</p>`
+    : '<p class="muted small">Each player\'s choices will build up here round by round, so you can judge who to trust.</p>'}
+  </div>`));
 }
 
 const END_TEXT = {
@@ -351,6 +397,13 @@ const END_TEXT = {
   'season-end': (r) => `The season closed after round ${r}, with the pool still alive.`,
   'too-few': (r) => `Too few players stayed after round ${r} to keep the table going.`,
 };
+
+function commonsSummary(s) {
+  const net = s.commons.received - s.commons.paidOut;
+  const players = s.players.reduce((a, p) => a + p.balance - s.startBalance, 0);
+  return `Over the table the Commons paid ${s.commons.paidOut} in top-ups and took back ${s.commons.received} from failed pools, a net ${net < 0 ? 'subsidy' : 'gain'} of ${Math.abs(net)}. `
+    + `The players together finished ${signed(players)} on where they started: every point the table gained came from the Commons, and every point it lost went to it.`;
+}
 
 function renderDebrief() {
   const s = G.game;
@@ -372,6 +425,7 @@ function renderDebrief() {
       ${ranking.map(({ seat, bal }) => `<tr><td><span class="who"><span class="dot" style="background:${seat.hue}"></span>${esc(seat.name)}</span></td>
         <td>${bal}</td><td class="${bal > s.startBalance ? 'pos' : bal < s.startBalance ? 'neg' : ''}">${signed(bal - s.startBalance)}</td></tr>`).join('')}
     </tbody></table></div>
+    <p>${commonsSummary(s)}</p>
     <p class="muted">Rising Pool is a threshold public good. In any single round, giving nothing pays you best, as long as enough others give. If too many reason that way, the pool fails and everyone loses what they put in. The stakes rise every round, so trust becomes worth more, and breaking it costs more.</p>
   </div>`);
   const card = frag.firstElementChild;
@@ -423,6 +477,7 @@ function renderDebrief() {
 function render() {
   drawTable();
   renderPanel();
+  renderLog();
   const w = document.getElementById('watch-toggle');
   w.setAttribute('aria-pressed', String(G.watch));
   w.textContent = G.watch ? 'Play yourself' : 'Watch the bots';

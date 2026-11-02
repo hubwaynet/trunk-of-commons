@@ -98,3 +98,12 @@ test('same seed gives the same game, and many seeds run cleanly', () => {
     for (const p of s.players) assert.ok(p.balance >= 0);
   }
 });
+
+test('the Commons ledger tracks top-ups paid and pools forfeited', () => {
+  let s = resolveRound(game(), { a: 'medium', b: 'medium', c: 'medium', d: 'high' }).state; // top-up 3
+  assert.deepEqual(s.commons, { paidOut: 3, received: 0 });
+  s = applyStayDecisions(s, {});
+  const r = resolveRound(s, { a: 'medium', b: 'low', c: 'low', d: 'low' }); // round 2 fails, forfeits 2
+  assert.deepEqual(r.state.commons, { paidOut: 3, received: 2 });
+  assert.equal(r.outcome.commonsNet, -1);
+});

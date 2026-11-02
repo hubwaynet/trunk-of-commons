@@ -28,13 +28,16 @@
   <section class="rules" aria-label="How it works">
     <p><b>Each round, everyone secretly gives</b> nothing, the medium amount, or the high amount. Both amounts rise every round.</p>
     <p><b>If the average gift falls short of medium,</b> the whole pool goes to the Commons and the game ends for everyone.</p>
-    <p><b>If it reaches medium,</b> the Commons tops the pool up and it is shared equally. Nearer high, everyone gets the high amount.</p>
+    <p><b>If it reaches medium,</b> the Commons (the shared reserve) tops the pool up and it is shared equally. Nearer high, everyone gets the high amount.</p>
     <p><b>Equal shares, whatever you gave.</b> The season ends without warning, some time after round 6. You can leave between rounds.</p>
   </section>
 
   <div class="game">
-    <div class="table-wrap">
-      <svg id="table" viewBox="0 0 400 400" role="img" aria-label="The table: six players around the pool"></svg>
+    <div class="left-col">
+      <div class="table-wrap">
+        <svg id="table" viewBox="0 0 400 400" role="img" aria-label="The table: six players around the pool"></svg>
+      </div>
+      <div id="log"></div>
     </div>
     <div class="panel" id="panel"></div>
   </div>
