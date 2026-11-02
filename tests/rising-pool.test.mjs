@@ -6,7 +6,7 @@ import { STRATEGIES, botView, selectRoster } from '../src/bots/rising-pool-bots.
 import { mulberry32 } from '../src/engine/rng.js';
 
 const ids = ['a', 'b', 'c', 'd'];
-const game = (opts = {}) => createGame({ players: ids.map((id) => ({ id })), endRound: 10, ...opts });
+const game = (opts = {}) => createGame({ players: ids.map((id) => ({ id })), startBalance: 10, ...opts });
 const all = (level) => Object.fromEntries(ids.map((id) => [id, level]));
 
 test('stakes rise each round', () => {
@@ -52,7 +52,7 @@ test('an average exactly halfway counts as medium', () => {
   assert.equal(outcome.result, 'base');
 });
 
-test('season ends at the hidden end round', () => {
+test('optional hard stop still works', () => {
   let s = game({ endRound: 2 });
   s = resolveRound(s, all('medium')).state;
   s = applyStayDecisions(s, {});
@@ -80,7 +80,7 @@ test('same seed gives the same game, and many seeds run cleanly', () => {
     const roster = selectRoster(rng, 6);
     const players = roster.map((sid, i) => ({ id: `p${i}`, sid }));
     const agents = Object.fromEntries(players.map((p) => [p.id, STRATEGIES[p.sid].create(rng)]));
-    let s = createGame({ players, endRound: 12 });
+    let s = createGame({ players });
     while (s.status === 'playing') {
       const choices = {};
       for (const p of s.players.filter((x) => x.active)) choices[p.id] = agents[p.id].choose(botView(s, p.id));
@@ -94,16 +94,34 @@ test('same seed gives the same game, and many seeds run cleanly', () => {
   assert.deepEqual(run(42), run(42));
   for (let seed = 1; seed < 300; seed++) {
     const s = run(seed);
-    assert.ok(['pool-failed', 'season-end', 'too-few'].includes(s.endReason));
+    assert.ok(['pool-failed', 'commons-exhausted', 'too-few'].includes(s.endReason));
     for (const p of s.players) assert.ok(p.balance >= 0);
   }
 });
 
-test('the Commons ledger tracks top-ups paid and pools forfeited', () => {
+test('the Commons ledger tracks reserve, top-ups and forfeits', () => {
   let s = resolveRound(game(), { a: 'medium', b: 'medium', c: 'medium', d: 'high' }).state; // top-up 3
-  assert.deepEqual(s.commons, { paidOut: 3, received: 0 });
+  assert.equal(s.commons.reserve, 117);
+  assert.equal(s.commons.paidOut, 3);
   s = applyStayDecisions(s, {});
   const r = resolveRound(s, { a: 'medium', b: 'low', c: 'low', d: 'low' }); // round 2 fails, forfeits 2
-  assert.deepEqual(r.state.commons, { paidOut: 3, received: 2 });
-  assert.equal(r.outcome.commonsNet, -1);
+  assert.equal(r.state.commons.reserve, 119);
+  assert.equal(r.outcome.commonsAfter, 119);
+});
+
+test('an exhausted Commons pays what it has and ends the season', () => {
+  // round 1 bonus wants top-up 1 per... gifts 2,2,2,1 = 7, wants 8 -> needs 1, reserve 0
+  const s = game({ commonsReserve: 0 });
+  const r = resolveRound(s, { a: 'high', b: 'high', c: 'high', d: 'medium' });
+  assert.equal(r.outcome.commonsShort, true);
+  assert.equal(r.outcome.payouts.a, 1); // floor(7/4) = 1 each, remainder 3 stays in the Commons
+  assert.equal(r.state.commons.reserve, 3);
+  assert.equal(r.state.endReason, 'commons-exhausted');
+});
+
+test('a Commons that hits exactly zero also ends the season', () => {
+  const r = resolveRound(game({ commonsReserve: 3 }), { a: 'medium', b: 'medium', c: 'medium', d: 'high' });
+  assert.equal(r.outcome.commonsShort, false);
+  assert.equal(r.state.commons.reserve, 0);
+  assert.equal(r.state.endReason, 'commons-exhausted');
 });

@@ -10,12 +10,12 @@ Source: *Game 1 - multiplayer iterated - dilemma (MI-D)*, TrunK of Commons, 2018
 - Average at or nearer medium (up to and including the halfway point 1.5r): the Commons tops the pool up to the next multiple of the player count; everyone gets an equal share.
 - Average nearer high: the Commons tops up so everyone receives 2r.
 - Between rounds each player chooses to stay or leave. Fewer than 3 players ends the table.
-- The season ends at a hidden round between 7 and 12, so the last round can't be predicted (this avoids backward induction unravelling the game).
+- The Commons is a finite reserve of 120 points (decided by Jason, 2026-11-03). It funds top-ups and receives forfeited pools. When it can't cover a full top-up it pays what it has (in whole points, any odd remainder staying in the Commons) and the season ends.
 - Everyone starts with 20 points. There are no tokens or money: points exist only within a table.
 
 ## Decisions made while building (open to change)
 
-1. **Hidden season end.** The 2018 notes have no end other than failure or players leaving. With rising stakes that would always end in failure, so a hidden end was added.
+1. **Season end.** The 2018 notes have no end other than failure or players leaving. Prototype 0.1 used a hidden end round (7–12). Prototype 0.2 replaces it with the finite Commons: the season ends when the reserve runs out.
 2. **Ties go to medium.** An average exactly halfway between medium and high counts as medium.
 3. **Top-up rounds up.** "Closest integer divisible by the number of players" is read as the next multiple at or above the pool.
 4. **Starting balance 20.** See the finding below.
@@ -35,3 +35,14 @@ Open question for design: is "escalation exhausts the commons" the lesson Game 1
 
 - Reputation ring around each seat: green if a player's average gift is at or above the table's, magenta if below (colours from the 2017 Wheel of Fortune indicator scheme).
 - After each table: debrief, a "read the table" exercise (match each bot to its strategy), and achievements stored in the browser.
+
+## Finding: finite Commons (prototype 0.2, 3,000 bot-only tables)
+
+- 98% of tables still end with the pool failing (median round 6). Under 2% last long enough to drain the Commons (median round 14).
+- The Commons drains slowly at a well-run table. When everyone gives the same level there is no top-up at all: all-high pays everyone exactly what they gave. Top-ups come from mixed tables and from players who can no longer afford the high amount.
+- A table where everyone always gives high lasts 20 rounds, then the Commons runs dry. A table where everyone gives medium never draws on the Commons and fails at round 21, when the medium amount passes everyone's balance.
+- Because the reserve is visible, players can see the end coming. That invites end-game defection (give nothing in the last round or two). This may be a good lesson or a problem to design around.
+
+## Strategy key
+
+The page shows all ten strategies grouped by family, each with a one-line summary and a "tell": how it looks in the round log. Each table seats five of them under random names. Players can mark a guess for each bot in the round log during play; the guesses carry into the debrief, where all ten strategies are options.

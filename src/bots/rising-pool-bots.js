@@ -9,28 +9,41 @@ import { shuffle } from '../engine/rng.js';
 const toLevel = (i) => LEVELS[Math.max(0, Math.min(2, i))];
 const nearest = (mean) => toLevel(Math.round(mean));
 
+export const FAMILIES = {
+  cooperator: 'Cooperators',
+  exploiter: 'Exploiters',
+  reciprocator: 'Reciprocators',
+  learner: 'Learners',
+  steward: 'Stewards',
+  noisy: 'Noisy',
+};
+
 export const STRATEGIES = {
   steady: {
     label: 'Steady',
     family: 'cooperator',
+    tell: 'A steady row of M, every round.',
     summary: 'Always gives the medium amount, whatever happens.',
     create: () => ({ choose: () => 'medium' }),
   },
   openHand: {
     label: 'Open Hand',
     family: 'cooperator',
+    tell: 'H every round, even after others give nothing.',
     summary: 'Always gives the high amount. Generous, and easy to exploit.',
     create: () => ({ choose: () => 'high' }),
   },
   freeRider: {
     label: 'Free Rider',
     family: 'exploiter',
+    tell: '0 every round.',
     summary: 'Never gives. Collects an equal share whenever the others carry the pool.',
     create: () => ({ choose: () => 'low' }),
   },
   opportunist: {
     label: 'Opportunist',
     family: 'exploiter',
+    tell: 'H for the first few rounds, then a single 0, then it leaves.',
     summary: 'Gives high to look trustworthy. Once the table is generous enough it gives nothing for a round, takes its share, and leaves.',
     create: () => {
       let cashedIn = false;
@@ -50,12 +63,14 @@ export const STRATEGIES = {
   mirror: {
     label: 'Mirror',
     family: 'reciprocator',
+    tell: "Starts with M, then copies the table's average from the round before, a round late.",
     summary: 'Starts at medium, then matches what the others gave last round. A group version of Tit for Tat.',
     create: () => ({ choose: (v) => (v.othersMean === null ? 'medium' : nearest(v.othersMean)) }),
   },
   generousMirror: {
     label: 'Generous Mirror',
     family: 'reciprocator',
+    tell: 'Like Mirror, but now and then one step more generous than the table was.',
     summary: 'Plays Mirror, but one time in four gives a level more than the others did. Its generosity can lift a sagging table.',
     create: (rng) => ({
       choose: (v) => {
@@ -68,6 +83,7 @@ export const STRATEGIES = {
   grudger: {
     label: 'Grudger',
     family: 'reciprocator',
+    tell: 'H until anyone gives 0, then 0 for the rest of the table.',
     summary: 'Gives high until anyone gives nothing. After that it never gives again.',
     create: () => {
       let betrayed = false;
@@ -82,6 +98,7 @@ export const STRATEGIES = {
   winStay: {
     label: 'Win-Stay',
     family: 'learner',
+    tell: "Starts with H. Holds its choice after a round it didn't lose on; steps down after a loss.",
     summary: 'Starts high. Repeats its last choice if it came out even or ahead, and steps down a level after a loss. Win-Stay, Lose-Shift, adapted for groups.',
     create: () => ({
       choose: (v) => {
@@ -93,6 +110,7 @@ export const STRATEGIES = {
   jitteryMirror: {
     label: 'Jittery Mirror',
     family: 'noisy',
+    tell: 'Mostly follows the table like Mirror, with an odd out-of-pattern choice now and then.',
     summary: 'Means to play Mirror, but one time in six picks at random. Shows how noise can set off a slide.',
     create: (rng) => ({
       choose: (v) => {
@@ -104,6 +122,7 @@ export const STRATEGIES = {
   keeper: {
     label: 'Keeper',
     family: 'steward',
+    tell: 'M most rounds; jumps to H in the round after the others fell short.',
     summary: 'Watches the threshold. Gives high when the others fell short last round, medium otherwise.',
     create: () => ({ choose: (v) => (v.othersMean !== null && v.othersMean < 1 ? 'high' : 'medium') }),
   },

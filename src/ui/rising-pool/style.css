@@ -82,6 +82,20 @@ svg text { font-family: var(--font-data); fill: var(--ink); }
 .seat.left { opacity: 0.3; }
 .flow-line { stroke: var(--flow); stroke-width: 1.5; stroke-dasharray: 2 5; opacity: 0.7; }
 
+.commons-track { fill: var(--line); }
+.commons-fill { fill: var(--brass); }
+.suspect { display: block; margin-top: 3px; font: inherit; font-size: 12px; font-weight: 400; padding: 2px 4px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--paper); color: var(--ink); max-width: 9.5rem; }
+.key summary { cursor: pointer; display: grid; gap: 2px; list-style: none; }
+.key summary::-webkit-details-marker { display: none; }
+.key summary h3::after { content: " ▾"; color: var(--muted); font-size: 13px; }
+.key:not([open]) summary h3::after { content: " ▸"; }
+.key-groups { display: grid; gap: 14px; }
+.key-group { display: grid; gap: 8px; }
+.key-item { display: grid; gap: 2px; font-size: 14px; padding-left: 10px; border-left: 2px solid var(--line); }
+.key-item b { font-family: var(--font-display); font-size: 15px; font-weight: 600; }
+.key-tell { color: var(--muted); font-size: 13px; }
+.key-tell .eyebrow { font-size: 10px; margin-right: 4px; }
 .left-col { display: grid; gap: 16px; min-width: 0; }
 .commons-val { font-size: 16px; font-weight: 500; fill: var(--brass); }
 .grid th, .grid td { text-align: center; padding: 4px 6px; }

@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { createGame, resolveRound, applyStayDecisions, stakes, activePlayers, LEVEL_INDEX } from '../../engine/rising-pool.js';
-import { STRATEGIES, botView, selectRoster } from '../../bots/rising-pool-bots.js';
-import { mulberry32, newSeed, randInt, shuffle } from '../../engine/rng.js';
+import { STRATEGIES, FAMILIES, botView, selectRoster } from '../../bots/rising-pool-bots.js';
+import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 
 const START_BALANCE = 20;
+const COMMONS_RESERVE = 120;
 const NAMES = ['Wren', 'Quoll', 'Tern', 'Moss', 'Ember', 'Reed', 'Kestrel', 'Fig', 'Banksia', 'Curlew'];
 const HUES = ['#d1386f', '#d9741c', '#6fa52a', '#1f9c66', '#2f78cc', '#7650c8']; // rose, orange, chartreuse, spring, azure, violet
 const HUMAN_HUE = '#a06f17';
@@ -16,7 +17,7 @@ const ACH_KEY = 'trunk.risingPool.achievements';
 const ACHIEVEMENTS = [
   { id: 'held-line', name: 'Held the line', text: 'Gave high in a round the pool would have failed without you.' },
   { id: 'rising-tide', name: 'Rising tide', text: 'Three bonus rounds in a row while you were at the table.' },
-  { id: 'season', name: 'Season survivor', text: 'Stayed until the season closed, with the pool still alive.' },
+  { id: 'season', name: 'Season survivor', text: 'Stayed until the Commons ran dry, with the pool still alive.' },
   { id: 'read-table', name: 'Read the table', text: 'Named at least four of the five bot strategies correctly.' },
   { id: 'timed-exit', name: 'Timed the exit', text: 'Left ahead, and the pool failed after you went. Was that fair?' },
 ];
@@ -35,8 +36,7 @@ function newSession({ watch = false } = {}) {
     { id: 'you', name: watch ? 'Stand-in' : 'You', hue: HUMAN_HUE, human: !watch, strategy: standIn },
     ...roster.map((sid, i) => ({ id: `b${i}`, name: names[i], hue: HUES[i], human: false, strategy: sid })),
   ];
-  const endRound = randInt(rng, 7, 12);
-  const game = createGame({ players: seats.map((s) => ({ id: s.id })), seed, startBalance: START_BALANCE, endRound });
+  const game = createGame({ players: seats.map((s) => ({ id: s.id })), seed, startBalance: START_BALANCE, commonsReserve: COMMONS_RESERVE });
   const agents = {};
   for (const s of seats) if (s.strategy) agents[s.id] = STRATEGIES[s.strategy].create(rng);
   G = {
@@ -150,7 +150,7 @@ function checkRoundAchievements(before, o) {
 }
 function checkEndAchievements() {
   const s = G.game;
-  if (s.endReason === 'season-end' && G.humanLeftAfter === null) earn('season');
+  if (s.endReason === 'commons-exhausted' && G.humanLeftAfter === null) earn('season');
   if (G.humanLeftAfter !== null && G.afterYouLeft?.reason === 'pool-failed'
       && playerOf(s, 'you').balance > s.startBalance) earn('timed-exit');
 }
@@ -216,11 +216,14 @@ function drawTable() {
   svg.append(el('text', { x: C, y: C + 7, 'text-anchor': 'middle', class: 'pool-avg' }, o ? fmt(o.avg) : '?'));
   svg.append(el('text', { x: C, y: C + 21, 'text-anchor': 'middle', class: 'pool-sub' }, o ? 'AVERAGE GIFT' : `ROUND ${round}`));
 
-  // Commons readout, top-left corner
-  const cn = G.game.commons.received - G.game.commons.paidOut;
-  svg.append(el('text', { x: 8, y: 16, class: 'ring-label' }, 'COMMONS'));
-  svg.append(el('text', { x: 8, y: 33, class: 'commons-val' }, signed(cn)));
-  svg.append(el('text', { x: 8, y: 45, class: 'ring-label' }, `paid ${G.game.commons.paidOut} · took ${G.game.commons.received}`));
+  // Commons reserve, top-left corner
+  const cm = G.game.commons;
+  const frac = Math.max(0, Math.min(1, cm.reserve / cm.start));
+  svg.append(el('text', { x: 8, y: 16, class: 'ring-label' }, 'COMMONS RESERVE'));
+  svg.append(el('text', { x: 8, y: 34, class: 'commons-val' }, `${cm.reserve}`));
+  svg.append(el('text', { x: 8 + 9 * String(cm.reserve).length + 4, y: 34, class: 'ring-label' }, `/ ${cm.start}`));
+  svg.append(el('rect', { x: 8, y: 40, width: 72, height: 5, rx: 2.5, class: 'commons-track' }));
+  svg.append(el('rect', { x: 8, y: 40, width: Math.max(0.01, 72 * frac), height: 5, rx: 2.5, class: 'commons-fill' }));
 
   // seats
   G.seats.forEach((seat, i) => {
@@ -270,8 +273,12 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 
 const RESULT_TEXT = {
   fail: (o) => `The average gift was ${fmt(o.avg)}, short of ${o.stakes.medium}. The pool of ${o.pool} went to the Commons.`,
-  base: (o) => `The average reached medium. The Commons added ${o.topUp} and everyone received ${o.payouts[Object.keys(o.payouts)[0]]}.`,
-  bonus: (o) => `The average was nearer high. The Commons added ${o.topUp} so everyone received ${o.stakes.high}.`,
+  base: (o) => o.commonsShort
+    ? `The average reached medium, but the Commons had only enough left to give everyone ${o.payouts[Object.keys(o.payouts)[0]]}.`
+    : `The average reached medium. The Commons added ${o.topUp} and everyone received ${o.payouts[Object.keys(o.payouts)[0]]}.`,
+  bonus: (o) => o.commonsShort
+    ? `The average was nearer high, but the Commons had only enough left to give everyone ${o.payouts[Object.keys(o.payouts)[0]]}.`
+    : `The average was nearer high. The Commons added ${o.topUp} so everyone received ${o.stakes.high}.`,
 };
 const RESULT_TAG = { fail: 'Pool failed', base: 'Shared', bonus: 'Bonus' };
 
@@ -336,6 +343,7 @@ function renderPanel() {
   } else {
     panel.append(renderDebrief());
   }
+  panel.append(renderKey());
 
 }
 
@@ -358,7 +366,11 @@ function renderLog() {
         <span class="code">${LEVEL_CODE[lv]}</span>${gave}</span></td>`;
     }).join('');
     const status = !p.active ? `<span class="muted small">left${p.leftAfterRound ? ` after R${p.leftAfterRound}` : ''}</span>` : '';
-    return `<tr><th scope="row"><span class="who"><span class="dot" style="background:${seat.hue}"></span>${esc(label(seat.id))}</span>${status}</th>
+    const suspect = !G.watch && !seat.human && !G.checked
+      ? `<select class="suspect" id="suspect-${seat.id}" data-id="${seat.id}" aria-label="Your guess for ${esc(seat.name)}">
+          <option value="">Guess…</option>${STRATEGY_ORDER.map((k) => `<option value="${k}" ${G.guesses[seat.id] === k ? 'selected' : ''}>${esc(STRATEGIES[k].label)}</option>`).join('')}</select>`
+      : '';
+    return `<tr><th scope="row"><span class="who"><span class="dot" style="background:${seat.hue}"></span>${esc(label(seat.id))}</span>${status}${suspect}</th>
       ${cells}<td class="sum">${gaveTotal}</td><td class="sum">${gotTotal}</td>
       <td class="sum">${played ? fmt(Math.round((levelSum / played) * 100) / 100) : '–'}</td>
       <td class="sum strong">${p.balance}</td></tr>`;
@@ -366,10 +378,10 @@ function renderLog() {
   const foot = (name, fn, title = '') => `<tr class="foot-row"><th scope="row" ${title ? `title="${title}"` : ''}>${name}</th>${rounds.map(fn).join('')}<td colspan="4"></td></tr>`;
   const commonsCell = (r) => {
     if (r.forfeited) return `<td class="pos" title="Forfeited pool received">+${r.forfeited}</td>`;
-    if (r.topUp) return `<td class="neg" title="Top-up paid">−${r.topUp}</td>`;
+    if (r.topUp > 0) return `<td class="neg" title="Top-up paid${r.commonsShort ? ': all the Commons had left' : ''}">−${r.topUp}</td>`;
+    if (r.topUp < 0) return `<td class="pos" title="Odd remainder kept">+${-r.topUp}</td>`;
     return '<td>0</td>';
   };
-  const net = G.game.commons.received - G.game.commons.paidOut;
   box.replaceChildren(h(`<div class="card">
     <div class="status-row"><h3>Round log</h3>
       <span class="legend small"><span class="lv low"><span class="code">0</span></span> nothing
@@ -385,24 +397,48 @@ function renderLog() {
         ${foot('Average gift', (r) => `<td>${fmt(Math.round(r.avg * 100) / 100)}</td>`)}
         ${foot('Result', (r) => `<td><span class="tag ${r.result}" title="${RESULT_TAG[r.result]}">${r.result === 'fail' ? '✕' : r.result === 'bonus' ? 'B' : 'S'}</span></td>`)}
         ${foot('Commons', commonsCell, 'Paid out as top-ups (−) or received from a failed pool (+)')}
-        ${foot('Commons balance', (r) => `<td class="${r.commonsNet < 0 ? 'neg' : r.commonsNet > 0 ? 'pos' : ''}">${signed(r.commonsNet)}</td>`)}
+        ${foot('Commons reserve', (r) => `<td class="${r.commonsShort || r.commonsAfter <= 0 ? 'neg' : ''}">${r.commonsAfter}</td>`)}
       </tfoot></table></div>
-      <p class="muted small">The Commons has paid out ${G.game.commons.paidOut} in top-ups and received ${G.game.commons.received} from failed pools: ${signed(net)} so far. S shared, B bonus, ✕ failed.</p>`
+      <p class="muted small">The Commons started with ${G.game.commons.start}, has paid out ${G.game.commons.paidOut} in top-ups, and holds ${G.game.commons.reserve}. When it can't cover a top-up, the season ends. Result: S shared, B bonus, ✕ failed.</p>`
     : '<p class="muted small">Each player\'s choices will build up here round by round, so you can judge who to trust.</p>'}
   </div>`));
+  box.querySelectorAll('select.suspect').forEach((sel) => sel.addEventListener('change', () => { G.guesses[sel.dataset.id] = sel.value; }));
+}
+
+const STRATEGY_ORDER = Object.keys(FAMILIES).flatMap((f) => Object.keys(STRATEGIES).filter((k) => STRATEGIES[k].family === f));
+
+function renderKey() {
+  const groups = Object.entries(FAMILIES).map(([fam, name]) => {
+    const items = STRATEGY_ORDER.filter((k) => STRATEGIES[k].family === fam);
+    return `<div class="key-group"><div class="eyebrow">${esc(name)}</div>${items.map((k) => {
+      const st = STRATEGIES[k];
+      return `<div class="key-item"><b>${esc(st.label)}</b> <span>${esc(st.summary)}</span>
+        <span class="key-tell"><span class="eyebrow">In the log</span> ${esc(st.tell)}</span></div>`;
+    }).join('')}</div>`;
+  }).join('');
+  let open = true;
+  try { open = localStorage.getItem('trunk.risingPool.keyOpen') !== '0'; } catch { /* storage unavailable */ }
+  const frag = h(`<details class="card key" id="strategy-key" ${open ? 'open' : ''}>
+    <summary><h3>Strategy key</h3><span class="muted small">Each table seats 5 of these 10, under random names.${G.watch ? '' : ' Use the Guess menus in the round log to mark who you think is who.'}</span></summary>
+    <div class="key-groups">${groups}</div></details>`);
+  frag.firstElementChild.addEventListener('toggle', (e) => {
+    try { localStorage.setItem('trunk.risingPool.keyOpen', e.target.open ? '1' : '0'); } catch { /* storage unavailable */ }
+  });
+  return frag;
 }
 
 const END_TEXT = {
   'pool-failed': (r) => `The pool fell short in round ${r}. Everything in it went to the Commons, and the table closed.`,
+  'commons-exhausted': (r) => `The Commons ran dry in round ${r}. It paid out what it had left, and the season closed with the pool still alive.`,
   'season-end': (r) => `The season closed after round ${r}, with the pool still alive.`,
   'too-few': (r) => `Too few players stayed after round ${r} to keep the table going.`,
 };
 
 function commonsSummary(s) {
-  const net = s.commons.received - s.commons.paidOut;
-  const players = s.players.reduce((a, p) => a + p.balance - s.startBalance, 0);
-  return `Over the table the Commons paid ${s.commons.paidOut} in top-ups and took back ${s.commons.received} from failed pools, a net ${net < 0 ? 'subsidy' : 'gain'} of ${Math.abs(net)}. `
-    + `The players together finished ${signed(players)} on where they started: every point the table gained came from the Commons, and every point it lost went to it.`;
+  const c = s.commons;
+  const players = s.players.reduce((acc, p) => acc + p.balance - s.startBalance, 0);
+  return `The Commons started with ${c.start}, paid ${c.paidOut} in top-ups, took back ${c.received}, and finished with ${c.reserve}. `
+    + `Together the players finished ${signed(players)} on where they started. Every point the table gained came out of the Commons, and every point it lost went into it.`;
 }
 
 function renderDebrief() {
@@ -432,10 +468,9 @@ function renderDebrief() {
 
   if (!G.watch) {
     const bots = G.seats.filter((x) => !x.human);
-    G.guessOptions ??= shuffle(G.rng, bots.map((b) => b.strategy));
-    const options = G.guessOptions;
+    const options = STRATEGY_ORDER;
     const guess = h(`<div class="debrief"><h3>Read the table</h3>
-      <p class="muted small">Each bot played one strategy. Which was which?</p>
+      <p class="muted small">Each bot played one strategy from the key. Your guesses from the round log are filled in.</p>
       <div class="debrief" id="guesses"></div>
       <div class="btn-row"><button class="btn" type="button" id="check" ${G.checked ? 'disabled' : ''}>Check my reading</button></div></div>`);
     const box = guess.querySelector('#guesses');
