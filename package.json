@@ -1,0 +1,16 @@
+{
+  "name": "trunk-of-commons",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Educational social dilemma games: trust, cooperation and the commons.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "preview": "node tools/build-preview.mjs rising-pool",
+    "serve": "python3 -m http.server 8000"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}

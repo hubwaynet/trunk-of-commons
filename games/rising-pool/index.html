@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rising Pool</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Game 1 of Trunk of Commons: a threshold commons game where the stakes rise every round.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../src/ui/rising-pool/style.css">
+</head>
+<body>
+<!-- BODY:START -->
+<main class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Trunk of Commons · Game 1</div>
+      <h1>Rising Pool</h1>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost" id="new-game" type="button">New table</button>
+      <button class="btn ghost" id="watch-toggle" type="button" aria-pressed="false">Watch the bots</button>
+    </div>
+  </header>
+
+  <section class="rules" aria-label="How it works">
+    <p><b>Each round, everyone secretly gives</b> nothing, the medium amount, or the high amount. Both amounts rise every round.</p>
+    <p><b>If the average gift falls short of medium,</b> the whole pool goes to the Commons and the game ends for everyone.</p>
+    <p><b>If it reaches medium,</b> the Commons tops the pool up and it is shared equally. Nearer high, everyone gets the high amount.</p>
+    <p><b>Equal shares, whatever you gave.</b> The season ends without warning, some time after round 6. You can leave between rounds.</p>
+  </section>
+
+  <div class="game">
+    <div class="table-wrap">
+      <svg id="table" viewBox="0 0 400 400" role="img" aria-label="The table: six players around the pool"></svg>
+    </div>
+    <div class="panel" id="panel"></div>
+  </div>
+
+  <footer class="foot">
+    <span>Content CC BY-SA 4.0 · Code AGPL-3.0</span>
+    <span>Bots are named at random each table, so reading the code won't tell you who is who.</span>
+    <a href="https://github.com/hubwaynet/trunk-of-commons">Source on GitHub</a>
+  </footer>
+</main>
+<!-- BODY:END -->
+<script type="module" src="../../src/ui/rising-pool/main.js"></script>
+</body>
+</html>

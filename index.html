@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trunk of Commons</title>
+<meta name="description" content="Educational social dilemma games about trust, cooperation and the commons.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="src/ui/rising-pool/style.css">
+<style>
+  .levels { display: grid; gap: 12px; }
+  .level { display: grid; gap: 4px; }
+  .level a { color: var(--ink); }
+  .intro { max-width: 65ch; margin: 0; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Social dilemma games</div>
+      <h1>Trunk of Commons</h1>
+    </div>
+  </header>
+  <p class="intro">Games about trust, fairness, taking advantage and reputation. Each one is a small model of a real situation: a shared resource, a group fund, a deal that only works if people keep their word. Play against strategy bots, watch them play each other, and learn to read the table.</p>
+  <section class="levels" aria-label="Games">
+    <div class="card level">
+      <span class="eyebrow">Level 1 · Playable prototype</span>
+      <h2><a href="games/rising-pool/">Rising Pool</a></h2>
+      <p class="muted">Give to a shared pool as the stakes rise each round. Fall short together and everyone loses.</p>
+    </div>
+    <div class="card level">
+      <span class="eyebrow">Level 2 · Planned</span>
+      <h2>Centipede &amp; Ultimatum</h2>
+      <p class="muted">Keep building the pool, or grab it and decide how to divide it, then face the table's judgement.</p>
+    </div>
+    <div class="card level">
+      <span class="eyebrow">Level 3 · In design</span>
+      <h2>The Wheel</h2>
+      <p class="muted">A turning wheel collects from some and rewards others. Can a table turn a trickle into a cascade?</p>
+    </div>
+  </section>
+  <footer class="foot">
+    <span>Content CC BY-SA 4.0 · Code AGPL-3.0</span>
+    <a href="https://github.com/hubwaynet/trunk-of-commons">Source on GitHub</a>
+    <a href="https://hubway.net">hubway.net</a>
+  </footer>
+</main>
+</body>
+</html>
