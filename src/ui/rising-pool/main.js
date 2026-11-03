@@ -1,7 +1,7 @@
 // Rising Pool — browser UI. One human seat plus five strategy bots, or six bots in watch mode.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { createGame, resolveRound, applyStayDecisions, stakes, activePlayers, LEVEL_INDEX } from '../../engine/rising-pool.js';
+import { createGame, resolveRound, applyStayDecisions, stakes, activePlayers, affordableLevel, LEVEL_INDEX } from '../../engine/rising-pool.js';
 import { STRATEGIES, FAMILIES, botView, selectRoster } from '../../bots/rising-pool-bots.js';
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 
@@ -13,6 +13,18 @@ const HUMAN_HUE = '#a06f17';
 const SVGNS = 'http://www.w3.org/2000/svg';
 const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ACH_KEY = 'trunk.risingPool.achievements';
+const WALLET_KEY = 'trunk.risingPool.wallet';
+
+// Your points carry from table to table. A table needs START_BALANCE to join.
+let walletMemory = START_BALANCE;
+function loadWallet() {
+  try { const v = localStorage.getItem(WALLET_KEY); if (v !== null && !Number.isNaN(Number(v))) walletMemory = Number(v); } catch { /* storage unavailable */ }
+  return walletMemory;
+}
+function saveWallet(v) {
+  walletMemory = v;
+  try { localStorage.setItem(WALLET_KEY, String(v)); } catch { /* storage unavailable */ }
+}
 
 const ACHIEVEMENTS = [
   { id: 'held-line', name: 'Held the line', text: 'Gave high in a round the pool would have failed without you.' },
@@ -36,12 +48,16 @@ function newSession({ watch = false } = {}) {
     { id: 'you', name: watch ? 'Stand-in' : 'You', hue: HUMAN_HUE, human: !watch, strategy: standIn },
     ...roster.map((sid, i) => ({ id: `b${i}`, name: names[i], hue: HUES[i], human: false, strategy: sid })),
   ];
-  const game = createGame({ players: seats.map((s) => ({ id: s.id })), seed, startBalance: START_BALANCE, commonsReserve: COMMONS_RESERVE });
+  const wallet = watch ? START_BALANCE : loadWallet();
+  const game = createGame({
+    players: seats.map((s) => (s.id === 'you' ? { id: s.id, balance: wallet } : { id: s.id })),
+    seed, startBalance: START_BALANCE, commonsReserve: COMMONS_RESERVE,
+  });
   const agents = {};
   for (const s of seats) if (s.strategy) agents[s.id] = STRATEGIES[s.strategy].create(rng);
   G = {
     seed, rng, seats, game, agents, watch,
-    phase: 'choose', choice: null, outcome: null, timer: null,
+    phase: !watch && wallet < START_BALANCE ? 'broke' : 'choose', choice: null, outcome: null, timer: null,
     humanLeftAfter: null, afterYouLeft: null,
     guesses: {}, checked: false, speed: 1400,
     poolRatio: 0, earned: new Set(),
@@ -81,7 +97,7 @@ function reveal() {
   const { state, outcome } = resolveRound(before, choices);
   G.game = state;
   G.outcome = outcome;
-  if (humanPlays) checkRoundAchievements(before, outcome);
+  if (humanPlays) { checkRoundAchievements(before, outcome); saveWallet(playerOf(state, 'you').balance); }
   G.phase = state.status === 'ended' ? 'ended' : 'revealed';
   if (G.phase === 'ended' && !G.watch) checkEndAchievements();
   render();
@@ -152,7 +168,7 @@ function checkEndAchievements() {
   const s = G.game;
   if (s.endReason === 'commons-exhausted' && G.humanLeftAfter === null) earn('season');
   if (G.humanLeftAfter !== null && G.afterYouLeft?.reason === 'pool-failed'
-      && playerOf(s, 'you').balance > s.startBalance) earn('timed-exit');
+      && playerOf(s, 'you').balance > playerOf(s, 'you').start) earn('timed-exit');
 }
 
 // ---------- reputation ----------
@@ -297,7 +313,9 @@ function renderPanel() {
     sel.addEventListener('change', () => { G.speed = Number(sel.value); scheduleAuto(); });
   }
 
-  if (G.phase !== 'ended') {
+  if (G.phase === 'broke') {
+    panel.append(renderBroke());
+  } else if (G.phase !== 'ended') {
     const r = o ? o.round : G.game.round;
     const s = stakes(r);
     const card = h(`<div class="card">
@@ -307,10 +325,9 @@ function renderPanel() {
       </div>
       ${G.watch ? '' : `<div class="choices" role="group" aria-label="Your gift this round">
         ${['low', 'medium', 'high'].map((lv) => {
-          const amt = Math.min(s[lv], o ? Infinity : you.balance);
-          const capped = !o && s[lv] > you.balance;
-          return `<button class="choice" type="button" id="choice-${lv}" data-level="${lv}" aria-pressed="${G.choice === lv}" ${G.phase !== 'choose' ? 'disabled' : ''}>
-            <span class="lbl">${lv === 'low' ? 'Nothing' : lv}</span><span class="amt">${amt}</span>${capped ? '<span class="lbl">all you have</span>' : ''}
+          const cant = G.phase === 'choose' && affordableLevel(lv, r, you.balance) !== lv;
+          return `<button class="choice" type="button" id="choice-${lv}" data-level="${lv}" aria-pressed="${G.choice === lv}" ${G.phase !== 'choose' || cant ? 'disabled' : ''}>
+            <span class="lbl">${lv === 'low' ? 'Nothing' : lv}</span><span class="amt">${s[lv]}</span>${cant ? '<span class="lbl">can\'t afford</span>' : ''}
           </button>`;
         }).join('')}
       </div>`}
@@ -358,9 +375,10 @@ function renderLog() {
       if (!(seat.id in r.levels)) return '<td class="gone" title="Not at the table">·</td>';
       const lv = r.levels[seat.id], gave = r.contributions[seat.id], got = r.payouts[seat.id];
       gaveTotal += gave; gotTotal += got; played++; levelSum += LEVEL_INDEX[lv];
-      const short = lv !== 'low' && gave < r.stakes[lv] ? ' (all they had)' : '';
+      const asked = r.downgraded?.[seat.id];
+      const short = asked ? ` (wanted ${asked}, couldn't afford it)` : '';
       return `<td><span class="lv ${lv}" title="${esc(label(seat.id))}, round ${r.round}: chose ${lv === 'low' ? 'nothing' : lv}, gave ${gave}${short}, received ${got}">
-        <span class="code">${LEVEL_CODE[lv]}</span>${gave}</span></td>`;
+        <span class="code">${LEVEL_CODE[lv]}</span>${gave}${asked ? '<span class="down" aria-hidden="true">↓</span>' : ''}</span></td>`;
     }).join('');
     const status = !p.active ? `<span class="muted small">left${p.leftAfterRound ? ` after R${p.leftAfterRound}` : ''}</span>` : '';
     const suspect = !G.watch && !seat.human && !G.checked
@@ -383,7 +401,7 @@ function renderLog() {
     <div class="status-row"><h3>Round log</h3>
       <span class="legend small"><span class="lv low"><span class="code">0</span></span> nothing
       <span class="lv medium"><span class="code">M</span></span> medium
-      <span class="lv high"><span class="code">H</span></span> high · number = points given</span></div>
+      <span class="lv high"><span class="code">H</span></span> high · number = points given · ↓ couldn't afford what they chose</span></div>
     ${rounds.length ? `<div class="log-wrap"><table class="grid">
       <thead><tr><th scope="col">Player</th>${head}<th scope="col" title="Total points given">Gave</th><th scope="col" title="Total points received">Got</th>
         <th scope="col" title="Average choice: 0 nothing, 1 medium, 2 high">Avg</th><th scope="col">Points</th></tr></thead>
@@ -399,7 +417,15 @@ function renderLog() {
       <p class="muted small">The Commons started with ${G.game.commons.start}, has paid out ${G.game.commons.paidOut} in top-ups, and holds ${G.game.commons.reserve}. When it can't cover a top-up, the season ends. Result: S shared, B bonus, ✕ failed.</p>`
     : '<p class="muted small">Each player\'s choices will build up here round by round, so you can judge who to trust.</p>'}
   </div>`));
-  box.querySelectorAll('select.suspect').forEach((sel) => sel.addEventListener('change', () => { G.guesses[sel.dataset.id] = sel.value; }));
+  box.querySelectorAll('select.suspect').forEach((sel) => sel.addEventListener('change', () => setGuess(sel.dataset.id, sel.value)));
+  const wrap = box.querySelector('.log-wrap');
+  if (wrap && rounds.length !== G.logRounds) { wrap.scrollLeft = wrap.scrollWidth; G.logRounds = rounds.length; } // show the latest round
+}
+
+// One guess per bot, shown in both the round log and the end-of-table check.
+function setGuess(id, value) {
+  G.guesses[id] = value;
+  for (const sel of document.querySelectorAll(`#suspect-${id}, #guess-${id}`)) if (sel.value !== value) sel.value = value;
 }
 
 const STRATEGY_ORDER = Object.keys(FAMILIES).flatMap((f) => Object.keys(STRATEGIES).filter((k) => STRATEGIES[k].family === f));
@@ -439,6 +465,24 @@ function commonsSummary(s) {
     + `Together the players finished ${signed(players)} on where they started. Every point the table gained came out of the Commons, and every point it lost went into it.`;
 }
 
+function startOver() {
+  saveWallet(START_BALANCE);
+  newSession({ watch: false });
+}
+
+function renderBroke() {
+  const frag = h(`<div class="card debrief">
+    <h2>Not enough points to join</h2>
+    <p>You have ${walletMemory} point${walletMemory === 1 ? '' : 's'}. A table needs ${START_BALANCE} to join.</p>
+    <p class="muted">Your points carry from table to table, so what you keep, give and lose adds up. You can watch the bots play, or start over with ${START_BALANCE} points.</p>
+    <div class="btn-row"><button class="btn" type="button" id="start-over">Start over with ${START_BALANCE}</button>
+      <button class="btn ghost" type="button" id="go-watch">Watch the bots</button></div>
+  </div>`);
+  frag.querySelector('#start-over').addEventListener('click', startOver);
+  frag.querySelector('#go-watch').addEventListener('click', () => newSession({ watch: true }));
+  return frag;
+}
+
 function renderDebrief() {
   const s = G.game;
   const last = s.rounds.at(-1)?.round ?? 0;
@@ -455,9 +499,9 @@ function renderDebrief() {
   const frag = h(`<div class="card debrief">
     <h2>Table closed</h2>
     <p>${esc(lead)}</p>
-    <div class="log-wrap"><table><thead><tr><th>Player</th><th>Points</th><th>Net</th></tr></thead><tbody>
+    <div class="log-wrap"><table><thead><tr><th>Player</th><th>Points</th><th>This table</th></tr></thead><tbody>
       ${ranking.map(({ seat, bal }) => `<tr><td><span class="who"><span class="dot" style="background:${seat.hue}"></span>${esc(seat.name)}</span></td>
-        <td>${bal}</td><td class="${bal > s.startBalance ? 'pos' : bal < s.startBalance ? 'neg' : ''}">${signed(bal - s.startBalance)}</td></tr>`).join('')}
+        <td>${bal}</td>${(() => { const d = bal - playerOf(s, seat.id).start; return `<td class="${d > 0 ? 'pos' : d < 0 ? 'neg' : ''}">${signed(d)}</td>`; })()}</tr>`).join('')}
     </tbody></table></div>
     <p>${commonsSummary(s)}</p>
     <p class="muted">Rising Pool is a threshold public good. In any single round, giving nothing pays you best, as long as enough others give. If too many reason that way, the pool fails and everyone loses what they put in. The stakes rise every round, so trust becomes worth more, and breaking it costs more.</p>
@@ -468,7 +512,7 @@ function renderDebrief() {
     const bots = G.seats.filter((x) => !x.human);
     const options = STRATEGY_ORDER;
     const guess = h(`<div class="debrief"><h3>Read the table</h3>
-      <p class="muted small">Each bot played one strategy from the key. Your guesses from the round log are filled in.</p>
+      <p class="muted small">Each bot played one strategy from the key. These are the same guesses as in the round log: change either and both update.</p>
       <div class="debrief" id="guesses"></div>
       <div class="btn-row"><button class="btn" type="button" id="check" ${G.checked ? 'disabled' : ''}>Check my reading</button></div></div>`);
     const box = guess.querySelector('#guesses');
@@ -480,7 +524,7 @@ function renderDebrief() {
         ${G.checked ? `<div class="reveal"><span class="${G.guesses[b.id] === b.strategy ? 'ok' : 'miss'}">${G.guesses[b.id] === b.strategy ? 'Right.' : 'Not quite.'}</span>
           <b>${esc(STRATEGIES[b.strategy].label)}</b>: ${esc(STRATEGIES[b.strategy].summary)}</div>` : ''}
       </div>`);
-      row.querySelector('select').addEventListener('change', (e) => { G.guesses[b.id] = e.target.value; });
+      row.querySelector('select').addEventListener('change', (e) => setGuess(b.id, e.target.value));
       box.append(row);
     }
     guess.querySelector('#check').addEventListener('click', () => {
@@ -502,8 +546,20 @@ function renderDebrief() {
        <b>${esc(STRATEGIES[x.strategy].label)}</b>: <span class="muted">${esc(STRATEGIES[x.strategy].summary)}</span></p>`).join('')}</div>`));
   }
 
-  card.append(h(`<div class="btn-row"><button class="btn" type="button" id="again">${G.watch ? 'Watch another table' : 'Play another table'}</button></div>`));
-  card.querySelector('#again').addEventListener('click', () => newSession({ watch: G.watch }));
+  const mine = playerOf(s, 'you').balance;
+  if (!G.watch) {
+    saveWallet(mine);
+    card.append(h(mine >= START_BALANCE
+      ? `<p><b>You take ${mine} points to your next table.</b></p>`
+      : `<p><b>You have ${mine} point${mine === 1 ? '' : 's'} left.</b> A table needs ${START_BALANCE} to join, so this is as far as these points go.</p>`));
+  }
+  const canPlay = G.watch || mine >= START_BALANCE;
+  card.append(h(`<div class="btn-row">${canPlay
+    ? `<button class="btn" type="button" id="again">${G.watch ? 'Watch another table' : `Play another table with ${mine}`}</button>`
+    : `<button class="btn" type="button" id="again">Start over with ${START_BALANCE}</button>`}
+    ${!G.watch && canPlay ? `<button class="btn ghost" type="button" id="reset">Start over with ${START_BALANCE}</button>` : ''}</div>`));
+  card.querySelector('#again').addEventListener('click', () => (canPlay ? newSession({ watch: G.watch }) : startOver()));
+  card.querySelector('#reset')?.addEventListener('click', startOver);
   return frag;
 }
 

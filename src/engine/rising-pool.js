@@ -21,7 +21,10 @@ export function createGame({ players, seed = 0, startBalance = 20, commonsReserv
     endRound, // optional hard stop (null = none); the season normally ends when the Commons runs out
     startBalance,
     minPlayers,
-    players: players.map((p) => ({ id: p.id, balance: startBalance, active: true, leftAfterRound: null })),
+    players: players.map((p) => {
+      const b = p.balance ?? startBalance; // a player may bring points from an earlier table
+      return { id: p.id, start: b, balance: b, active: true, leftAfterRound: null };
+    }),
     rounds: [],
     // The Commons is a finite shared reserve: it funds top-ups and receives forfeited pools.
     // When it can no longer cover a full top-up it pays what it has and the season ends.
@@ -35,9 +38,15 @@ export function activePlayers(state) {
   return state.players.filter((p) => p.active);
 }
 
-/** A player can never give more than they hold. */
-export function contributionFor(level, round, balance) {
-  return Math.min(stakes(round)[level], Math.max(0, balance));
+/**
+ * A player can only choose a level they can pay in full. If they ask for more than
+ * they hold, they drop to the highest level they can afford (possibly nothing).
+ */
+export function affordableLevel(level, round, balance) {
+  const s = stakes(round);
+  let i = LEVEL_INDEX[level];
+  while (i > 0 && s[LEVELS[i]] > balance) i--;
+  return LEVELS[i];
 }
 
 /**
@@ -58,11 +67,14 @@ export function resolveRound(state, choices) {
 
   const contributions = {};
   const levels = {};
+  const downgraded = {}; // id -> level they asked for but couldn't afford
   let pool = 0;
   for (const p of active) {
-    const level = choices[p.id];
-    if (!LEVELS.includes(level)) throw new Error(`Missing or invalid choice for ${p.id}`);
-    const amount = contributionFor(level, r, p.balance);
+    const asked = choices[p.id];
+    if (!LEVELS.includes(asked)) throw new Error(`Missing or invalid choice for ${p.id}`);
+    const level = affordableLevel(asked, r, p.balance);
+    if (level !== asked) downgraded[p.id] = asked;
+    const amount = s[level];
     contributions[p.id] = amount;
     levels[p.id] = level;
     pool += amount;
@@ -104,7 +116,7 @@ export function resolveRound(state, choices) {
     received: state.commons.received + forfeited + Math.max(0, -topUp),
   };
   const outcome = {
-    round: r, n, stakes: s, contributions, levels, pool, avg, result, payouts, topUp, forfeited,
+    round: r, n, stakes: s, contributions, levels, downgraded, pool, avg, result, payouts, topUp, forfeited,
     commonsShort, commonsAfter: commons.reserve,
   };
   const next = { ...state, players, commons, rounds: [...state.rounds, outcome] };

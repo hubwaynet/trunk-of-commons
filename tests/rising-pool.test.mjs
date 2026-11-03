@@ -68,10 +68,19 @@ test('too few players left ends the game', () => {
   assert.equal(s.endReason, 'too-few');
 });
 
-test('nobody can give more than they hold', () => {
-  let s = game({ startBalance: 1 });
+test('a level you cannot pay in full drops to one you can', () => {
+  const s = game({ startBalance: 1 }); // round 1: medium 1, high 2
   const { outcome } = resolveRound(s, all('high'));
+  assert.equal(outcome.levels.a, 'medium');
   assert.equal(outcome.contributions.a, 1);
+  assert.equal(outcome.downgraded.a, 'high');
+});
+
+test('players can bring their own balance to a table', () => {
+  const s = createGame({ players: [{ id: 'a', balance: 42 }, { id: 'b' }, { id: 'c' }] });
+  assert.equal(s.players[0].balance, 42);
+  assert.equal(s.players[0].start, 42);
+  assert.equal(s.players[1].balance, 20);
 });
 
 test('same seed gives the same game, and many seeds run cleanly', () => {

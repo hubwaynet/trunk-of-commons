@@ -11,7 +11,8 @@ Source: *Game 1 - multiplayer iterated - dilemma (MI-D)*, TrunK of Commons, 2018
 - Average nearer high: the Commons tops up so everyone receives 2r.
 - Between rounds each player chooses to stay or leave. Fewer than 3 players ends the table.
 - The Commons is a finite reserve of 120 points (decided by Jason, 2026-11-03). It funds top-ups and receives forfeited pools. When it can't cover a full top-up it pays what it has (in whole points, any odd remainder staying in the Commons) and the season ends.
-- Everyone starts with 20 points. There are no tokens or money: points exist only within a table.
+- Everyone starts with 20 points. Your points carry from table to table (stored in your browser); a table needs 20 to join, and below that you can start over with 20 or watch the bots (Jason, 2026-11-04). Bots start each table with 20. There are no tokens or money.
+- You can only choose a level you can pay in full. Bots that ask for more than they hold drop to the highest level they can afford, marked ↓ in the round log. (Prototype 0.2 let a short player give "all they had" at the high level, which made the log misleading.)
 
 ## Decisions made while building (open to change)
 
