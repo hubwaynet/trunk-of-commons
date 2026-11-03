@@ -33,7 +33,7 @@ Open question for design: is "escalation exhausts the commons" the lesson Game 1
 
 ## Educational layer
 
-- Reputation ring around each seat: green if a player's average gift is at or above the table's, magenta if below (colours from the 2017 Wheel of Fortune indicator scheme).
+- Reputation ring around each seat: green if a player's average choice meets the medium threshold, magenta if below (colours from the 2017 Wheel of Fortune indicator scheme). Prototype 0.2 compared players to the table average; Jason chose the fixed threshold for Game 1 (2026-11-04) and kept relative reputation as a possible dynamic for a later, more complex game.
 - After each table: debrief, a "read the table" exercise (match each bot to its strategy), and achievements stored in the browser.
 
 ## Finding: finite Commons (prototype 0.2, 3,000 bot-only tables)

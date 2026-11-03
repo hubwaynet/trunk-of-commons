@@ -156,16 +156,14 @@ function checkEndAchievements() {
 }
 
 // ---------- reputation ----------
+// Reputation: green if a player's average choice meets the medium threshold, magenta if below.
 function reputation() {
   const sums = {}, counts = {};
-  let total = 0, n = 0;
   for (const r of G.game.rounds) for (const [id, lv] of Object.entries(r.levels)) {
-    const v = LEVEL_INDEX[lv];
-    sums[id] = (sums[id] || 0) + v; counts[id] = (counts[id] || 0) + 1; total += v; n++;
+    sums[id] = (sums[id] || 0) + LEVEL_INDEX[lv]; counts[id] = (counts[id] || 0) + 1;
   }
-  const tableMean = n ? total / n : null;
   const rep = {};
-  for (const s of G.seats) rep[s.id] = counts[s.id] ? (sums[s.id] / counts[s.id] >= tableMean - 1e-9 ? 'good' : 'low') : 'none';
+  for (const s of G.seats) rep[s.id] = counts[s.id] ? (sums[s.id] / counts[s.id] >= LEVEL_INDEX.medium ? 'good' : 'low') : 'none';
   return rep;
 }
 
@@ -176,7 +174,7 @@ function el(tag, attrs = {}, text) {
   if (text !== undefined) e.textContent = text;
   return e;
 }
-const C = 200, R_SEAT = 138, R_POOL = 70;
+const C = 200, R_SEAT = 138, R_POOL = 58;
 const polar = (deg, r) => [C + r * Math.cos((deg * Math.PI) / 180), C + r * Math.sin((deg * Math.PI) / 180)];
 
 function drawTable() {
@@ -343,7 +341,6 @@ function renderPanel() {
   } else {
     panel.append(renderDebrief());
   }
-  panel.append(renderKey());
 
 }
 
@@ -416,15 +413,16 @@ function renderKey() {
         <span class="key-tell"><span class="eyebrow">In the log</span> ${esc(st.tell)}</span></div>`;
     }).join('')}</div>`;
   }).join('');
-  let open = true;
-  try { open = localStorage.getItem('trunk.risingPool.keyOpen') !== '0'; } catch { /* storage unavailable */ }
-  const frag = h(`<details class="card key" id="strategy-key" ${open ? 'open' : ''}>
-    <summary><h3>Strategy key</h3><span class="muted small">Each table seats 5 of these 10, under random names.${G.watch ? '' : ' Use the Guess menus in the round log to mark who you think is who.'}</span></summary>
-    <div class="key-groups">${groups}</div></details>`);
-  frag.firstElementChild.addEventListener('toggle', (e) => {
-    try { localStorage.setItem('trunk.risingPool.keyOpen', e.target.open ? '1' : '0'); } catch { /* storage unavailable */ }
-  });
-  return frag;
+  document.getElementById('key').replaceChildren(h(`<p class="muted small key-note">Each table seats 5 of these 10, under random names.${G.watch ? '' : ' Use the Guess menus in the round log to mark who you think is who.'}</p>
+    <div class="key-groups">${groups}</div>`));
+}
+
+// Collapsible sections remember open/closed per viewer.
+function rememberToggle(id) {
+  const d = document.getElementById(id);
+  const k = `trunk.risingPool.${id}`;
+  try { const v = localStorage.getItem(k); if (v !== null) d.open = v === '1'; } catch { /* storage unavailable */ }
+  d.addEventListener('toggle', () => { try { localStorage.setItem(k, d.open ? '1' : '0'); } catch { /* storage unavailable */ } });
 }
 
 const END_TEXT = {
@@ -513,6 +511,7 @@ function render() {
   drawTable();
   renderPanel();
   renderLog();
+  renderKey();
   const w = document.getElementById('watch-toggle');
   w.setAttribute('aria-pressed', String(G.watch));
   w.textContent = G.watch ? 'Play yourself' : 'Watch the bots';
@@ -520,4 +519,6 @@ function render() {
 
 document.getElementById('new-game').addEventListener('click', () => newSession({ watch: G.watch }));
 document.getElementById('watch-toggle').addEventListener('click', () => newSession({ watch: !G.watch }));
+rememberToggle('how-it-works');
+rememberToggle('strategy-key');
 newSession();

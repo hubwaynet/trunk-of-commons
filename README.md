@@ -2,6 +2,8 @@
 
 Educational, entertaining, iterated social dilemma games about trust, cooperation, reputation and the commons.
 
+**Play it:** [hubwaynet.github.io/trunk-of-commons](https://hubwaynet.github.io/trunk-of-commons/) · Game 1: [Rising Pool](https://hubwaynet.github.io/trunk-of-commons/games/rising-pool/)
+
 Visitors learn by playing against strategy bots in the browser, then progress to harder games. Multiplayer comes later as a progressive web app. The games began as design notes by Jason Lee Lasky in 2017–18 (*TrunK of Commons* and the *Wheel of Fortune Sharing Game*) and are being rebuilt from 2026.
 
 ## Games

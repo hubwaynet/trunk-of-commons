@@ -76,7 +76,7 @@ svg text { font-family: var(--font-data); fill: var(--ink); }
 .seat-name { font-size: 12px; font-family: var(--font-body); font-weight: 700; paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
 .seat-bal { font-size: 13px; fill: var(--on-seat); font-weight: 500; }
 .seat-rep { fill: none; stroke-width: 4; }
-.seat-chip { font-size: 11px; }
+.seat-chip { font-size: 11px; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 .seat-chip.gift { fill: var(--muted); }
 .seat-chip.pay { fill: var(--flow); font-weight: 500; }
 .seat.left { opacity: 0.3; }
@@ -86,12 +86,15 @@ svg text { font-family: var(--font-data); fill: var(--ink); }
 .commons-fill { fill: var(--brass); }
 .suspect { display: block; margin-top: 3px; font: inherit; font-size: 12px; font-weight: 400; padding: 2px 4px; border-radius: 6px;
   border: 1px solid var(--line); background: var(--paper); color: var(--ink); max-width: 9.5rem; }
-.key summary { cursor: pointer; display: grid; gap: 2px; list-style: none; }
-.key summary::-webkit-details-marker { display: none; }
-.key summary h3::after { content: " ▾"; color: var(--muted); font-size: 13px; }
-.key:not([open]) summary h3::after { content: " ▸"; }
-.key-groups { display: grid; gap: 14px; }
-.key-group { display: grid; gap: 8px; }
+.fold { border-top: 1px solid var(--line); padding-top: 12px; display: grid; }
+.fold > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 8px; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary h2::after { content: " ▾"; color: var(--muted); font-size: 14px; }
+.fold:not([open]) > summary h2::after { content: " ▸"; }
+.fold[open] > summary { margin-bottom: 12px; }
+.key-note { margin: 0 0 14px; }
+.key-groups { columns: 3 17rem; column-gap: 28px; }
+.key-group { display: grid; gap: 8px; break-inside: avoid; margin-bottom: 18px; }
 .key-item { display: grid; gap: 2px; font-size: 14px; padding-left: 10px; border-left: 2px solid var(--line); }
 .key-item b { font-family: var(--font-display); font-size: 15px; font-weight: 600; }
 .key-tell { color: var(--muted); font-size: 13px; }
