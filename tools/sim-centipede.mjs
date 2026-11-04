@@ -1,10 +1,11 @@
 // Headless simulation of Centipede & Ultimatum with bot-only tables.
-// Usage: node tools/sim-centipede.mjs [tables] [mix]
-//   mix: "random" (6 of the 9 strategies, default) or a comma list of 6 strategy keys.
+// Usage: node tools/sim-centipede.mjs [tables] [mix] [options-json]
+//   mix: "random" (a varied roster of 6, default) or a comma list of 6 strategy keys.
+//   options: engine options, e.g. '{"onReject":"grabberOut","firstGrabRound":2}'
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { createGame, currentPlayer, act, divide, vote, stay } from '../src/engine/centipede-ultimatum.js';
-import { STRATEGIES, botView, botDivision, selectRoster } from '../src/bots/centipede-ultimatum-bots.js';
+import { STRATEGIES, botView, selectRoster } from '../src/bots/centipede-ultimatum-bots.js';
 import { mulberry32 } from '../src/engine/rng.js';
 
 export function playTable(keys, seed, opts = {}) {
@@ -13,91 +14,80 @@ export function playTable(keys, seed, opts = {}) {
   const inst = Object.fromEntries(ids.map((id, i) => [id, STRATEGIES[keys[i]].create(rng)]));
   let s = createGame({ players: ids.map((id) => ({ id })), seed, ...opts });
   let guard = 0;
-  while (s.status === 'playing' && guard++ < 10000) {
+  const actives = () => s.players.filter((x) => x.active);
+  while (s.status === 'playing' && guard++ < 20000) {
     if (s.phase === 'turn') {
       const id = currentPlayer(s);
       s = act(s, id, inst[id].turn(botView(s, id)));
     } else if (s.phase === 'divide') {
       const g = s.ultimatum.grabber;
-      s = divide(s, botDivision(s, g, inst[g]));
+      s = divide(s, inst[g].divide(botView(s, g)));
     } else if (s.phase === 'vote') {
-      const votes = {};
-      for (const p of s.players.filter((x) => x.active)) votes[p.id] = inst[p.id].vote(botView(s, p.id));
-      s = vote(s, votes);
+      s = vote(s, Object.fromEntries(actives().map((p) => [p.id, inst[p.id].vote(botView(s, p.id))])));
     } else if (s.phase === 'stay') {
-      const d = {};
-      for (const p of s.players.filter((x) => x.active)) d[p.id] = inst[p.id].stay ? inst[p.id].stay(botView(s, p.id)) : true;
-      s = stay(s, d);
+      s = stay(s, Object.fromEntries(actives().map((p) => [p.id, inst[p.id].stay ? inst[p.id].stay(botView(s, p.id)) : true])));
     }
   }
   return s;
 }
 
-const isMain = import.meta.url === `file://${process.argv[1]}`;
-if (isMain) {
-  const tables = Number(process.argv[2] ?? 3000);
-  const mix = process.argv[3] ?? 'random';
-  const opts = JSON.parse(process.argv[4] ?? '{}');
-  const stats = {
-    ends: {}, rounds: [], ults: 0, ultResults: {}, firstGrabRound: [], forced: 0, ultsPerTable: [],
-    rejectByFreeVote: 0, rejectByBroke: 0, roundOneEnd: 0, keptRatioAccepted: [], keptRatioRejected: [], poolAtGrab: [], leftTables: 0,
-    perStrategy: {}, commonsEnd: [],
+export function simulate(tables, mix = 'random', opts = {}) {
+  const st = {
+    tables, ends: {}, rounds: [], ults: 0, results: {}, ultsPerTable: [], firstGrab: [], poolAtGrab: [],
+    freeZeroDecided: 0, passes: 0, moves: 0, satOut: 0, grabberOut: 0, commonsEnd: [], per: {},
   };
-  const bump = (o, k) => (o[k] = (o[k] ?? 0) + 1);
+  const bump = (o, k, by = 1) => (o[k] = (o[k] ?? 0) + by);
   for (let t = 0; t < tables; t++) {
-    const rng = mulberry32(1000 + t);
-    const keys = mix === 'random' ? selectRoster(rng, 6) : mix.split(',');
+    const keys = mix === 'random' ? selectRoster(mulberry32(1000 + t), 6) : mix.split(',');
     const s = playTable(keys, 1000 + t, opts);
-    bump(stats.ends, s.endReason);
-    stats.rounds.push(s.rounds.length);
-    stats.commonsEnd.push(s.commons.reserve);
+    bump(st.ends, s.endReason);
+    st.rounds.push(s.round > s.rounds.length ? s.rounds.length : s.round);
+    st.commonsEnd.push(s.commons.reserve);
+    for (const r of s.rounds) for (const m of r.moves) { st.moves++; if (m.move === 'pass') st.passes++; }
     const ults = s.rounds.filter((r) => r.result === 'ultimatum').map((r) => r.ultimatum);
-    stats.ultsPerTable.push(ults.length);
-    if (ults.length) stats.firstGrabRound.push(ults[0].round);
-    if (s.players.some((p) => p.leftAfterRound !== null)) stats.leftTables++;
-    if (s.rounds.length === 1) stats.roundOneEnd++;
+    st.ultsPerTable.push(ults.length);
+    if (ults.length) st.firstGrab.push(ults[0].round);
+    st.satOut += s.players.filter((p) => p.leftBecause === 'chose').length;
+    st.grabberOut += s.players.filter((p) => p.leftBecause === 'rejected').length;
     for (const u of ults) {
-      stats.ults++;
-      bump(stats.ultResults, u.result);
-      if (u.forced) stats.forced++;
-      stats.poolAtGrab.push(u.pool);
-      const n = Object.keys(u.shares).length;
-      const ratio = u.pool ? u.shares[u.grabber] / (u.pool / n) : 1;
-      (u.result === 'rejected' ? stats.keptRatioRejected : stats.keptRatioAccepted).push(ratio);
+      st.ults++;
+      bump(st.results, u.result);
+      st.poolAtGrab.push(u.pool);
       if (u.result === 'rejected') {
-        // would it have passed if the zero-voters who were treated fairly had voted 1?
+        const n = Object.keys(u.shares).length;
         const sum = Object.values(u.votes).reduce((a, b) => a + b, 0);
         const fairZeros = Object.entries(u.votes).filter(([id, v]) => v === 0 && u.shares[id] >= Math.floor(u.pool / n)).length;
-        if (sum < n && sum + fairZeros >= n) stats.rejectByFreeVote++;
-        const brokeShort = Object.entries(u.capped).reduce((a, [id, want]) => a + want - u.votes[id], 0);
-        if (sum < n && sum + brokeShort >= n) stats.rejectByBroke++;
+        if (sum + fairZeros >= n) st.freeZeroDecided++;
       }
     }
     for (const p of s.players) {
       const k = p.id.split('#')[0];
-      const ps = (stats.perStrategy[k] ??= { tables: 0, net: 0, grabs: 0 });
-      ps.tables++;
+      const ps = (st.per[k] ??= { seats: 0, net: 0, grabs: 0, rounds: 0 });
+      ps.seats++;
       ps.net += p.balance - p.start;
       ps.grabs += ults.filter((u) => u.grabber === p.id).length;
     }
   }
-  const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN);
-  const median = (a) => { const b = [...a].sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
-  const pct = (x) => `${((100 * x) / tables).toFixed(1)}%`;
-  console.log(`Tables: ${tables}  mix: ${mix}  options: ${JSON.stringify(opts)}`);
-  console.log('End reasons:', Object.fromEntries(Object.entries(stats.ends).map(([k, v]) => [k, pct(v)])));
-  console.log(`Rounds played: median ${median(stats.rounds)}, mean ${mean(stats.rounds).toFixed(1)}`);
-  console.log(`Ultimatums per table: mean ${mean(stats.ultsPerTable).toFixed(2)}; first grab round median ${median(stats.firstGrabRound)}`);
-  console.log('Ultimatum results:', Object.fromEntries(Object.entries(stats.ultResults).map(([k, v]) => [k, `${((100 * v) / stats.ults).toFixed(1)}%`])));
-  console.log(`Forced grabs (couldn't afford to give): ${((100 * stats.forced) / stats.ults).toFixed(1)}% of ultimatums`);
-  console.log(`Pool at grab: median ${median(stats.poolAtGrab)}, mean ${mean(stats.poolAtGrab).toFixed(1)}`);
-  console.log(`Grabber kept (× fair share): accepted mean ${mean(stats.keptRatioAccepted).toFixed(2)}, rejected mean ${mean(stats.keptRatioRejected).toFixed(2)}`);
-  console.log(`Rejections that fairly-treated 0-voters could have passed: ${stats.rejectByFreeVote} of ${stats.ultResults.rejected ?? 0}`);
-  console.log(`Rejections caused by players too broke to pay the vote they wanted: ${stats.rejectByBroke}`);
-  console.log(`Tables over in round 1: ${pct(stats.roundOneEnd)}`);
-  console.log(`Tables where someone sat out: ${pct(stats.leftTables)}; Commons at end: median ${median(stats.commonsEnd)}`);
-  console.log('Per strategy (mean net per table, grabs per table):');
-  for (const [k, v] of Object.entries(stats.perStrategy).sort((a, b) => b[1].net / b[1].tables - a[1].net / a[1].tables)) {
-    console.log(`  ${STRATEGIES[k].label.padEnd(14)} net ${(v.net / v.tables).toFixed(1).padStart(6)}  grabs ${(v.grabs / v.tables).toFixed(2)}  (${v.tables} seats)`);
-  }
+  return st;
+}
+
+const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN);
+const median = (a) => { const b = [...a].sort((x, y) => x - y); return b.length ? b[Math.floor(b.length / 2)] : NaN; };
+
+export function report(st, title = '') {
+  const pct = (x, of = st.tables) => `${((100 * x) / of).toFixed(0)}%`;
+  const lines = [];
+  lines.push(`== ${title} (${st.tables} tables)`);
+  lines.push(`Rounds: median ${median(st.rounds)}, mean ${mean(st.rounds).toFixed(1)}; 8+ rounds ${pct(st.rounds.filter((r) => r >= 8).length)}; over in round 1-2 ${pct(st.rounds.filter((r) => r <= 2).length)}`);
+  lines.push(`Ends: ${Object.entries(st.ends).map(([k, v]) => `${k} ${pct(v)}`).join(', ')}`);
+  lines.push(`Splits per table ${mean(st.ultsPerTable).toFixed(1)}; ${Object.entries(st.results).map(([k, v]) => `${k} ${pct(v, st.ults)}`).join(', ')}; first grab round median ${median(st.firstGrab)}; pool at grab median ${median(st.poolAtGrab)}`);
+  lines.push(`Rejections a fairly-treated 0 decided: ${pct(st.freeZeroDecided, st.results.rejected ?? 1)}; turns passed broke ${pct(st.passes, st.moves)}; chose to sit out ${(st.satOut / st.tables).toFixed(2)}/table; grabbers sent out ${(st.grabberOut / st.tables).toFixed(2)}/table; Commons at end median ${median(st.commonsEnd)}`);
+  const rows = Object.entries(st.per).sort((a, b) => b[1].net / b[1].seats - a[1].net / a[1].seats);
+  lines.push('Net per seat: ' + rows.map(([k, v]) => `${STRATEGIES[k].label} ${(v.net / v.seats).toFixed(1)}`).join(' · '));
+  return lines.join('\n');
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const opts = JSON.parse(process.argv[4] ?? '{}');
+  console.log(report(simulate(Number(process.argv[2] ?? 3000), process.argv[3] ?? 'random', opts), JSON.stringify(opts)));
 }

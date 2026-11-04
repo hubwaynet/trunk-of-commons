@@ -2,26 +2,38 @@
 // ultimatum (MI-CU)" in TrunK of Commons, 2018-08-07.
 //
 // Pure rules. No DOM, no randomness. Play is sequential, so the state moves through
-// phases: 'turn' (give or grab), 'divide', 'vote', 'stay', then back to 'turn', until 'ended'.
+// phases: 'turn' (give, grab or pass), 'divide', 'vote', 'stay', then back to 'turn', until 'ended'.
 // SPDX-License-Identifier: AGPL-3.0-only
 
 export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptable
 
-export function createGame({ players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = 60, rejectEndsGame = true, firstGrabRound = 1 }) {
+/**
+ * rejectedPool: where a rejected pool goes. 'commons' (2018 rule) or 'refund' (back to each
+ *   player in proportion to what they put in; the votes still go to the Commons).
+ * onReject: what else a rejected split does.
+ *   'end'        the table ends (2018 rule)
+ *   'continue'   play carries on
+ *   'grabberOut' the grabber leaves the table and play carries on
+ */
+export function createGame({
+  players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = 60,
+  onReject = 'end', firstGrabRound = 1, rejectedPool = 'commons',
+}) {
   if (!players || players.length < minPlayers) throw new Error(`Need at least ${minPlayers} players`);
   return {
-    seed, startBalance, minPlayers, maxRound, rejectEndsGame, firstGrabRound,
+    seed, startBalance, minPlayers, maxRound, onReject, firstGrabRound, rejectedPool,
     round: 1,
     phase: 'turn',
     order: players.map((p) => p.id), // turn order this round (join order to begin with)
     turnIndex: 0,
     pool: 0, // carries over from round to round until someone grabs
+    stakes: {}, // what each player has put into the current pool
     players: players.map((p) => {
       const b = p.balance ?? startBalance;
-      return { id: p.id, start: b, balance: b, active: true, leftAfterRound: null };
+      return { id: p.id, start: b, balance: b, active: true, leftAfterRound: null, leftBecause: null };
     }),
     current: null, // the round in progress: { round, moves: [{id, move, amount}] }
-    ultimatum: null, // { round, grabber, forced, pool, shares, votes }
+    ultimatum: null, // { round, grabber, pool, stakes, shares, votes }
     rounds: [], // finished rounds
     commons: { start: commonsReserve, reserve: commonsReserve, paidOut: 0, received: 0 },
     status: 'playing',
@@ -30,7 +42,7 @@ export function createGame({ players, seed = 0, startBalance = 20, commonsReserv
 }
 
 export const activePlayers = (s) => s.players.filter((p) => p.active);
-const activeIds = (s) => s.order.filter((id) => s.players.find((p) => p.id === id).active);
+export const activeIds = (s) => s.order.filter((id) => s.players.find((p) => p.id === id).active);
 const bal = (s, id) => s.players.find((p) => p.id === id).balance;
 const setBal = (players, id, d) => players.map((p) => (p.id === id ? { ...p, balance: p.balance + d } : p));
 
@@ -44,64 +56,77 @@ export function currentPlayer(s) {
   return activeIds(s)[s.turnIndex];
 }
 
-/** A player who can't pay the requirement in full must take hold of the pool. */
+/** Players must pay in full. A player who can't sits the turn out: no giving, no grabbing. */
 export function canGive(s, id) {
   return bal(s, id) >= requirement(s.round);
 }
+export function canGrab(s, id) {
+  return canGive(s, id) && s.round >= s.firstGrabRound;
+}
 
-/** move: 'give' or 'grab'. */
+/** move: 'give' or 'grab'. A broke player's move is recorded as 'pass' whatever they asked for. */
 export function act(s, id, move) {
   if (currentPlayer(s) !== id) throw new Error(`Not ${id}'s turn`);
   if (move !== 'give' && move !== 'grab') throw new Error('Move must be give or grab');
-  const forced = move === 'give' && !canGive(s, id);
-  if (forced) move = 'grab';
-  else if (move === 'grab' && s.round < s.firstGrabRound) move = 'give'; // grabbing not open yet
   const r = s.round;
   const cur = s.current ?? { round: r, moves: [] };
+  if (!canGive(s, id)) return advance({ ...s, current: { ...cur, moves: [...cur.moves, { id, move: 'pass', amount: 0, asked: move }] } });
+  if (move === 'grab' && !canGrab(s, id)) move = 'give';
   if (move === 'give') {
     const amount = requirement(r);
-    const next = {
+    return advance({
       ...s,
       players: setBal(s.players, id, -amount),
       pool: s.pool + amount,
+      stakes: { ...s.stakes, [id]: (s.stakes[id] ?? 0) + amount },
       current: { ...cur, moves: [...cur.moves, { id, move: 'give', amount }] },
-      turnIndex: s.turnIndex + 1,
-    };
-    if (next.turnIndex >= activeIds(next).length) return completeRound(next);
-    return next;
+    });
   }
   return {
     ...s,
     phase: 'divide',
-    current: { ...cur, moves: [...cur.moves, { id, move: 'grab', amount: 0, forced }] },
-    ultimatum: { round: r, grabber: id, forced, pool: s.pool, shares: null, votes: null },
+    current: { ...cur, moves: [...cur.moves, { id, move: 'grab', amount: 0 }] },
+    ultimatum: { round: r, grabber: id, pool: s.pool, stakes: { ...s.stakes }, shares: null, votes: null },
   };
 }
 
-/** Everyone gave: the Commons adds 1 per player and the pool grows. */
-function completeRound(s) {
-  const n = activeIds(s).length;
-  const r = s.round;
-  const want = n;
-  let next;
-  if (s.commons.reserve >= want) {
-    next = {
-      ...s,
-      pool: s.pool + want,
-      commons: { ...s.commons, reserve: s.commons.reserve - want, paidOut: s.commons.paidOut + want },
-      rounds: [...s.rounds, { ...s.current, result: 'complete', topUp: want, poolAfter: s.pool + want }],
-      current: null,
-      round: r + 1,
-      turnIndex: 0,
-    };
-    if (r + 1 > s.maxRound) return endSeason(next, 'round-cap');
-    return next;
-  }
-  // The Commons can't cover the bonus: the season ends and the pool is shared equally.
-  next = { ...s, rounds: [...s.rounds, { ...s.current, result: 'complete', topUp: 0, poolAfter: s.pool }], current: null };
-  return endSeason(next, 'commons-exhausted');
+function advance(s) {
+  const next = { ...s, turnIndex: s.turnIndex + 1 };
+  return next.turnIndex >= activeIds(next).length ? completeRound(next) : next;
 }
 
+/** Everyone had their turn and nobody grabbed: the Commons adds 1 for each player who gave. */
+function completeRound(s) {
+  const r = s.round;
+  const givers = s.current.moves.filter((m) => m.move === 'give').length;
+  if (givers === 0) {
+    const rec = { ...s.current, result: 'stalled', topUp: 0, poolAfter: s.pool };
+    return endSeason({ ...s, rounds: [...s.rounds, rec], current: null }, 'all-broke');
+  }
+  if (s.commons.reserve < givers) {
+    const rec = { ...s.current, result: 'complete', topUp: 0, poolAfter: s.pool };
+    return endSeason({ ...s, rounds: [...s.rounds, rec], current: null }, 'commons-exhausted');
+  }
+  const next = {
+    ...s,
+    pool: s.pool + givers,
+    commons: { ...s.commons, reserve: s.commons.reserve - givers, paidOut: s.commons.paidOut + givers },
+    rounds: [...s.rounds, { ...s.current, result: 'complete', topUp: givers, poolAfter: s.pool + givers }],
+    current: null,
+    round: r + 1,
+    turnIndex: 0,
+  };
+  return checkStart(next);
+}
+
+/** Before a round starts: end the table if nobody can give, or the round cap is passed. */
+function checkStart(s) {
+  if (s.round > s.maxRound) return endSeason(s, 'round-cap');
+  if (!activeIds(s).some((id) => canGive(s, id))) return endSeason(s, 'all-broke');
+  return s;
+}
+
+/** The table ends with a pool still on it: it is shared equally, any remainder to the Commons. */
 function endSeason(s, reason) {
   const ids = activeIds(s);
   const each = Math.floor(s.pool / ids.length);
@@ -109,82 +134,81 @@ function endSeason(s, reason) {
   for (const id of ids) players = setBal(players, id, each);
   const rem = s.pool - each * ids.length;
   return {
-    ...s, players, pool: 0, status: 'ended', endReason: reason, phase: 'ended',
+    ...s, players, pool: 0, stakes: {}, status: 'ended', endReason: reason, phase: 'ended',
     finalShare: each,
     commons: { ...s.commons, reserve: s.commons.reserve + rem, received: s.commons.received + rem },
   };
 }
 
 /**
- * The grabber divides the pool among players still in play.
- * shares: { id: wholeNumber }, summing to the pool. Nothing is paid yet: the split waits for judgement.
+ * The grabber divides the pool among players still at the table, setting each share
+ * separately (so givers can be rewarded and others shortchanged). shares: { id: wholeNumber },
+ * summing to the pool. Nothing is paid yet: the split waits for judgement.
  */
 export function divide(s, shares) {
   if (s.phase !== 'divide') throw new Error('Not dividing now');
   const ids = activeIds(s);
+  for (const id of Object.keys(shares)) if (!ids.includes(id)) throw new Error(`${id} is not at the table`);
+  for (const id of ids) {
+    const v = shares[id] ?? 0;
+    if (!Number.isInteger(v) || v < 0) throw new Error('Shares must be whole and not negative');
+  }
   const total = ids.reduce((a, id) => a + (shares[id] ?? 0), 0);
   if (total !== s.pool) throw new Error(`Shares add to ${total}, pool is ${s.pool}`);
-  for (const id of ids) if (!Number.isInteger(shares[id] ?? 0) || (shares[id] ?? 0) < 0) throw new Error('Shares must be whole and not negative');
   const clean = Object.fromEntries(ids.map((id) => [id, shares[id] ?? 0]));
   return { ...s, phase: 'vote', ultimatum: { ...s.ultimatum, shares: clean } };
 }
 
-/** Helper for "keep k, share the rest equally" divisions, in whole points. Leftovers go to the grabber. */
-export function splitKeeping(s, grabber, keep) {
-  const ids = activeIds(s);
-  const others = ids.filter((id) => id !== grabber);
-  keep = Math.max(0, Math.min(s.pool, keep));
-  const each = others.length ? Math.floor((s.pool - keep) / others.length) : 0;
-  const shares = Object.fromEntries(others.map((id) => [id, each]));
-  shares[grabber] = s.pool - each * others.length;
-  return shares;
-}
-
-export const equalShare = (s) => s.pool / activeIds(s).length;
-
 /**
- * Everyone, the grabber included, votes 0, 1 or 2 tokens. Votes cost what they say
- * (a player who can't afford a vote casts the most they can).
- * - average below 1: both pools are forfeit to the Commons and the game ends.
+ * Everyone, the grabber included, votes 0, 1 or 2. Every vote counts at face value.
+ * A vote is paid from the voter's share first, then their balance, so a broke player can
+ * still vote on a split that pays them (Jason, 2026-11-04). On a rejected split there is no
+ * share, so a voter pays only what their balance covers. Rejecting (0) is free.
+ * - average below 1: rejected. Both pools go to the Commons; then onReject applies.
  * - average 1 to 1.5 (1.5 counts as closer to 1): the split is paid; the vote pool is
  *   shared equally in whole points, any remainder to the Commons.
  * - average above 1.5: the split is paid; the Commons rounds the vote pool up to a whole
  *   number per player and it is shared equally.
- * Rejecting costs nothing. That's deliberate (Jason, 2026-11-04).
  */
 export function vote(s, votes) {
   if (s.phase !== 'vote') throw new Error('Not voting now');
   const ids = activeIds(s);
   const n = ids.length;
+  const u = s.ultimatum;
+  let sum = 0;
+  for (const id of ids) {
+    if (!VOTES.includes(votes[id])) throw new Error(`Missing or invalid vote for ${id}`);
+    sum += votes[id];
+  }
+  const avg = sum / n;
+  const accepted = avg >= 1;
   let players = s.players;
-  const cast = {};
-  const capped = {};
+  if (accepted) for (const id of ids) players = setBal(players, id, u.shares[id]);
+  const paid = {};
   let vpool = 0;
   for (const id of ids) {
-    const want = votes[id];
-    if (!VOTES.includes(want)) throw new Error(`Missing or invalid vote for ${id}`);
-    const v = Math.min(want, bal({ ...s, players }, id));
-    if (v !== want) capped[id] = want;
-    cast[id] = v;
-    vpool += v;
-    players = setBal(players, id, -v);
+    const p = Math.min(votes[id], players.find((x) => x.id === id).balance);
+    paid[id] = p;
+    vpool += p;
+    players = setBal(players, id, -p);
   }
-  const avg = vpool / n;
-  const u = s.ultimatum;
   let result, voteEach = 0, topUp = 0, toCommons = 0;
-  if (avg < 1) {
+  let refunds = null;
+  if (!accepted) {
     result = 'rejected';
-    toCommons = u.pool + vpool;
+    if (s.rejectedPool === 'refund') {
+      refunds = splitBy(u.pool, Object.fromEntries(ids.map((id) => [id, u.stakes[id] ?? 0])));
+      for (const id of ids) players = setBal(players, id, refunds[id]);
+      toCommons = vpool;
+    } else toCommons = u.pool + vpool;
   } else {
-    for (const id of ids) players = setBal(players, id, u.shares[id]);
     if (avg <= 1.5) {
       result = 'accepted';
       voteEach = Math.floor(vpool / n);
       toCommons = vpool - voteEach * n;
     } else {
       result = 'welcomed';
-      const want = Math.ceil(vpool / n) * n - vpool;
-      topUp = Math.min(want, s.commons.reserve);
+      topUp = Math.min(Math.ceil(vpool / n) * n - vpool, s.commons.reserve);
       voteEach = Math.floor((vpool + topUp) / n);
       toCommons = vpool + topUp - voteEach * n;
     }
@@ -196,31 +220,59 @@ export function vote(s, votes) {
     paidOut: s.commons.paidOut + topUp,
     received: s.commons.received + toCommons,
   };
-  const record = { ...u, votes: cast, capped, voteAvg: avg, result, voteEach, topUp, toCommons };
-  const roundRec = { ...s.current, result: 'ultimatum', ultimatum: record };
-  const next = { ...s, players, commons, pool: 0, ultimatum: null, current: null, rounds: [...s.rounds, roundRec] };
-  if (result === 'rejected' && s.rejectEndsGame) return { ...next, phase: 'ended', status: 'ended', endReason: 'rejected' };
+  const record = { ...u, votes: { ...votes }, paid, voteAvg: avg, result, voteEach, topUp, toCommons, refunds };
+  const next = {
+    ...s, players, commons, pool: 0, stakes: {}, ultimatum: null, current: null,
+    rounds: [...s.rounds, { ...s.current, result: 'ultimatum', ultimatum: record }],
+  };
+  if (result === 'rejected') {
+    if (s.onReject === 'end') return { ...next, phase: 'ended', status: 'ended', endReason: 'rejected' };
+    if (s.onReject === 'grabberOut') {
+      next.players = next.players.map((p) => (p.id === u.grabber ? { ...p, active: false, leftAfterRound: s.round, leftBecause: 'rejected' } : p));
+    }
+  }
   return { ...next, phase: 'stay' };
 }
 
 /**
- * After an accepted split, each player chooses to stay or sit out the rest of the table.
- * Those who leave are excluded from later rounds. The next round starts with the divider
- * (if still in) and runs in the opposite order.
+ * After a split is judged, each player stays or sits out the rest of the table. Those who
+ * leave are excluded from later rounds (Jason, 2026-11-04). The next round starts with the
+ * divider (if still in) and runs in the opposite order.
  */
 export function stay(s, decisions) {
   if (s.phase !== 'stay') throw new Error('Not deciding now');
   const r = s.round;
   const players = s.players.map((p) =>
-    p.active && decisions[p.id] === false ? { ...p, active: false, leftAfterRound: r } : p,
+    p.active && decisions[p.id] === false ? { ...p, active: false, leftAfterRound: r, leftBecause: 'chose' } : p,
   );
   const last = s.rounds.at(-1).ultimatum;
-  // Reverse the order, starting from the divider.
   const rev = s.order.slice().reverse();
   const at = rev.indexOf(last.grabber);
   const order = [...rev.slice(at), ...rev.slice(0, at)];
   const next = { ...s, players, order, round: r + 1, turnIndex: 0, phase: 'turn' };
   if (players.filter((p) => p.active).length < s.minPlayers) return { ...next, phase: 'ended', status: 'ended', endReason: 'too-few' };
-  if (r + 1 > s.maxRound) return { ...next, phase: 'ended', status: 'ended', endReason: 'round-cap' };
-  return next;
+  return checkStart(next);
+}
+
+/** Split helpers for bots and the page. All return whole-number shares that add to the pool. */
+export function splitBy(pool, weights, keeper = null, keep = 0) {
+  const ids = Object.keys(weights);
+  keep = keeper ? Math.max(0, Math.min(pool, keep)) : 0;
+  const rest = pool - keep;
+  const others = keeper ? ids.filter((id) => id !== keeper) : ids;
+  const w = others.reduce((a, id) => a + weights[id], 0);
+  const shares = Object.fromEntries(ids.map((id) => [id, 0]));
+  if (keeper) shares[keeper] = keep;
+  if (!others.length) { if (keeper) shares[keeper] = pool; return shares; }
+  let given = 0;
+  for (const id of others) {
+    shares[id] = w > 0 ? Math.floor((rest * weights[id]) / w) : Math.floor(rest / others.length);
+    given += shares[id];
+  }
+  // leftovers go one at a time to the largest weights (or the keeper)
+  let left = rest - given;
+  const byWeight = [...others].sort((a, b) => weights[b] - weights[a]);
+  if (keeper) { shares[keeper] += left; left = 0; }
+  for (let i = 0; left > 0; i = (i + 1) % byWeight.length, left--) shares[byWeight[i]]++;
+  return shares;
 }
