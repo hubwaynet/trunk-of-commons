@@ -18,9 +18,12 @@ const pick = (re) => (page.match(re) || [])[0] || '';
 const title = pick(/<title>[\s\S]*?<\/title>/);
 const fitMeta = pick(/<meta name="claude:viewport-fit-sides"[^>]*>/);
 const fonts = (page.match(/<link rel="stylesheet" href="https:\/\/fonts[^>]*>/g) || []).join('\n');
-const cssHref = page.match(/<link rel="stylesheet" href="(\.\.\/[^"]+\.css)">/)[1];
-const css = await readFile(resolve(dirname(pagePath), cssHref), 'utf8');
-const body = page.split('<!-- BODY:START -->')[1].split('<!-- BODY:END -->')[0];
+const cssHrefs = [...page.matchAll(/<link rel="stylesheet" href="(\.\.\/[^"]+\.css)">/g)].map((m) => m[1]);
+const css = (await Promise.all(cssHrefs.map((h) => readFile(resolve(dirname(pagePath), h), 'utf8')))).join('\n');
+// Links between pages are relative in the repo; in a standalone preview point them at the live site.
+const SITE = 'https://hubwaynet.github.io/trunk-of-commons/';
+const body = page.split('<!-- BODY:START -->')[1].split('<!-- BODY:END -->')[0]
+  .replace(/href="\.\.\/\.\.\/([^"]*)"/g, (_, rest) => `href="${SITE}${rest}"`);
 const jsSrc = page.match(/<script type="module" src="([^"]+)"><\/script>/)[1];
 
 const bundled = await build({

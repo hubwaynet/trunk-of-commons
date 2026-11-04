@@ -35,7 +35,9 @@ Single-file preview for sharing: `npm install && npm run preview` writes `dist/r
 src/engine/   Pure game rules and seeded randomness. No DOM. Will also run server-side as the multiplayer referee.
 src/bots/     Strategy bots, readable and forkable. Bots are named at random per table.
 src/ui/       Browser interface for each game.
-games/        One page per game (served directly by GitHub Pages).
+games/        One page per game (served directly by GitHub Pages). games/_template/ is the starting point for a new game;
+              games/index.html redirects to the home page until a games list exists.
+src/ui/site.css  Shared tokens, type, site bar and attribution footer used by every page.
 docs/design/  Rule decisions, open questions and simulation findings.
 tests/        Engine tests.
 ```
