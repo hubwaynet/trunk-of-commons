@@ -196,3 +196,17 @@ footer.foot a { color: inherit; }
 /* keep wide tables scrolling inside their card instead of widening the page */
 #log, .extras, .game, .fold { min-width: 0; }
 .legend { max-width: 100%; }
+
+/* Achievement progress strip */
+.ach-progress { display: grid; gap: 4px; min-width: min(100%, 220px); }
+.progress { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.progress-segs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; width: 180px; max-width: 100%; }
+.seg { height: 8px; border-radius: 4px; background: var(--line); }
+.seg.on { background: var(--brass); }
+.progress-label { font-family: var(--font-data); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.extra .progress { margin-bottom: 2px; }
+.extra.unlocked { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
+.extra.unlocked h3 { font-size: 22px; color: var(--brass); }
+.fireworks { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 60;
+  background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 12px; font-weight: 700; max-width: calc(100% - 32px); text-align: center; }

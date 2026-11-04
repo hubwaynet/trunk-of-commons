@@ -57,3 +57,19 @@ Possible next steps (not built): live narrowing in the log ("3 fit") as a hint; 
 ## Strategy key
 
 The page shows all ten strategies grouped by family, each with a one-line summary and a "tell": how it looks in the round log. Each table seats five of them under random names. Players can mark a guess for each bot in the round log during play; the guesses carry into the debrief, where all ten strategies are options.
+
+## Achievements (2026-11-04)
+
+Season survivor (stay until the Commons runs dry) proved effectively impossible: about 0.1% of tables even with the best simple strategy (always high), 1.6% when starting with 40 points. Jason replaced it with **Long haul**: keep the pool alive through round 8 while you stay.
+
+Ordered easiest to hardest, with estimated per-table odds from 4,000 simulated tables under a play style suited to each:
+
+| Achievement | Condition | Odds per table |
+|---|---|---|
+| Held the line | Give high in a round the pool would have failed without you | ~80% (always high) |
+| Timed the exit | Leave ahead, then the pool fails after you go | ~55% (medium, leave once ahead from round 3) |
+| Long haul | Pool alive through round 8 while you stay | ~21% (always high) |
+| Rising tide | Three bonus rounds in a row while at the table | ~19% (always high) |
+| Read the table | Every guess fits the evidence, table of 4+ rounds | skill, not luck |
+
+A progress strip in the page header shows how many are earned. Earning all five plays a fireworks show (skipped for reduced motion), and shows a "Game 2 unlocked" box saying the player has demonstrated skill and understanding in social dilemma strategies. The landing page marks Level 2 as unlocked in the same browser.

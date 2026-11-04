@@ -30,7 +30,7 @@
       <p class="muted">Give to a shared pool as the stakes rise each round. Fall short together and everyone loses.</p>
     </div>
     <div class="card level">
-      <span class="eyebrow">Level 2 · Planned</span>
+      <span class="eyebrow" id="level2-status">Level 2 · Planned</span>
       <h2>Centipede &amp; Ultimatum</h2>
       <p class="muted">Keep building the pool, or grab it and decide how to divide it, then face the table's judgement.</p>
     </div>
@@ -46,5 +46,13 @@
     <a href="https://hubway.net">hubway.net</a>
   </footer>
 </main>
+<script>
+  // Show Level 2 as unlocked once every Rising Pool achievement is earned (stored in this browser).
+  try {
+    const need = ['held-line', 'timed-exit', 'long-haul', 'rising-tide', 'read-table'];
+    const have = new Set(JSON.parse(localStorage.getItem('trunk.risingPool.achievements') || '[]'));
+    if (need.every((id) => have.has(id))) document.getElementById('level2-status').textContent = 'Level 2 · Unlocked · Coming soon';
+  } catch { /* storage unavailable */ }
+</script>
 </body>
 </html>

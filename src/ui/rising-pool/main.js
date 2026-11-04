@@ -27,13 +27,16 @@ function saveWallet(v) {
   try { localStorage.setItem(WALLET_KEY, String(v)); } catch { /* storage unavailable */ }
 }
 
+// Ordered easiest to hardest (estimated from simulated tables; see docs/design/rising-pool.md).
+const LONG_HAUL_ROUND = 8;
 const ACHIEVEMENTS = [
   { id: 'held-line', name: 'Held the line', text: 'Gave high in a round the pool would have failed without you.' },
-  { id: 'rising-tide', name: 'Rising tide', text: 'Three bonus rounds in a row while you were at the table.' },
-  { id: 'season', name: 'Season survivor', text: 'Stayed until the Commons ran dry, with the pool still alive.' },
-  { id: 'read-table', name: 'Read the table', text: 'Every guess fitted the evidence, at a table of four rounds or more.' },
   { id: 'timed-exit', name: 'Timed the exit', text: 'Left ahead, and the pool failed after you went. Was that fair?' },
+  { id: 'long-haul', name: 'Long haul', text: `Kept the pool alive through round ${LONG_HAUL_ROUND} while you stayed at the table.` },
+  { id: 'rising-tide', name: 'Rising tide', text: 'Three bonus rounds in a row while you were at the table.' },
+  { id: 'read-table', name: 'Read the table', text: 'Every guess fitted the evidence, at a table of four rounds or more.' },
 ];
+const CELEBRATED_KEY = 'trunk.risingPool.celebrated';
 
 let G = null;
 
@@ -149,14 +152,23 @@ function scheduleAuto() {
 
 // ---------- achievements ----------
 function loadAch() {
-  try { return new Set(JSON.parse(localStorage.getItem(ACH_KEY) || '[]')); } catch { return new Set(); }
+  try { return new Set(JSON.parse(localStorage.getItem(ACH_KEY) || '[]')); } catch { return achMemory ?? new Set(); }
 }
+let achMemory = null; // fallback when browser storage is unavailable
 function earn(id) {
-  G.earned.add(id);
   const all = loadAch();
+  if (!all.has(id)) G.earned.add(id);
   all.add(id);
+  achMemory = all;
   try { localStorage.setItem(ACH_KEY, JSON.stringify([...all])); } catch { /* storage unavailable */ }
+  if (allEarned(all)) {
+    let done = false;
+    try { done = localStorage.getItem(CELEBRATED_KEY) === '1'; localStorage.setItem(CELEBRATED_KEY, '1'); } catch { done = !!G.celebratedOnce; }
+    G.celebratedOnce = true;
+    if (!done) G.celebrateNow = true;
+  }
 }
+const allEarned = (have) => ACHIEVEMENTS.every((a) => have.has(a.id));
 function checkRoundAchievements(before, o) {
   if (o.result !== 'fail' && o.levels.you === 'high') {
     const withoutYou = (o.pool - o.contributions.you) / o.n;
@@ -164,12 +176,21 @@ function checkRoundAchievements(before, o) {
   }
   const mine = G.game.rounds.filter((r) => 'you' in r.levels).slice(-3);
   if (mine.length === 3 && mine.every((r) => r.result === 'bonus')) earn('rising-tide');
+  if (o.result !== 'fail' && o.round >= LONG_HAUL_ROUND) earn('long-haul');
 }
 function checkEndAchievements() {
   const s = G.game;
-  if (s.endReason === 'commons-exhausted' && G.humanLeftAfter === null) earn('season');
   if (G.humanLeftAfter !== null && G.afterYouLeft?.reason === 'pool-failed'
       && playerOf(s, 'you').balance > playerOf(s, 'you').start) earn('timed-exit');
+}
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.setAttribute('role', 'status');
+  t.textContent = msg;
+  document.body.append(t);
+  setTimeout(() => t.remove(), 6000);
 }
 
 // ---------- reputation ----------
@@ -532,6 +553,71 @@ function renderDebrief() {
   return frag;
 }
 
+function progressHtml(have) {
+  const n = ACHIEVEMENTS.filter((a) => have.has(a.id)).length;
+  return `<div class="progress" role="img" aria-label="${n} of ${ACHIEVEMENTS.length} achievements">
+    <div class="progress-segs">${ACHIEVEMENTS.map((a) => `<span class="seg ${have.has(a.id) ? 'on' : ''}" title="${esc(a.name)}${have.has(a.id) ? ' (done)' : ''}"></span>`).join('')}</div>
+    <span class="progress-label">${n} of ${ACHIEVEMENTS.length}${n === ACHIEVEMENTS.length ? ' · Game 2 unlocked' : ''}</span></div>`;
+}
+function renderProgress() {
+  document.getElementById('ach-progress').innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(loadAch())}`;
+}
+
+// A short fireworks show on a full-screen canvas. Skipped for reduced motion.
+function fireworks() {
+  if (reduceMotion) return;
+  const cv = document.createElement('canvas');
+  cv.className = 'fireworks';
+  cv.setAttribute('aria-hidden', 'true');
+  document.body.append(cv);
+  const ctx = cv.getContext('2d');
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const size = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
+  size();
+  const colors = [...HUES, HUMAN_HUE, '#ffd166'];
+  const parts = [];
+  const rockets = [];
+  const t0 = performance.now();
+  const DUR = 5200;
+  let nextLaunch = 0;
+  const launch = () => rockets.push({ x: innerWidth * (0.15 + Math.random() * 0.7), y: innerHeight, vx: (Math.random() - 0.5) * 1.5,
+    vy: -Math.sqrt(2 * 0.12 * innerHeight * (0.45 + Math.random() * 0.35)), color: colors[Math.floor(Math.random() * colors.length)] });
+  const burst = (r) => {
+    const n = 90 + Math.floor(Math.random() * 50);
+    const ring = Math.random() < 0.4; // some bursts as a clean wheel, like the table
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const sp = ring ? 4.2 : 1 + Math.random() * 4.5;
+      parts.push({ x: r.x, y: r.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, color: Math.random() < 0.85 ? r.color : '#ffd166' });
+    }
+  };
+  const step = (now) => {
+    const t = now - t0;
+    if (t < DUR - 1500 && t > nextLaunch) { launch(); nextLaunch = t + 260 + Math.random() * 380; }
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(0, 0, innerWidth, innerHeight);
+    ctx.globalCompositeOperation = 'source-over';
+    for (let i = rockets.length - 1; i >= 0; i--) {
+      const r = rockets[i];
+      r.x += r.vx; r.y += r.vy; r.vy += 0.12;
+      ctx.fillStyle = r.color; ctx.beginPath(); ctx.arc(r.x, r.y, 3, 0, Math.PI * 2); ctx.fill();
+      if (r.vy >= -1) { burst(r); rockets.splice(i, 1); }
+    }
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.x += p.vx; p.y += p.vy; p.vx *= 0.985; p.vy = p.vy * 0.985 + 0.05; p.life -= 0.011;
+      if (p.life <= 0) { parts.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 2.4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    if (t < DUR || parts.length) requestAnimationFrame(step);
+    else cv.remove();
+  };
+  requestAnimationFrame(step);
+}
+
 const lbl = (k) => esc(STRATEGIES[k].label);
 const listOf = (keys) => keys.map(lbl).join(', ');
 const MIN_READ_ROUNDS = 4;
@@ -591,14 +677,27 @@ function renderExtras() {
   });
 
   const have = loadAch();
-  const ach = h(`<section class="card extra" aria-labelledby="ach-h"><h3 id="ach-h">Achievements</h3><ul class="achievements">
+  const extra = [];
+  if (allEarned(have)) {
+    const card = h(`<section class="card extra unlocked" aria-labelledby="unlock-h">
+      <div class="eyebrow">All achievements</div>
+      <h3 id="unlock-h">Game 2 unlocked</h3>
+      <p>You've demonstrated skill and understanding in social dilemma strategies: holding a pool together, reading who is who, and seeing when leaving costs others.</p>
+      <p class="muted small">Game 2, Centipede &amp; Ultimatum, opens to you when it's ready.</p>
+      <div class="btn-row"><button class="btn ghost" type="button" id="celebrate-again">Celebrate again</button></div>
+    </section>`);
+    card.querySelector('#celebrate-again').addEventListener('click', () => fireworks());
+    extra.push(card);
+  }
+  const ach = h(`<section class="card extra" aria-labelledby="ach-h"><h3 id="ach-h">Achievements</h3>${progressHtml(have)}<p class="muted small">Easiest first.</p><ul class="achievements">
     ${ACHIEVEMENTS.map((a) => `<li class="${have.has(a.id) ? '' : 'locked'}"><span class="badge">${have.has(a.id) ? (G.earned.has(a.id) ? 'NEW' : 'DONE') : '····'}</span>
       <span><b>${esc(a.name)}</b> ${esc(a.text)}</span></li>`).join('')}
   </ul></section>`);
-  box.replaceChildren(read, ach);
+  box.replaceChildren(...extra, read, ach);
 }
 
 function render() {
+  renderProgress();
   drawTable();
   renderPanel();
   renderExtras();
@@ -607,6 +706,12 @@ function render() {
   const w = document.getElementById('watch-toggle');
   w.setAttribute('aria-pressed', String(G.watch));
   w.textContent = G.watch ? 'Play yourself' : 'Watch the bots';
+  if (G.celebrateNow) {
+    G.celebrateNow = false;
+    fireworks();
+    if (G.phase !== 'ended') toast('All five achievements! Game 2 is unlocked. Finish this table to see your reward.');
+    else document.getElementById('extras').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  }
 }
 
 document.getElementById('new-game').addEventListener('click', () => newSession({ watch: G.watch }));
