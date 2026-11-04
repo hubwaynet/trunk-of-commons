@@ -22,14 +22,14 @@ export const STRATEGIES = {
   steady: {
     label: 'Steady',
     family: 'cooperator',
-    tell: 'A steady row of M, every round.',
+    tell: 'A steady row of M, every round, until it can no longer afford M.',
     summary: 'Always gives the medium amount, whatever happens.',
     create: () => ({ choose: () => 'medium' }),
   },
   openHand: {
     label: 'Open Hand',
     family: 'cooperator',
-    tell: 'H every round, even after others give nothing.',
+    tell: 'H every round, even after others give nothing. Drops to M (↓) once it can no longer afford H.',
     summary: 'Always gives the high amount. Generous, and easy to exploit.',
     create: () => ({ choose: () => 'high' }),
   },

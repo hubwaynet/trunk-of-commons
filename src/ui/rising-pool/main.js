@@ -440,7 +440,7 @@ function renderKey() {
         <span class="key-tell"><span class="eyebrow">In the log</span> ${esc(st.tell)}</span></div>`;
     }).join('')}</div>`;
   }).join('');
-  document.getElementById('key').replaceChildren(h(`<p class="muted small key-note">Each table seats 5 of these 10, under random names.${G.watch ? '' : ' Use the Guess menus in the round log to mark who you think is who.'}</p>
+  document.getElementById('key').replaceChildren(h(`<p class="muted small key-note">Each table seats 5 of these 10, under random names.${G.watch ? '' : ' Use the Guess menus in the round log to mark who you think is who.'} Every strategy must pay in full: when one chooses a level it can't afford, it gives the highest level it can, marked ↓ in the log.</p>
     <div class="key-groups">${groups}</div>`));
 }
 
@@ -569,7 +569,11 @@ function renderExtras() {
         head = '<span class="miss">Doesn\'t fit.</span>'; body = `${why} It was <b>${lbl(b.strategy)}</b>.`;
       }
       const others = ev.fits.filter((k) => k !== b.strategy && k !== g);
-      verdict = `<div class="reveal">${head} ${body}${others.length ? ` <span class="muted">Also fits: ${listOf(others)}.</span>` : ''}</div>`;
+      const downs = G.game.rounds.filter((r) => r.downgraded?.[b.id]);
+      const downNote = downs.length
+        ? ` Its ${downs.length === 1 ? 'move' : 'moves'} in round${downs.length === 1 ? '' : 's'} ${downs.map((r) => r.round).join(', ')} ${downs.length === 1 ? 'was a drop' : 'were drops'} (↓): it chose ${downs[0].downgraded[b.id]} but couldn't afford it.`
+        : '';
+      verdict = `<div class="reveal">${head} ${body}${downNote}${others.length ? ` <span class="muted">Also fits: ${listOf(others)}.</span>` : ''}</div>`;
     }
     const row = h(`<div class="guess-row">
       <span class="who"><span class="dot" style="background:${b.hue}"></span>${esc(b.name)}</span>

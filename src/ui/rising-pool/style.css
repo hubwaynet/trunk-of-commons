@@ -192,3 +192,7 @@ footer.foot a { color: inherit; }
 .extras:empty { display: none; }
 .extra p { margin: 0; }
 .guess-list { display: grid; gap: 12px; }
+
+/* keep wide tables scrolling inside their card instead of widening the page */
+#log, .extras, .game, .fold { min-width: 0; }
+.legend { max-width: 100%; }
