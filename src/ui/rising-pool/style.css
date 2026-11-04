@@ -186,3 +186,9 @@ footer.foot a { color: inherit; }
 
 .grid { width: auto; }
 .grid td { min-width: 52px; }
+
+/* Boxes below the game: flow left to right, top to bottom */
+.extras { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; align-items: start; }
+.extras:empty { display: none; }
+.extra p { margin: 0; }
+.guess-list { display: grid; gap: 12px; }

@@ -134,3 +134,47 @@ test('a Commons that hits exactly zero also ends the season', () => {
   assert.equal(r.state.commons.reserve, 0);
   assert.equal(r.state.endReason, 'commons-exhausted');
 });
+
+import { strategyEvidence, guessFits } from '../src/bots/evidence.js';
+
+function playTable(seed) {
+  const rng = mulberry32(seed);
+  const roster = selectRoster(rng, 6);
+  const players = roster.map((sid, i) => ({ id: `p${i}`, sid }));
+  const agents = Object.fromEntries(players.map((p) => [p.id, STRATEGIES[p.sid].create(rng)]));
+  let s = createGame({ players });
+  while (s.status === 'playing') {
+    const choices = {};
+    for (const p of s.players.filter((x) => x.active)) choices[p.id] = agents[p.id].choose(botView(s, p.id));
+    s = resolveRound(s, choices).state;
+    const stay = {};
+    for (const p of s.players.filter((x) => x.active)) stay[p.id] = agents[p.id].stay ? agents[p.id].stay(botView(s, p.id)) : true;
+    s = applyStayDecisions(s, stay);
+  }
+  return { s, players };
+}
+
+test('the true strategy always fits the evidence', () => {
+  for (let seed = 1; seed < 400; seed++) {
+    const { s, players } = playTable(seed);
+    const ev = strategyEvidence(s, players.map((p) => p.id));
+    for (const p of players) assert.ok(guessFits(ev[p.id], p.sid, p.sid), `seed ${seed} ${p.sid}`);
+    for (const p of players) {
+      if (STRATEGIES[p.sid].catchAll) continue;
+      assert.ok(ev[p.id].fits.includes(p.sid), `seed ${seed}: ${p.sid} missing from fits ${ev[p.id].fits}`);
+    }
+  }
+});
+
+test('lookalikes fit: two rounds of medium fit Steady, Mirror and Keeper', () => {
+  // three Steady bots and a Mirror at a calm table for two rounds
+  let s = createGame({ players: ['a', 'b', 'c', 'd'].map((id) => ({ id })), endRound: 2 });
+  s = resolveRound(s, { a: 'medium', b: 'medium', c: 'medium', d: 'medium' }).state;
+  s = applyStayDecisions(s, {});
+  s = resolveRound(s, { a: 'medium', b: 'medium', c: 'medium', d: 'medium' }).state;
+  const ev = strategyEvidence(s, ['a']);
+  for (const k of ['steady', 'mirror', 'keeper', 'generousMirror']) assert.ok(ev.a.fits.includes(k), k);
+  assert.ok(!ev.a.fits.includes('freeRider'));
+  assert.ok(!ev.a.fits.includes('jitteryMirror')); // catch-all only when nothing else fits
+  assert.equal(ev.a.misses.freeRider.round, 1);
+});

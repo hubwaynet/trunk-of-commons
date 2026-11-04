@@ -37,6 +37,16 @@ Open question for design: is "escalation exhausts the commons" the lesson Game 1
 - Reputation ring around each seat: green if a player's average choice meets the medium threshold, magenta if below (colours from the 2017 Wheel of Fortune indicator scheme). Prototype 0.2 compared players to the table average; Jason chose the fixed threshold for Game 1 (2026-11-04) and kept relative reputation as a possible dynamic for a later, more complex game.
 - After each table: debrief, a "read the table" exercise (match each bot to its strategy), and achievements stored in the browser.
 
+## Read the table: scoring by evidence (2026-11-04)
+
+Simulation with a perfect reader showed exact-match scoring was unfair: after two rounds each bot still fits about 3 strategies, and even at 8+ rounds fewer than half are uniquely identifiable. Lookalikes (Steady, Mirror, Keeper, Generous Mirror at a calm table) only separate when something goes wrong.
+
+Jason chose evidence scoring: a guess is right if that strategy would have made exactly the same moves (and stay/leave decisions) as the bot did. `src/bots/evidence.js` replays the table to check. Random strategies declare every move they could make. Jittery Mirror can explain anything, so it only counts as a fit when it is the true strategy or nothing else fits.
+
+The verdict for each bot says Right, Fits the evidence (naming the true strategy), or Doesn't fit (naming the first round where the guess would have acted differently), and lists the other strategies that also fit. The achievement needs every guess to fit at a table of four rounds or more.
+
+Possible next steps (not built): live narrowing in the log ("3 fit") as a hint; a probing achievement for testing bots by giving nothing once.
+
 ## Finding: finite Commons (prototype 0.2, 3,000 bot-only tables)
 
 - 98% of tables still end with the pool failing (median round 6). Under 2% last long enough to drain the Commons (median round 14).

@@ -78,6 +78,8 @@ export const STRATEGIES = {
         const base = Math.round(v.othersMean);
         return toLevel(rng() < 0.25 ? base + 1 : base);
       },
+      // every move this strategy could make (used to check guesses against the evidence)
+      possible: (v) => (v.othersMean === null ? ['medium'] : [toLevel(Math.round(v.othersMean)), toLevel(Math.round(v.othersMean) + 1)]),
     }),
   },
   grudger: {
@@ -117,7 +119,9 @@ export const STRATEGIES = {
         if (rng() < 1 / 6) return LEVELS[Math.floor(rng() * 3)];
         return v.othersMean === null ? 'medium' : nearest(v.othersMean);
       },
+      possible: () => LEVELS.slice(),
     }),
+    catchAll: true, // can explain any move, so it only counts as a fit when nothing else does
   },
   keeper: {
     label: 'Keeper',

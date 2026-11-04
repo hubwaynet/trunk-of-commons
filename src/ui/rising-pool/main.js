@@ -3,6 +3,7 @@
 
 import { createGame, resolveRound, applyStayDecisions, stakes, activePlayers, affordableLevel, LEVEL_INDEX } from '../../engine/rising-pool.js';
 import { STRATEGIES, FAMILIES, botView, selectRoster } from '../../bots/rising-pool-bots.js';
+import { strategyEvidence, guessFits } from '../../bots/evidence.js';
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 
 const START_BALANCE = 20;
@@ -30,7 +31,7 @@ const ACHIEVEMENTS = [
   { id: 'held-line', name: 'Held the line', text: 'Gave high in a round the pool would have failed without you.' },
   { id: 'rising-tide', name: 'Rising tide', text: 'Three bonus rounds in a row while you were at the table.' },
   { id: 'season', name: 'Season survivor', text: 'Stayed until the Commons ran dry, with the pool still alive.' },
-  { id: 'read-table', name: 'Read the table', text: 'Named at least four of the five bot strategies correctly.' },
+  { id: 'read-table', name: 'Read the table', text: 'Every guess fitted the evidence, at a table of four rounds or more.' },
   { id: 'timed-exit', name: 'Timed the exit', text: 'Left ahead, and the pool failed after you went. Was that fair?' },
 ];
 
@@ -508,39 +509,7 @@ function renderDebrief() {
   </div>`);
   const card = frag.firstElementChild;
 
-  if (!G.watch) {
-    const bots = G.seats.filter((x) => !x.human);
-    const options = STRATEGY_ORDER;
-    const guess = h(`<div class="debrief"><h3>Read the table</h3>
-      <p class="muted small">Each bot played one strategy from the key. These are the same guesses as in the round log: change either and both update.</p>
-      <div class="debrief" id="guesses"></div>
-      <div class="btn-row"><button class="btn" type="button" id="check" ${G.checked ? 'disabled' : ''}>Check my reading</button></div></div>`);
-    const box = guess.querySelector('#guesses');
-    for (const b of bots) {
-      const row = h(`<div class="guess-row">
-        <span class="who"><span class="dot" style="background:${b.hue}"></span>${esc(b.name)}</span>
-        <select id="guess-${b.id}" ${G.checked ? 'disabled' : ''}><option value="">Not sure</option>
-          ${options.map((k) => `<option value="${k}" ${G.guesses[b.id] === k ? 'selected' : ''}>${esc(STRATEGIES[k].label)}</option>`).join('')}</select>
-        ${G.checked ? `<div class="reveal"><span class="${G.guesses[b.id] === b.strategy ? 'ok' : 'miss'}">${G.guesses[b.id] === b.strategy ? 'Right.' : 'Not quite.'}</span>
-          <b>${esc(STRATEGIES[b.strategy].label)}</b>: ${esc(STRATEGIES[b.strategy].summary)}</div>` : ''}
-      </div>`);
-      row.querySelector('select').addEventListener('change', (e) => setGuess(b.id, e.target.value));
-      box.append(row);
-    }
-    guess.querySelector('#check').addEventListener('click', () => {
-      G.checked = true;
-      const right = bots.filter((b) => G.guesses[b.id] === b.strategy).length;
-      if (right >= 4) earn('read-table');
-      render();
-    });
-    card.append(guess);
-
-    const have = loadAch();
-    card.append(h(`<div class="debrief"><h3>Achievements</h3><ul class="achievements">
-      ${ACHIEVEMENTS.map((a) => `<li class="${have.has(a.id) ? '' : 'locked'}"><span class="badge">${have.has(a.id) ? (G.earned.has(a.id) ? 'NEW' : 'DONE') : '····'}</span>
-        <span><b>${esc(a.name)}</b> ${esc(a.text)}</span></li>`).join('')}
-    </ul></div>`));
-  } else {
+  if (G.watch) {
     card.append(h(`<div class="debrief"><h3>Who played what</h3>${G.seats.map((x) =>
       `<p class="small"><span class="who" style="display:inline-flex"><span class="dot" style="background:${x.hue}"></span>${esc(x.name)}</span>
        <b>${esc(STRATEGIES[x.strategy].label)}</b>: <span class="muted">${esc(STRATEGIES[x.strategy].summary)}</span></p>`).join('')}</div>`));
@@ -563,9 +532,72 @@ function renderDebrief() {
   return frag;
 }
 
+const lbl = (k) => esc(STRATEGIES[k].label);
+const listOf = (keys) => keys.map(lbl).join(', ');
+const MIN_READ_ROUNDS = 4;
+
+// Read the table and Achievements sit in their own boxes below the game once a table closes.
+function renderExtras() {
+  const box = document.getElementById('extras');
+  if (G.watch || G.phase !== 'ended') { box.replaceChildren(); return; }
+  const bots = G.seats.filter((x) => !x.human);
+  G.evidence ??= strategyEvidence(G.game, bots.map((b) => b.id));
+  const rounds = G.game.rounds.length;
+
+  const read = h(`<section class="card extra" aria-labelledby="read-h"><h3 id="read-h">Read the table</h3>
+    <p class="muted small">Each bot played one strategy from the key. A guess counts if that strategy would have made exactly the same moves: lookalikes count, because nothing at this table could tell them apart. These are the same guesses as in the round log.</p>
+    ${rounds < MIN_READ_ROUNDS ? `<p class="muted small">This table lasted ${rounds} round${rounds === 1 ? '' : 's'}. You can check your reading, but the achievement needs ${MIN_READ_ROUNDS} or more.</p>` : ''}
+    <div class="guess-list" id="guesses"></div>
+    <div class="btn-row"><button class="btn" type="button" id="check" ${G.checked ? 'disabled' : ''}>${G.checked ? 'Checked' : 'Check my reading'}</button></div>
+  </section>`);
+  const list = read.querySelector('#guesses');
+  for (const b of bots) {
+    const ev = G.evidence[b.id];
+    const g = G.guesses[b.id];
+    let verdict = '';
+    if (G.checked) {
+      const fits = guessFits(ev, g, b.strategy);
+      let head, body;
+      if (!g) { head = '<span class="miss">No guess.</span>'; body = `It was <b>${lbl(b.strategy)}</b>.`; }
+      else if (g === b.strategy) { head = '<span class="ok">Right.</span>'; body = `It was <b>${lbl(b.strategy)}</b>.`; }
+      else if (fits) { head = '<span class="ok">Fits the evidence.</span>'; body = `It was <b>${lbl(b.strategy)}</b>, which made the same moves as ${lbl(g)} at this table.`; }
+      else {
+        const m = ev.misses[g];
+        const why = !m ? '' : m.kind === 'move'
+          ? `In round ${m.round}, ${lbl(g)} would have given ${m.expected === 'low' ? 'nothing' : m.expected}; ${esc(b.name)} gave ${m.actual === 'low' ? 'nothing' : m.actual}.`
+          : `After round ${m.round}, ${lbl(g)} would have ${m.expected === 'leave' ? 'left' : 'stayed'}; ${esc(b.name)} ${m.actual === 'leave' ? 'left' : 'stayed'}.`;
+        head = '<span class="miss">Doesn\'t fit.</span>'; body = `${why} It was <b>${lbl(b.strategy)}</b>.`;
+      }
+      const others = ev.fits.filter((k) => k !== b.strategy && k !== g);
+      verdict = `<div class="reveal">${head} ${body}${others.length ? ` <span class="muted">Also fits: ${listOf(others)}.</span>` : ''}</div>`;
+    }
+    const row = h(`<div class="guess-row">
+      <span class="who"><span class="dot" style="background:${b.hue}"></span>${esc(b.name)}</span>
+      <select id="guess-${b.id}" ${G.checked ? 'disabled' : ''} aria-label="Your guess for ${esc(b.name)}"><option value="">Not sure</option>
+        ${STRATEGY_ORDER.map((k) => `<option value="${k}" ${g === k ? 'selected' : ''}>${lbl(k)}</option>`).join('')}</select>
+      ${verdict}</div>`);
+    row.querySelector('select').addEventListener('change', (e) => setGuess(b.id, e.target.value));
+    list.append(row);
+  }
+  read.querySelector('#check').addEventListener('click', () => {
+    G.checked = true;
+    const allFit = bots.every((b) => guessFits(G.evidence[b.id], G.guesses[b.id], b.strategy));
+    if (allFit && rounds >= MIN_READ_ROUNDS) earn('read-table');
+    render();
+  });
+
+  const have = loadAch();
+  const ach = h(`<section class="card extra" aria-labelledby="ach-h"><h3 id="ach-h">Achievements</h3><ul class="achievements">
+    ${ACHIEVEMENTS.map((a) => `<li class="${have.has(a.id) ? '' : 'locked'}"><span class="badge">${have.has(a.id) ? (G.earned.has(a.id) ? 'NEW' : 'DONE') : '····'}</span>
+      <span><b>${esc(a.name)}</b> ${esc(a.text)}</span></li>`).join('')}
+  </ul></section>`);
+  box.replaceChildren(read, ach);
+}
+
 function render() {
   drawTable();
   renderPanel();
+  renderExtras();
   renderLog();
   renderKey();
   const w = document.getElementById('watch-toggle');
