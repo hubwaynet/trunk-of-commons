@@ -2,6 +2,7 @@
 // e.g. as a claude.ai artifact). The repo itself needs no build step:
 // GitHub Pages serves the ES modules directly.
 // Usage: node tools/build-preview.mjs rising-pool  ->  dist/rising-pool.html
+// Add --unlocked to open a locked level in the preview (sets globalThis.TRUNK_PREVIEW).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { build } from 'esbuild';
@@ -10,7 +11,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const game = process.argv[2] || 'rising-pool';
+const game = process.argv.slice(2).find((a) => !a.startsWith('--')) || 'rising-pool';
+const unlocked = process.argv.includes('--unlocked');
 const pagePath = join(root, 'games', game, 'index.html');
 const page = await readFile(pagePath, 'utf8');
 
@@ -32,7 +34,8 @@ const bundled = await build({
 });
 const js = bundled.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 
-const out = `${title}\n${fitMeta}\n${fonts}\n<style>\n${css}\n</style>\n${body}\n<script>\n${js}\n</script>\n`;
+const flag = unlocked ? '<script>globalThis.TRUNK_PREVIEW = true;</script>\n' : '';
+const out = `${title}\n${fitMeta}\n${fonts}\n<style>\n${css}\n</style>\n${body}\n${flag}<script>\n${js}\n</script>\n`;
 await mkdir(join(root, 'dist'), { recursive: true });
 const outPath = join(root, 'dist', `${game}.html`);
 await writeFile(outPath, out);

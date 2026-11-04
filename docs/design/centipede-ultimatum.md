@@ -17,15 +17,15 @@ Source: *Game 2 - multiplayer iterated - centipede with ultimatum (MI-CU)*, Trun
 - The table ends when fewer than 3 players remain, when nobody can afford to give (any pool left is shared equally), or when the Commons can't pay the round bonus.
 - Game 2 stays locked until all five Game 1 achievements are earned (Jason, 2026-11-04).
 
-## What a rejection does: open decision
+## What a rejection does (decided)
 
-Jason wants tables to run long enough for players to learn what worked (2026-11-04). The engine supports three versions:
+Jason wants tables to run long enough for players to learn what worked, but not so long that the lesson blurs (13 rounds felt too long). He chose **grabber out, pool refunded**, with a start of 20 (2026-11-04): median 10 rounds. The other versions stay available as engine options.
 
 | Version | Rejected pool | Grabber | Table |
 |---|---|---|---|
-| 2018 rule (engine default) | to the Commons | stays | ends |
+| 2018 rule | to the Commons | stays | ends |
 | Carry on | to the Commons | stays | continues |
-| **Recommended: grabber out, refund** | back to each player in proportion to what they put in | leaves the table | continues |
+| **Chosen: grabber out, refund (default)** | back to each player in proportion to what they put in | leaves the table | continues |
 
 The vote tokens of a rejected split always go to the Commons.
 
@@ -50,9 +50,8 @@ The vote tokens of a rejected split always go to the Commons.
 ## Interim defaults (agent's choice, open to change)
 
 1. The order stays the same after a round with no grab.
-2. The 2018 rule stays the engine default until Jason picks a version.
-3. A round cap of 60, as a safety stop for simulation.
-4. `firstGrabRound` exists as a switch but changed little, so it is off.
+2. A round cap of 60, as a safety stop for simulation.
+3. `firstGrabRound` exists as a switch but changed little, so it is off.
 
 ## Bot roster (draft 2, 10 strategies)
 
@@ -70,3 +69,13 @@ The vote tokens of a rejected split always go to the Commons.
 | Mirror | after a greedy split goes through | cuts the greedy divider out | at least 70% of a fair share | no |
 
 Every bot votes 2 on its own split. "Never" grabs still allows a bot to give until it is broke. Tables seat at least one grabber, one judge and one reciprocator.
+
+## First playable page (2026-11-04)
+
+- `games/centipede-ultimatum/` with `src/ui/centipede-ultimatum/`: one human seat and five bots, or six bots in watch mode. Bots move on a short timer; the page waits for you on your turn, when you divide, when you vote and when you choose to stay.
+- Dividing: a share for each player with − / + steppers, plus three presets (equal, by what each put in, keep half). The offer is enabled only when every point is assigned.
+- Voting shows the split as bars next to what each player put in. After the vote the outcome card shows every share and every vote.
+- The round log shows each turn (G = gave, · = passed, GRAB), then each player's offered share and their vote.
+- The end card reveals every bot's strategy and each player's net, and asks what the leader did differently.
+- Locked until all five Rising Pool achievements are earned (same localStorage key the landing page uses). `node tools/build-preview.mjs centipede-ultimatum --unlocked` builds a preview that opens anyway, because an artifact can't see the Game 1 achievements stored on the live site.
+- Not built yet: points carrying between tables, Game 2 achievements, a "Read the table" exercise, and the landing page and nav links on other pages.

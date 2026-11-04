@@ -69,7 +69,7 @@ test('1.5 counts as closer to 1; above 1.5 the Commons rounds the vote pool up',
 });
 
 test('2018 rule: rejection forfeits both pools and ends the table; rejecting is free', () => {
-  let s = act(giveAll(fresh()), 'a', 'grab');
+  let s = act(giveAll(fresh({ onReject: 'end', rejectedPool: 'commons' })), 'a', 'grab');
   s = divide(s, shares({ a: 8, b: 0, c: 0, d: 0 }));
   const bBefore = bal(s, 'b');
   s = vote(s, { a: 2, b: 0, c: 0, d: 1 });
@@ -78,8 +78,8 @@ test('2018 rule: rejection forfeits both pools and ends the table; rejecting is 
   assert.equal(s.commons.reserve, 116 + 8 + 3);
 });
 
-test('variant: rejected grabber leaves, the pool is refunded by stake, play continues', () => {
-  let s = act(giveAll(fresh({ onReject: 'grabberOut', rejectedPool: 'refund' })), 'a', 'grab');
+test('default: rejected grabber leaves, the pool is refunded by stake, play continues', () => {
+  let s = act(giveAll(fresh()), 'a', 'grab');
   s = divide(s, shares({ a: 8, b: 0, c: 0, d: 0 }));
   const before = total(s);
   s = vote(s, { a: 2, b: 0, c: 0, d: 0 });
@@ -104,7 +104,7 @@ test('splitBy gives whole shares that add to the pool', () => {
 });
 
 test('simulated tables conserve points and finish', () => {
-  for (const opts of [{}, { onReject: 'grabberOut', rejectedPool: 'refund' }]) {
+  for (const opts of [{}, { onReject: 'end', rejectedPool: 'commons' }]) {
     const st = simulate(200, 'random', opts);
     assert.equal(Object.values(st.ends).reduce((a, b) => a + b, 0), 200);
   }

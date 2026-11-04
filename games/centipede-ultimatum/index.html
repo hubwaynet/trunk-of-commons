@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Centipede &amp; Ultimatum</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Game 2 of Trunk of Commons: a shared pool grows each round until someone grabs it, divides it, and faces the table's judgement.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../src/ui/site.css">
+<link rel="stylesheet" href="../../src/ui/centipede-ultimatum/style.css">
+</head>
+<body>
+<!-- BODY:START -->
+<main class="wrap">
+  <!-- SITE BAR: same on every page; {home} is the relative path to the site root -->
+  <header class="site-bar">
+    <a class="wordmark" href="../../" aria-label="Trunk of Commons: home">
+      <svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="11" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.35"/><circle cx="17" cy="17" r="4.2" fill="#a06f17"/><circle cx="17" cy="4" r="3.2" fill="#6fa52a"/><circle cx="28.3" cy="10.5" r="3.2" fill="#1f9c66"/><circle cx="28.3" cy="23.5" r="3.2" fill="#2f78cc"/><circle cx="17" cy="30" r="3.2" fill="#7650c8"/><circle cx="5.7" cy="23.5" r="3.2" fill="#d1386f"/><circle cx="5.7" cy="10.5" r="3.2" fill="#d9741c"/></svg>
+      <span class="wm-text"><span class="wm-main">TRUN<span class="k">K</span></span><span class="wm-sub">of Commons</span></span>
+    </a>
+    <nav class="site-nav" aria-label="Site"><a href="../../">Home</a><a href="../../games/rising-pool/">Rising Pool</a><a href="../../games/centipede-ultimatum/" aria-current="page">Centipede &amp; Ultimatum</a><a href="https://github.com/hubwaynet/trunk-of-commons">Source</a></nav>
+  </header>
+
+  <header class="top">
+    <div>
+      <div class="eyebrow">Game 2 · Level 2</div>
+      <h1>Centipede &amp; Ultimatum</h1>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost" id="new-game" type="button">New table</button>
+      <button class="btn ghost" id="watch-toggle" type="button" aria-pressed="false">Watch the bots</button>
+    </div>
+  </header>
+
+  <details class="fold" id="how-it-works" open>
+    <summary><h2>How it works</h2></summary>
+    <section class="rules" aria-label="How it works">
+      <p><b>Take turns: give or grab.</b> Each turn you give the round's amount (1 in round 1, one more each round) or grab the whole pool. If nobody grabs, the Commons adds 1 for each giver and the pool carries on growing.</p>
+      <p><b>The grabber divides.</b> They set every player's share, rewarding or shortchanging whoever they like. Then everyone votes: 0 rejects (free), 1 accepts, 2 welcomes. Votes are paid from your share.</p>
+      <p><b>Average below 1: rejected.</b> The grabber leaves the table and the pool goes back to each player in proportion to what they put in. Otherwise the split is paid out.</p>
+      <p><b>Can't afford the amount? You pass:</b> no giving, no grabbing, but you keep your seat and your vote. The table ends when nobody can give, or fewer than three remain.</p>
+    </section>
+  </details>
+
+  <div class="game">
+    <div class="left-col">
+      <div class="table-wrap">
+        <svg id="table" viewBox="0 0 400 440" role="img" aria-label="The table: players around the pool"></svg>
+      </div>
+    </div>
+    <div class="panel" id="panel" aria-live="polite"></div>
+  </div>
+
+  <div class="extras" id="extras"></div>
+  <div id="log"></div>
+
+  <details class="fold" id="strategy-key" open>
+    <summary><h2>Strategy key</h2></summary>
+    <div id="key"></div>
+  </details>
+
+  <!-- SITE FOOTER: same on every page -->
+  <footer class="site-foot">
+    <details class="foot-more" open>
+      <summary><span class="foot-title">TRUNK OF COMMONS</span><span class="foot-hint">About &amp; credits</span></summary>
+      <div class="foot-body">
+      <p>Educational social dilemma games about trust, cooperation, reputation and the commons. Designed by Jason Lee Lasky at <a href="https://hubway.net">hubway.net</a>, Northern Rivers, NSW, from his design notes <i>TrunK of Commons</i> (2018) and the <i>Wheel of Fortune Sharing Game</i> (2017).</p>
+      <p>Draws on Robert Axelrod's iterated prisoner's dilemma tournaments and Elinor Ostrom's work on governing the commons.</p>
+      <p>Built with AI agents under human direction: code co-written with Claude (Anthropic), every change reviewed and published by Jason.</p>
+      <p>Bots are named at random each table, so reading the code won't tell you who is who.</p>
+      </div>
+    </details>
+    <p class="licences">Content <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> · Code <a href="https://www.gnu.org/licenses/agpl-3.0.html">AGPL-3.0</a> · <a href="https://github.com/hubwaynet/trunk-of-commons">Source on GitHub</a></p>
+  </footer>
+</main>
+<!-- BODY:END -->
+<script type="module" src="../../src/ui/centipede-ultimatum/main.js"></script>
+</body>
+</html>

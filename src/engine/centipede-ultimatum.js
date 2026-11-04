@@ -8,16 +8,17 @@
 export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptable
 
 /**
- * rejectedPool: where a rejected pool goes. 'commons' (2018 rule) or 'refund' (back to each
- *   player in proportion to what they put in; the votes still go to the Commons).
+ * Default (Jason, 2026-11-04): a rejected grabber leaves the table and the pool is refunded.
+ * rejectedPool: where a rejected pool goes. 'refund' (default: back to each player in proportion
+ *   to what they put in; the votes still go to the Commons) or 'commons' (2018 rule).
  * onReject: what else a rejected split does.
  *   'end'        the table ends (2018 rule)
  *   'continue'   play carries on
- *   'grabberOut' the grabber leaves the table and play carries on
+ *   'grabberOut' the grabber leaves the table and play carries on (default)
  */
 export function createGame({
   players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = 60,
-  onReject = 'end', firstGrabRound = 1, rejectedPool = 'commons',
+  onReject = 'grabberOut', firstGrabRound = 1, rejectedPool = 'refund',
 }) {
   if (!players || players.length < minPlayers) throw new Error(`Need at least ${minPlayers} players`);
   return {
