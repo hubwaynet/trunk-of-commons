@@ -4,7 +4,7 @@
 import {
   createGame, currentPlayer, act, divide, vote, stay, requirement, canGive, canGrab, activeIds, splitBy,
 } from '../../engine/centipede-ultimatum.js';
-import { STRATEGIES, FAMILIES, botView, selectRoster, isFreeZero } from '../../bots/centipede-ultimatum-bots.js';
+import { STRATEGIES, FAMILIES, botView, selectRoster, isFreeZero, reputations } from '../../bots/centipede-ultimatum-bots.js';
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 import { ACHIEVEMENTS, STORAGE_KEY, CELEBRATED_KEY, splitAchievements, endAchievements } from './achievements.js';
 import * as Game1 from '../rising-pool/achievements.js';
@@ -299,6 +299,7 @@ function humanVote(v) { applyVotes(v); afterChange(); }
 function humanStay(v) { applyStay(v); afterChange(); }
 
 // ---------- the table picture ----------
+const REP_CLASS = { exploitive: 'exploit', 'free loading': 'free', cooperative: 'coop', generous: 'generous' };
 function seatPos(i, n = 6, r = 140) {
   const a = (-90 + (360 / n) * i) * (Math.PI / 180);
   return { x: 200 + r * Math.cos(a), y: 200 + r * Math.sin(a), a };
@@ -313,6 +314,7 @@ function renderTable() {
   const turnId = currentPlayer(s);
   const u = s.ultimatum;
   const shown = justJudged() ? G.lastUlt.u : null;
+  const rep = reputations(s.rounds.filter((r) => r.result === 'ultimatum').map((r) => r.ultimatum), G.seats.map((x) => x.id));
 
   // the pool
   const poolR = 18 + Math.min(52, Math.sqrt(s.pool) * 5);
@@ -326,7 +328,8 @@ function renderTable() {
     const pos = seatPos(i);
     const g = el('g', { class: `seat ${p.active ? '' : 'left'} ${st.id === turnId ? 'turn' : ''}` });
     if (st.id === turnId) g.append(el('circle', { cx: pos.x, cy: pos.y, r: 33, class: 'turn-ring' }));
-    g.append(el('circle', { cx: pos.x, cy: pos.y, r: 26, fill: st.hue }));
+    if (rep[st.id]) g.append(el('circle', { cx: pos.x, cy: pos.y, r: 27.5, class: `seat-rep rep-${REP_CLASS[rep[st.id]]}` }));
+    g.append(el('circle', { cx: pos.x, cy: pos.y, r: 22, fill: st.hue }));
     g.append(el('text', { x: pos.x, y: pos.y + 5, 'text-anchor': 'middle', class: 'seat-bal' }, String(p.balance)));
     const below = pos.y > 200;
     const ny = below ? pos.y + 44 : pos.y - 34;
@@ -379,7 +382,7 @@ function renderTable() {
   // What a screen reader hears for the picture: the same facts, in words.
   const seatsSaid = G.seats.map((st) => {
     const p = player(st.id);
-    return `${st.name} ${p.active ? p.balance : p.leftBecause === 'rejected' ? 'sent out' : 'sat out'}`;
+    return `${st.name} ${p.active ? p.balance : p.leftBecause === 'rejected' ? 'sent out' : 'sat out'}${rep[st.id] ? `, ${rep[st.id]}` : ''}`;
   }).join(', ');
   svg.setAttribute('aria-label', s.status === 'playing'
     ? `The table, round ${s.round} of ${s.maxRound}, amount ${requirement(s.round)}. Pool ${u ? u.pool : s.pool}${u ? `, held by ${nameOf(u.grabber)}` : ''}. ${seatsSaid}. Commons ${s.commons.reserve}.`
@@ -693,13 +696,14 @@ function renderLog() {
     }
     return html || '<span class="gone">–</span>';
   };
+  const logRep = reputations(s.rounds.filter((r) => r.result === 'ultimatum').map((r) => r.ultimatum), G.seats.map((x) => x.id));
   const resLabel = (r) => r.result === 'live' ? '…' : r.result === 'complete' ? `+${r.topUp}` : r.result === 'stalled' ? 'stalled' : r.ultimatum.result;
   const resCls = (r) => r.result === 'ultimatum' ? (r.ultimatum.result === 'rejected' ? 'fail' : r.ultimatum.result === 'welcomed' ? 'bonus' : 'base') : '';
   $('#log').replaceChildren(h(`<details class="fold" ${G.logOpen === false ? '' : 'open'}><summary><h2>Round log</h2></summary>
     <p class="muted small legend-line">G = gave · <b>·</b> = passed (couldn't afford) · GRAB, then each player's offered share with their vote</p>
     <div class="log-wrap" id="log-scroll" tabindex="0" role="region" aria-label="Round log, scrolls sideways"><table class="grid">
       <thead><tr><th>Player</th>${rounds.map((r) => `<th>R${r.round}</th>`).join('')}<th>Now</th></tr></thead>
-      <tbody>${G.seats.map((st) => `<tr><th scope="row"><span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}</span></th>
+      <tbody>${G.seats.map((st) => `<tr><th scope="row"><span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}</span>${logRep[st.id] ? `<span class="muted small rep-word">${logRep[st.id]}</span>` : ''}</th>
         ${rounds.map((r) => `<td>${cell(r, st.id)}</td>`).join('')}<td class="sum strong">${player(st.id).balance}</td></tr>`).join('')}</tbody>
       <tfoot><tr><th scope="row">Result</th>${rounds.map((r) => `<td><span class="${resCls(r) ? `tag ${resCls(r)}` : ''}">${resLabel(r)}</span></td>`).join('')}<td></td></tr>
       <tr><th scope="row">Pool after</th>${rounds.map((r) => `<td>${r.result === 'complete' ? r.poolAfter : r.result === 'ultimatum' ? (r.ultimatum.forfeit ?? 0) : ''}</td>`).join('')}<td></td></tr></tfoot>

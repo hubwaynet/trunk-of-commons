@@ -48,4 +48,5 @@
 /* Achievement progress strip */
 
 .progress-segs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; width: 180px; max-width: 100%; }
-
+.ring-legend .rep-good { stroke: var(--good); }
+.ring-legend .rep-low { stroke: var(--low); }

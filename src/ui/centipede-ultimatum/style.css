@@ -73,3 +73,10 @@
 /* "divider" sits under the name, so a long name can't push it into the bar */
 .split-row .who { flex-wrap: wrap; row-gap: 0; min-width: 0; }
 .split-row .divider-tag { flex-basis: 100%; padding-left: 22px; font-size: 12px; font-weight: 400; line-height: 1.2; }
+/* Reputation (2018 notes): colour plus line style, so colour isn't the only cue */
+.seat-rep { fill: none; stroke-width: 3.5; }
+.rep-generous { stroke: var(--good); }
+.rep-coop { stroke: var(--muted); stroke-width: 1.5; }
+.rep-free { stroke: var(--brass); stroke-dasharray: 4 3; }
+.rep-exploit { stroke: var(--low); }
+.grid th[scope="row"] .rep-word { display: block; font-weight: 400; font-size: 12px; }

@@ -262,6 +262,49 @@ export function freeZeroCounts(splits) {
   return counts;
 }
 
+/**
+ * Reputation from the 2018 notes: each player's play so far, judged as exploitive, free loading,
+ * cooperative or generous (Jason, 2026-11-06, decision 8; rule from simulation, see the design log).
+ * - exploitive: their latest split kept more than a fair share. Fair is worked out after setting
+ *   aside anyone being sanctioned (free riders, and the divider of a greedy split just before), so
+ *   punishing isn't exploiting. A later fair split clears it.
+ * - free loading: two free 0s (the free-rider label).
+ * - generous: never exploitive at this table, and either kept less than their own fair share on a
+ *   split or voted 2 on at least two-thirds of the others' splits (three or more).
+ * - cooperative: everyone else. null before the first split.
+ */
+export function reputations(splits, ids) {
+  const out = Object.fromEntries(ids.map((id) => [id, null]));
+  if (!splits.length) return out;
+  const fz = {}, lastGreedy = {}, everGreedy = {}, gave = {}, twos = {}, judged = {};
+  let prevGreedy = null;
+  for (const u of splits) {
+    const set = new Set(Object.keys(fz).filter((x) => fz[x] >= 2));
+    if (prevGreedy) set.add(prevGreedy);
+    const keep = Object.keys(u.shares).filter((x) => !set.has(x) || x === u.grabber);
+    const pool = keep.reduce((a, x) => a + u.shares[x], 0);
+    const total = keep.reduce((a, x) => a + (u.stakes[x] ?? 0), 0);
+    const byStake = total ? (pool * (u.stakes[u.grabber] ?? 0)) / total : pool / keep.length;
+    const mine = u.shares[u.grabber];
+    const greedy = mine > Math.ceil(Math.max(pool / keep.length, byStake));
+    lastGreedy[u.grabber] = greedy;
+    if (greedy) everGreedy[u.grabber] = true;
+    if (mine < Math.floor(Math.min(pool / keep.length, byStake))) gave[u.grabber] = true;
+    prevGreedy = greedy && u.result !== 'rejected' ? u.grabber : null;
+    for (const id of Object.keys(u.votes)) {
+      if (id === u.grabber) continue;
+      judged[id] = (judged[id] ?? 0) + 1;
+      if (u.votes[id] === 2) twos[id] = (twos[id] ?? 0) + 1;
+      if (isFreeZero(u, id)) fz[id] = (fz[id] ?? 0) + 1;
+    }
+  }
+  for (const id of ids) {
+    out[id] = lastGreedy[id] ? 'exploitive' : (fz[id] ?? 0) >= 2 ? 'free loading'
+      : !everGreedy[id] && (gave[id] || ((judged[id] ?? 0) >= 3 && (twos[id] ?? 0) / judged[id] >= 2 / 3)) ? 'generous' : 'cooperative';
+  }
+  return out;
+}
+
 /** What a bot can see: public information only. */
 export function botView(s, id) {
   const me = s.players.find((p) => p.id === id);
