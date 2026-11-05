@@ -189,6 +189,24 @@ test('a grabber sent out by a rejection leaves all their points in the pool', ()
   assert.equal(total(s), before);
 });
 
+test('a split judged in the last round ends the table there (no stay step for a round 21)', () => {
+  const rich = () => createGame({ players: ids.map((id) => ({ id, balance: 400 })), commonsReserve: 500 });
+  let s = rich();
+  while (s.round < 20) s = act(s, currentPlayer(s), 'give');
+  s = act(act(act(s, 'a', 'give'), 'b', 'give'), 'c', 'grab');
+  s = divide(s, splitBy(s.pool, { a: 1, b: 1, c: 1, d: 1 }));
+  const before = total(s);
+  const passed = vote(s, { a: 1, b: 1, c: 2, d: 1 });
+  assert.equal(passed.status, 'ended');
+  assert.equal(passed.endReason, 'round-cap'); // not 'too-few', even if players would have left
+  assert.equal(passed.round, 20);
+  assert.equal(total(passed), before);
+  const rejected = vote(s, { a: 0, b: 0, c: 2, d: 0 }); // the grabber's points still go back to those left
+  assert.equal(rejected.endReason, 'round-cap');
+  assert.equal(rejected.pool, 0);
+  assert.equal(total(rejected), before);
+});
+
 import { STRATEGIES, botView } from '../src/bots/centipede-ultimatum-bots.js';
 
 test('a divider who gives themselves less than they put in is not "short-changed"', () => {
