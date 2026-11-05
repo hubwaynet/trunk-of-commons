@@ -175,3 +175,28 @@ Achievement odds (per table, for the style that suits each one) barely move: Nob
 - Both games have a **Reset** link under the achievements strip in the header, with an in-page "are you sure?" step (artifacts can't show browser dialogs). It clears that game's achievements and its one-time celebration, so the full fireworks play again.
 - **Unlocks are permanent once earned** (`src/ui/progress-store.js`: `trunk.unlocked.centipede`, `trunk.unlocked.wheel`), so resetting Rising Pool never locks Game 2 again. Players who completed a game before this existed get the unlock recorded the next time they open that game.
 - **All six Game 2 achievements unlock Game 3.** The full fireworks play once, the "mastered" card says the Wheel is unlocked for when it's ready, the header strip says "Game 3 unlocked", and the home page shows "Level 3 · Unlocked · In design". When Game 3 is built, its lock should check `isUnlocked('wheel')`.
+
+## Coalition strategy and social voters (Jason, 2026-11-05)
+
+Jason found a winning pattern. Give one round, grab the next (as often as the lap rule allows), pay everyone at least what they put in, find the player who votes 0, give them nothing, and keep their share. His table went from 20 to 81 points, and the Commons running dry at round 19 was the only brake. It worked because every bot judged only its own share. A copy of the strategy (`coalition` in `tools/sim-centipede-achievements.mjs`) averaged +40 a table against draft 3 bots, four times any other style, and was never rejected.
+
+Jason preferred making bots more like human social voters over a "no grabbing twice running" rule. Decided (Jason, 2026-11-05), now in the bots:
+
+- **Solidarity** (looking past their own share): Bookkeeper and Spiteful vote 0 if anyone who put something in is offered less than they put in. Patient and Mirror won't welcome such a split (they vote at most 1).
+- **Taking turns:** Spiteful and Mirror vote 0 when the same player divides twice running and keeps more than 1.25 equal shares. Patient, Pool Watcher and Edge Watcher won't welcome any repeat divider.
+- Pushover, Greedy, Early Grabber and Free Voter are unchanged: they still judge only their own share.
+
+Results:
+
+| Learner style (3,000 tables) | Mean net before | Mean net after | Median after | Sent out after |
+|---|---|---|---|---|
+| Coalition | +39.5 | +14.6 | +5 | 45% |
+| Fair grabber (by stake, votes 2) | +10.1 | +6.3 | +5 | 2% |
+| Grabs once | +4.6 | +4.4 | +5 | 2% |
+| Steady giver | +4.9 | +4.5 | +5 | 0% |
+
+The coalition now pays only at tables without social voters (20% of tables still give +30 or more). So it rewards reading the table rather than being a free win.
+
+Bot tables (4,000): median 10 rounds, 21% reach round 20. 50% of bot splits are rejected and only 1% welcomed, because bot grabbers often short-change players who passed. Best strategies: Edge Watcher +11.5, Pool Watcher +9.7, Free Voter +7.5. Pushover is worst at −4.1.
+
+Achievement odds for a fair player: Nobody short-changed about 90%, Steady hand 90%, One clean grab 78%, Welcomed about 50% (was 64%), Full distance 12–19% (was 20–39%), Your vote counted 9–44%. The order is unchanged.

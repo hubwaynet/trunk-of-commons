@@ -29,6 +29,24 @@ export const LEARNERS = {
   'equal, votes 2 on own': learner({ grabAt: [15, 25, 40, 60], split: (v) => splitBy(v.pool, ones(v)), ownVote: 2 }),
   'keeps 1.5x, votes 2': learner({ grabAt: [15, 25, 40, 60], split: (v) => splitBy(v.pool, stakeW(v), v.id, Math.round(1.5 * v.equal)), ownVote: 2 }),
   'grabs once, stake, 2': learner({ grabAt: [25, 40, 60], split: (v) => splitBy(v.pool, stakeW(v)), ownVote: 2, once: true }),
+  // Jason's coalition (2026-11-05): grab whenever allowed, pay everyone their stake share,
+  // except players who voted 0 on its last split, whose shares it keeps.
+  'coalition': () => {
+    let foes = new Set();
+    return {
+      turn: (v) => {
+        const u = v.lastUltimatum;
+        if (u && u.grabber === v.id) foes = new Set(Object.entries(u.votes).filter(([, x]) => x === 0).map(([id]) => id));
+        return v.pool > 0 ? 'grab' : 'give';
+      },
+      divide: (v) => {
+        const sh = splitBy(v.pool, stakeW(v));
+        for (const id of foes) if (sh[id] !== undefined && id !== v.id) { sh[v.id] += sh[id]; sh[id] = 0; }
+        return sh;
+      },
+      vote: (v) => (v.iDivided ? 2 : judgeFair(v)),
+    };
+  },
 };
 
 export function playWithLearner(styleKey, seed, opts = {}) {
