@@ -57,6 +57,17 @@ export const LEARNERS = {
   // they put in, keep the Commons bonus (the surplus) for yourself, vote 2.
   'skimmer': learner({ grabAt: [1], split: (v) => skim(v), ownVote: 2 }),
   'patient skimmer': learner({ grabAt: [25, 40], split: (v) => skim(v), ownVote: 2 }),
+  // Fair split by stake, but free riders get back only half of what they put in (shared to the rest).
+  'fair + sanctions': learner({ grabAt: [25, 40], split: (v) => {
+    const sh = splitBy(v.pool, stakeW(v));
+    const riders = v.freeRiders.filter((x) => x !== v.id);
+    let freed = 0;
+    for (const x of riders) { const keep = Math.floor((v.stakes[x] ?? 0) / 2); if (sh[x] > keep) { freed += sh[x] - keep; sh[x] = keep; } }
+    const rest = v.ids.filter((x) => !riders.includes(x));
+    const extra = splitBy(freed, Object.fromEntries(rest.map((x) => [x, (v.stakes[x] ?? 0) || 1])));
+    for (const x of rest) sh[x] += extra[x];
+    return sh;
+  }, ownVote: 2 }),
   // Jason's second pattern (2026-11-05): keep control of the grab, alternating a split that
   // punishes the last 0-voters (keeping their share) with a fair split by stake to appease.
   'dominator': () => {

@@ -17,6 +17,9 @@ export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptabl
  * grabOpens: when the pool can be grabbed. 'afterLap' (default): only once every player still at
  *   the table has had a turn since the last split (or the start), so no empty or token pools
  *   (Jason, 2026-11-05). 'nonEmpty': any time the pool has points. 'any': the first draft's rule.
+ * rejectedGrabberPoints: 'pool' (default) — a grabber sent out by a rejection leaves all their
+ *   points, refund included, in the pool for the players who remain (Jason, 2026-11-05);
+ *   'keep' — they leave with their points (the earlier rule).
  * maxRound: the table ends after this round and any pool is shared equally (20, Jason 2026-11-05).
  * onReject: what else a rejected split does.
  *   'end'        the table ends (2018 rule)
@@ -25,11 +28,11 @@ export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptabl
  */
 export function createGame({
   players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = 20,
-  onReject = 'grabberOut', firstGrabRound = 1, rejectedPool = 'refund', welcomeAt = 'atLeast', welcomeBonus = 1, grabOpens = 'afterLap',
+  onReject = 'grabberOut', firstGrabRound = 1, rejectedPool = 'refund', welcomeAt = 'atLeast', welcomeBonus = 1, grabOpens = 'afterLap', rejectedGrabberPoints = 'pool',
 }) {
   if (!players || players.length < minPlayers) throw new Error(`Need at least ${minPlayers} players`);
   return {
-    seed, startBalance, minPlayers, maxRound, onReject, firstGrabRound, rejectedPool, welcomeAt, welcomeBonus, grabOpens,
+    seed, startBalance, minPlayers, maxRound, onReject, firstGrabRound, rejectedPool, welcomeAt, welcomeBonus, grabOpens, rejectedGrabberPoints,
     turnsSinceSplit: 0, // gives and passes since the last split (or the start)
     round: 1,
     phase: 'turn',
@@ -244,7 +247,11 @@ export function vote(s, votes) {
   if (result === 'rejected') {
     if (s.onReject === 'end') return { ...next, phase: 'ended', status: 'ended', endReason: 'rejected' };
     if (s.onReject === 'grabberOut') {
-      next.players = next.players.map((p) => (p.id === u.grabber ? { ...p, active: false, leftAfterRound: s.round, leftBecause: 'rejected' } : p));
+      const left = s.rejectedGrabberPoints === 'pool' ? next.players.find((p) => p.id === u.grabber).balance : 0;
+      next.players = next.players.map((p) => (p.id === u.grabber
+        ? { ...p, active: false, leftAfterRound: s.round, leftBecause: 'rejected', balance: p.balance - left } : p));
+      next.pool = left;
+      next.rounds = [...next.rounds.slice(0, -1), { ...next.rounds.at(-1), ultimatum: { ...record, forfeit: left } }];
     }
   }
   return { ...next, phase: 'stay' };

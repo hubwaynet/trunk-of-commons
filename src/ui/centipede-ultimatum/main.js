@@ -393,10 +393,11 @@ function divideCard() {
   const pool = s.pool;
   const ones = Object.fromEntries(ids.map((id) => [id, 1]));
   const stakeW = Object.fromEntries(ids.map((id) => [id, s.stakes[id] ?? 0]));
+  const riders = botView(s, 'you').freeRiders;
   const anyStake = ids.some((id) => (s.stakes[id] ?? 0) > 0);
   let shares = anyStake ? splitBy(pool, stakeW) : splitBy(pool, ones);
   const c = h(`<div class="card divide"><h2>Divide the pool of ${pool}</h2>
-    <p class="muted small">Set each share. It starts split by what each player put in; an equal share would be about ${(pool / ids.length).toFixed(1)}.</p>
+    <p class="muted small">Set each share. It starts split by what each player put in; an equal share would be about ${(pool / ids.length).toFixed(1)}.${riders.some((x) => x !== 'you') ? ' A <b>free rider</b> has voted 0 at least twice on fair splits that passed anyway: you can cut their share and the others won\'t defend them.' : ''}</p>
     ${needLine(ids.length)}
     <div class="btn-row presets">
       <button class="btn ghost small-btn" type="button" data-p="stakes">By what each put in</button>
@@ -411,7 +412,7 @@ function divideCard() {
     rows.replaceChildren(...ids.map((id) => {
       const st = seat(id);
       const row = h(`<div class="share-row">
-        <span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}</span>
+        <span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}${riders.includes(id) ? ' <span class="chip-fr" title="Voted 0 at least twice on fair splits that passed anyway">free rider</span>' : ''}</span>
         <span class="muted small">put in ${s.stakes[id] ?? 0}</span>
         <span class="stepper">
           <button type="button" class="step" aria-label="Less for ${esc(st.name)}">−</button>
@@ -472,7 +473,7 @@ function voteCard() {
       <button class="choice" type="button" data-v="2"><span class="lbl">Welcome</span><span class="amt">2</span><span class="sub">Costs 2. An average of 1.5 or more welcomes the split: everyone gets 1 bonus.</span></button>
     </div>
     ${needLine(Object.keys(u.shares).length)}
-    <p class="muted small">If rejected, the divider leaves and the pool goes back by what each put in. Vote tokens are shared back out, unless the split is rejected.</p></div>`);
+    <p class="muted small">If rejected, the divider leaves the table, the pool goes back by what each put in, and everything the divider holds stays in the pool for the others. Vote tokens are shared back out, unless the split is rejected.</p></div>`);
   c.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => humanVote(Number(b.dataset.v))));
   return c;
 }
@@ -483,7 +484,8 @@ function outcomeCard(u) {
   const whose = u.grabber === 'you' ? 'Your' : `${esc(g)}'s`;
   let text;
   if (u.result === 'rejected') {
-    text = `${whose} split was rejected (average ${u.voteAvg.toFixed(2)}). ${u.grabber === 'you' ? 'You leave' : esc(g) + ' leaves'} the table, and the pool of ${u.pool} went back by what each put in.`;
+    const left = u.forfeit ? ` ${u.grabber === 'you' ? 'Your' : 'Their'} remaining ${u.forfeit} points stay in the pool for the next round.` : '';
+    text = `${whose} split was rejected (average ${u.voteAvg.toFixed(2)}). ${u.grabber === 'you' ? 'You leave' : esc(g) + ' leaves'} the table, and the pool of ${u.pool} went back by what each put in.${left}`;
   } else {
     const back = u.voteEach + (u.bonusEach ?? 0);
     const bonus = u.bonusEach ? ` (including a ${u.bonusEach}-point welcome bonus from the Commons)` : '';
@@ -579,7 +581,7 @@ function renderLog() {
       <tbody>${G.seats.map((st) => `<tr><th scope="row"><span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}</span></th>
         ${rounds.map((r) => `<td>${cell(r, st.id)}</td>`).join('')}<td class="sum strong">${player(st.id).balance}</td></tr>`).join('')}</tbody>
       <tfoot><tr><th scope="row">Result</th>${rounds.map((r) => `<td><span class="${resCls(r) ? `tag ${resCls(r)}` : ''}">${resLabel(r)}</span></td>`).join('')}<td></td></tr>
-      <tr><th scope="row">Pool after</th>${rounds.map((r) => `<td>${r.result === 'complete' ? r.poolAfter : r.result === 'ultimatum' ? r.ultimatum.pool : ''}</td>`).join('')}<td></td></tr></tfoot>
+      <tr><th scope="row">Pool after</th>${rounds.map((r) => `<td>${r.result === 'complete' ? r.poolAfter : r.result === 'ultimatum' ? (r.ultimatum.forfeit ?? 0) : ''}</td>`).join('')}<td></td></tr></tfoot>
     </table></div></details>`));
 }
 

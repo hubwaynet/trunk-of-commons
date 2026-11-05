@@ -247,3 +247,29 @@ Jason's third method: when the grab comes to him, pay everyone back exactly what
 - **New bot, Skimmer** (grabber family): gives until the pool reaches its mark (20–40, random per table), then grabs and skims. It competes for the grab by vetoing greedy repeat or dominant dividers and withholding its welcome from fair ones. It accepts a split that returns its stake and welcomes a proportional one.
 - With the Skimmer in the roster, the patient skimmer learner drops to +12.4 mean, +11 median. The Skimmer is the best bot (+16.4 per seat). Tables run longer (median 14 rounds, 29% reach round 20), so Full distance is easier for fair players (about 23% per table, was 10–19%).
 - The skim is still the strongest known style. One reason: a rejected grabber gets its own stake back and loses only its seat, so greedy grabs are cheap gambles.
+
+## Free riders can be punished; rejected grabbers leave their points (Jason, 2026-11-05)
+
+Jason found Free Voter coming out on top even when he tried to keep the cooperative players going. He couldn't punish it, because the solidarity voters defended anyone short-changed, free riders included. He also noted that a rejected divider walked away with their points. Decided:
+
+- **Free riders:** a player who voted 0 at least twice on a split that passed and treated them fairly (at least what they put in, at least 80% of an equal share, nobody else short-changed). A protest 0 doesn't count. Bots see this publicly, and so does the player: the divide card marks them **free rider**.
+- **Solidarity no longer defends free riders**, so a divider can cut them without being vetoed for it.
+- **Bots that sanction:** Pool Watcher and Edge Watcher give free riders half of what they put in and share the difference with the rest. Skimmer does the same but keeps the difference. Mirror grabs to sanction free riders (once the pool reaches 20) and gives them nothing.
+- **A grabber sent out by a rejection leaves all their points, refund included, in the pool** for the players who remain (`rejectedGrabberPoints: 'pool'`). The log's "pool after" shows what stayed behind.
+
+Results (3,000 tables per learner style):
+
+| Learner style | Mean net (median) | Sent out | Full distance | Free Voter at that table: mean, top of table |
+|---|---|---|---|---|
+| Fair + sanctions free riders | +16.3 (+19) | 12% | 72% | −3.3, 6% |
+| Fair grabber, votes 2 | +18.0 (+19) | 3% | 71% | +5.1, 24% |
+| Grabs once, fair | +13.9 (+14) | 2% | 34% | +11.7, 46% |
+| Steady giver | +14.4 (+15) | 0% | 32% | +12.5, 42% |
+| Patient skimmer | +0.5 (−20) | 67% | 31% | +16.0, 37% |
+| Coalition | +5.3 (−20) | 50% | 41% | +11.1, 31% |
+| Dominator | +12.0 (+18) | 34% | 56% | +1.5, 10% |
+
+- Free riding now pays only when nobody punishes it, which is the lesson.
+- Being sent out costs everything, so greedy styles typically end around −20. The points they leave behind lift everyone who stays, so tables run longer: median 15 rounds, 43% reach round 20.
+- Bot tables: Bookkeeper +17.7, Patient +15.9, Spiteful +15.8, Edge Watcher +14.9, Free Voter +13.5, Skimmer +8.6, Pushover +5.3, Mirror −0.2, Pool Watcher −10.8, Early Grabber −19.4, Greedy −19.8.
+- Achievement order by odds for the style that suits each one: Nobody short-changed 96%, Steady hand 93%, One clean grab 77%, **Full distance about 72%** (moved up from last), Welcomed 65–69%, Your vote counted 25–55%.

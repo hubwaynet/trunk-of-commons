@@ -20,6 +20,26 @@ const ones = (v) => Object.fromEntries(v.ids.map((id) => [id, 1]));
 const equal = (v) => splitBy(v.pool, ones(v));
 const byStakes = (v) => splitBy(v.pool, Object.fromEntries(v.ids.map((id) => [id, v.stakes[id] ?? 0])));
 const keepThenEqual = (frac) => (v) => splitBy(v.pool, ones(v), v.id, Math.round(frac * v.pool));
+// Sanctioning free riders (Jason, 2026-11-05). A free rider has voted 0 at least twice on
+// splits that treated them fairly and passed anyway, living off others' vote tokens.
+// cut: what a free rider is left with — 'half' of what they put in, or 'none'.
+// to: where the cut goes — 'others' (shared by stake among the rest) or 'me' (kept).
+const sanction = (div, { cut = 'half', to = 'others' } = {}) => (v) => {
+  const sh = div(v);
+  const riders = v.freeRiders.filter((x) => x !== v.id && sh[x] !== undefined);
+  if (!riders.length) return sh;
+  let freed = 0;
+  for (const x of riders) {
+    const keep = cut === 'none' ? 0 : Math.floor((v.stakes[x] ?? 0) / 2);
+    if (sh[x] > keep) { freed += sh[x] - keep; sh[x] = keep; }
+  }
+  if (!freed) return sh;
+  if (to === 'me') { sh[v.id] += freed; return sh; }
+  const rest = v.ids.filter((x) => !riders.includes(x));
+  const extra = splitBy(freed, Object.fromEntries(rest.map((x) => [x, (v.stakes[x] ?? 0) || 1])));
+  for (const x of rest) sh[x] += extra[x];
+  return sh;
+};
 const keepThenStakes = (keep) => (v) =>
   splitBy(v.pool, Object.fromEntries(v.ids.map((id) => [id, v.stakes[id] ?? 0])), v.id, keep(v));
 
@@ -58,7 +78,7 @@ const judgeBy = (ratio) => judge({ welcome: eq(1), accept: eq(ratio) });
 const social = (base, { solidarity = null, turns = null, dominance = null, dominanceFair = null, grudge = null } = {}) => (v) => {
   if (v.iDivided) return 2;
   let vote = base(v);
-  const othersShort = v.shortChanged.some((id) => id !== v.id);
+  const othersShort = v.shortChanged.some((id) => id !== v.id && !v.freeRiders.includes(id));
   const greedy = !v.dividerFair;
   const flags = [
     [othersShort, solidarity],
@@ -90,7 +110,7 @@ export const STRATEGIES = {
   },
   bookkeeper: {
     label: 'Bookkeeper', family: 'reciprocator',
-    summary: 'Always gives. Divides in proportion to what each player put in, so players who passed get less or nothing. Accepts a split if it gets back at least what it put in; welcomes one that pays in proportion to what it put in. Votes 0 if anyone who put something in gets back less, and holds a grudge against a divider who short-changed it.',
+    summary: 'Always gives. Divides in proportion to what each player put in, so players who passed get less or nothing. Accepts a split if it gets back at least what it put in; welcomes one that pays in proportion to what it put in. Votes 0 if anyone who put something in gets back less (free riders excepted), and holds a grudge against a divider who short-changed it.',
     tell: 'G every turn. Its splits pay givers and leave passers with 0. Votes 0 when anyone is short-changed.',
     create: () => ({
       turn: () => 'give', divide: byStakes, vote: social(judge({ welcome: prop(1), accept: (v) => v.myStake }), { solidarity: 'veto', grudge: 'veto' }),
@@ -105,11 +125,11 @@ export const STRATEGIES = {
   },
   poolWatcher: {
     label: 'Pool Watcher', family: 'grabber',
-    summary: 'Gives until the pool reaches 40, then grabs. Keeps 40% and shares the rest by what each put in. Judges others by what it put in, and votes 0 against a greedy player who keeps taking the grab; won\'t welcome even a fair one.',
+    summary: 'Gives until the pool reaches 40, then grabs. Keeps 40% and shares the rest by what each put in, giving free riders only half of what they put in. Judges others by what it put in, and votes 0 against a greedy player who keeps taking the grab; won\'t welcome even a fair one.',
     tell: 'Gives for a while, then grabs a big pool. Keeps about twice a fair share.',
     create: () => ({
       turn: (v) => (v.pool >= 40 ? 'grab' : 'give'),
-      divide: keepThenStakes((v) => Math.round(0.4 * v.pool)),
+      divide: sanction(keepThenStakes((v) => Math.round(0.4 * v.pool))),
       vote: social(judge({ welcome: prop(1), accept: eq(0.5) }), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold' }),
     }),
   },
@@ -133,47 +153,47 @@ export const STRATEGIES = {
   },
   edgeWatcher: {
     label: 'Edge Watcher', family: 'grabber',
-    summary: "Gives while it can keep up. Grabs when giving would leave it unable to afford next round. Keeps a little over a fair share and shares the rest by what each put in. Votes 0 against a greedy player who keeps taking the grab, or one who short-changed it before; won't welcome even a fair one.",
+    summary: "Gives while it can keep up. Grabs when giving would leave it unable to afford next round. Keeps a little over a fair share and shares the rest by what each put in, giving free riders only half of what they put in. Votes 0 against a greedy player who keeps taking the grab, or one who short-changed it before; won't welcome even a fair one.",
     tell: 'Gives until its balance runs low, then grabs. Splits only a little in its own favour.',
     create: () => ({
       turn: (v) => (v.balance - v.req < requirement(v.round + 1) ? 'grab' : 'give'),
-      divide: keepThenStakes((v) => Math.round(1.25 * v.equal)),
+      divide: sanction(keepThenStakes((v) => Math.round(1.25 * v.equal))),
       vote: social(judge({ welcome: prop(1), accept: eq(0.6) }), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold', grudge: 'veto' }),
     }),
   },
   skimmer: {
     label: 'Skimmer', family: 'grabber',
-    summary: 'Gives until the pool reaches its mark (somewhere from 20 to 40), then grabs at its first chance. Pays everyone back exactly what they put in and keeps the Commons bonus for itself. Competes for the grab: votes 0 against a greedy player who keeps taking it, and won\'t welcome even a fair one.',
+    summary: 'Gives until the pool reaches its mark (somewhere from 20 to 40), then grabs at its first chance. Pays everyone back exactly what they put in and keeps the Commons bonus for itself. Free riders get back only half of what they put in, and it keeps the difference. Competes for the grab: votes 0 against a greedy player who keeps taking it, and won\'t welcome even a fair one.',
     tell: 'Grabs a mid-sized pool. Its splits give everyone exactly what they put in, and it keeps the rest.',
     create: (rng) => {
       const mark = 20 + Math.floor(rng() * 21);
       return {
         turn: (v) => (v.pool >= mark ? 'grab' : 'give'),
-        divide: (v) => {
+        divide: sanction((v) => {
           const sh = Object.fromEntries(v.ids.map((x) => [x, x === v.id ? 0 : (v.stakes[x] ?? 0)]));
           sh[v.id] = v.pool - Object.values(sh).reduce((a, b) => a + b, 0);
           return sh;
-        },
+        }, { cut: 'half', to: 'me' }),
         vote: social(judge({ welcome: prop(1), accept: (x) => x.myStake }), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold' }),
       };
     },
   },
   spiteful: {
     label: 'Spiteful', family: 'judge',
-    summary: 'Always gives and splits equally, but votes 0 against any split that gives it less than an equal share. Also votes 0 if anyone else is short-changed, if a greedy player divides twice running or keeps taking the grab, or if the divider short-changed it before. Never votes 2 for anyone else.',
+    summary: 'Always gives and splits equally, but votes 0 against any split that gives it less than an equal share. Also votes 0 if anyone else is short-changed (free riders excepted), if a greedy player divides twice running or keeps taking the grab, or if the divider short-changed it before. Never votes 2 for anyone else.',
     tell: 'G every turn. Votes 0 whenever it, or anyone, is shortchanged, otherwise 1.',
     create: () => ({ turn: () => 'give', divide: equal, vote: social(judge({ accept: (v) => Math.floor(v.equal) }), { solidarity: 'veto', turns: 'veto', dominance: 'veto', grudge: 'veto' }) }),
   },
   freeVoter: {
     label: 'Free Voter', family: 'judge',
-    summary: 'Always gives, but never pays to vote. Votes 0 and counts on the others to carry the split, then takes a share of their vote tokens.',
+    summary: 'Always gives, but never pays to vote. Votes 0 and counts on the others to carry the split, then takes a share of their vote tokens. After two such votes the table treats it as a free rider: it can be cut without the solidarity voters defending it.',
     tell: 'G every turn. Votes 0 on every split but its own.',
     create: () => ({ turn: () => 'give', divide: equal, vote: (v) => (v.iDivided ? 2 : 0) }),
   },
   mirror: {
     label: 'Mirror', family: 'reciprocator',
-    summary: 'Gives and splits equally, until someone keeps more than a fair share and gets away with it. Then it grabs at its next turn and gives that divider nothing. Votes 0 against a greedy player dividing twice running or keeping the grab, or a divider who short-changed it before.',
-    tell: 'G until a greedy split goes through, then grabs and cuts the greedy divider out.',
+    summary: 'Gives and splits equally, until someone keeps more than a fair share and gets away with it. Then it grabs at its next turn and gives that divider nothing. Does the same to free riders (players who keep voting 0 on fair splits). Votes 0 against a greedy player dividing twice running or keeping the grab, or a divider who short-changed it before.',
+    tell: 'G until a greedy split goes through or a free rider shows up, then grabs and cuts them out.',
     create: () => {
       let target = null;
       return {
@@ -181,10 +201,12 @@ export const STRATEGIES = {
           const u = v.lastUltimatum;
           if (u && u.round === v.round - 1 && u.result !== 'rejected' && u.grabber !== v.id && u.keptRatio > 1.25) target = u.grabber;
           if (target && !v.ids.includes(target)) target = null;
-          return target && v.pool > 0 ? 'grab' : 'give';
+          if (target && v.pool > 0) return 'grab';
+          // also steps in to sanction free riders once the pool is worth dividing
+          return v.freeRiders.some((x) => x !== v.id) && v.pool >= 20 ? 'grab' : 'give';
         },
         divide: (v) => {
-          const w = Object.fromEntries(v.ids.map((id) => [id, id === target ? 0 : 1]));
+          const w = Object.fromEntries(v.ids.map((id) => [id, id === target || (id !== v.id && v.freeRiders.includes(id)) ? 0 : 1]));
           target = null;
           return splitBy(v.pool, w);
         },
@@ -216,6 +238,21 @@ export function botView(s, id) {
   const shortChanged = u?.shares ? Object.keys(u.shares).filter((x) => (stakes[x] ?? 0) > 0 && u.shares[x] < stakes[x]) : [];
   const repeatDivider = Boolean(u && lastRec && lastRec.grabber === u.grabber && lastRec.result !== 'rejected');
   const pastSplits = s.rounds.filter((r) => r.result === 'ultimatum').map((r) => r.ultimatum);
+  // Free riders: voted 0 at least twice on a split that passed and gave them at least what they
+  // put in and nearly an equal share, while nobody else was short-changed (a 0 that wasn't a protest).
+  const freeZeros = {};
+  for (const x of pastSplits) {
+    if (x.result === 'rejected') continue;
+    const n = Object.keys(x.shares).length;
+    const eqx = x.pool / n;
+    const others = Object.keys(x.shares).filter((y) => (x.stakes[y] ?? 0) > 0 && x.shares[y] < x.stakes[y]);
+    for (const [y, vt] of Object.entries(x.votes)) {
+      if (vt !== 0 || y === x.grabber) continue;
+      const sh = x.shares[y] ?? 0;
+      if (sh >= (x.stakes[y] ?? 0) && sh >= 0.8 * eqx && !others.some((z) => z !== y)) freeZeros[y] = (freeZeros[y] ?? 0) + 1;
+    }
+  }
+  const freeRiders = Object.keys(freeZeros).filter((y) => freeZeros[y] >= 2 && ids.includes(y));
   const dominant = Boolean(u) && pastSplits.slice(-3).filter((x) => x.grabber === u.grabber).length >= 2;
   const grudge = Boolean(u) && pastSplits.some((x) => x.grabber === u.grabber && x.result !== 'rejected'
     && (x.stakes[id] ?? 0) > 0 && (x.shares[id] ?? 0) < x.stakes[id]);
@@ -239,6 +276,7 @@ export function botView(s, id) {
     iDivided: u?.grabber === id,
     myShare: u?.shares?.[id] ?? null,
     shortChanged,
+    freeRiders,
     repeatDivider,
     dominant,
     grudge,

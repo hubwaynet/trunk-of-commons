@@ -175,3 +175,16 @@ test('grabbing opens only after the pool has gone round the table since the last
   assert.equal(currentPlayer(s), 'd'); // first chance to grab goes to the next player
   assert.equal(act(s, 'd', 'grab').phase, 'divide');
 });
+
+test('a grabber sent out by a rejection leaves all their points in the pool', () => {
+  let s = act(giveAll(fresh()), 'a', 'grab');
+  s = divide(s, splitBy(s.pool, { a: 1, b: 0, c: 0, d: 0 }));
+  const before = total(s);
+  s = vote(s, { a: 2, b: 0, c: 0, d: 0 });
+  const a = s.players.find((p) => p.id === 'a');
+  assert.equal(a.active, false);
+  assert.equal(a.balance, 0);
+  assert.equal(s.pool, s.rounds.at(-1).ultimatum.forfeit);
+  assert.ok(s.pool > 0);
+  assert.equal(total(s), before);
+});

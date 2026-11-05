@@ -7,9 +7,9 @@ export const ACHIEVEMENTS = [
   { id: 'no-one-short', name: 'Nobody short-changed', text: 'Your split passed and every player got back at least what they put in.' },
   { id: 'steady-hand', name: 'Steady hand', text: 'Reached the end of a table without grabbing, still seated and ahead.' },
   { id: 'one-clean-grab', name: 'One clean grab', text: 'Grabbed exactly once at a table, the split passed, and you finished ahead.' },
+  { id: 'full-distance', name: 'Full distance', text: 'Still at the table when round 20, the last round, ended.' },
   { id: 'welcomed', name: 'Welcomed', text: 'The table welcomed your split: an average vote of 1.5 or more.' },
   { id: 'your-vote-counted', name: 'Your vote counted', text: 'Someone voted 0 on your split, and your own 2 is what carried it.' },
-  { id: 'full-distance', name: 'Full distance', text: 'Still at the table when round 20, the last round, ended.' },
 ];
 
 const splitsBy = (s, id) => s.rounds.filter((r) => r.result === 'ultimatum' && r.ultimatum.grabber === id).map((r) => r.ultimatum);
