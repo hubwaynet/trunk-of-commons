@@ -103,7 +103,7 @@ function reveal() {
   if (G.phase === 'ended' && !G.watch) checkEndAchievements();
   render();
   if (!G.watch) announce(sayRound(outcome) + (G.phase === 'ended' ? '' : ` Stay for round ${outcome.round + 1}, or leave with ${playerOf(state, 'you').balance}?`));
-  if (G.phase === 'ended') announce(sayEnd());
+  if (G.phase === 'ended') announce(sayEnd({ resultSaid: outcome.result === 'fail' }));
   animatePool(outcome.avg / outcome.stakes.high);
   if (G.watch && G.phase !== 'ended') scheduleAuto();
 }
@@ -142,11 +142,11 @@ function sayRound(o) {
     ? ` You gave ${o.contributions.you} and received ${o.payouts.you}: ${signed(o.payouts.you - o.contributions.you)}.` : '';
   return `Round ${o.round}: ${RESULT_TAG[o.result].toLowerCase()}. ${RESULT_TEXT[o.result](o)}${you}`;
 }
-function sayEnd() {
+function sayEnd({ resultSaid = false } = {}) {
   const s = G.game;
   if (G.watch) return `Table closed. ${closingLead(s)}`;
   const p = playerOf(s, 'you');
-  return `Table closed. ${closingLead(s)} You finished with ${p.balance} points, ${signed(p.balance - p.start)} at this table.`
+  return `Table closed.${resultSaid ? '' : ` ${closingLead(s)}`} You finished with ${p.balance} points, ${signed(p.balance - p.start)} at this table.`
     + (p.balance < START_BALANCE ? ` A table needs ${START_BALANCE} to join, so you can watch or start over.` : '');
 }
 const sayBroke = () => `Not enough points to join: you have ${walletMemory}. A table needs ${START_BALANCE}. You can start over with ${START_BALANCE}, or watch the bots.`;
