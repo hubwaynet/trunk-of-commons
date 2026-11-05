@@ -219,3 +219,22 @@ Jason still reached Full distance and dominated a table by keeping control of th
 Even a fair player who grabs often is now sent out at about half of tables. Repeatedly holding the pool is resented whatever the split. If that feels too harsh, dominance could need 3 of the last 4 splits.
 
 Full distance became the hardest achievement (about 10–11% per table for a fair player), so it moved to last, after Your vote counted (about 22%).
+
+## Divider goes last; punish greed, not frequency (Jason, 2026-11-05)
+
+Jason was rejected and sent out after three fair grabs, while a greedy bot kept extra twice before being rejected on its third try. Decided:
+
+- **Turn order after a split:** the next round runs in the opposite order, **starting with the player after the divider**, so the divider has the last turn. The lap then finishes on the divider's turn, and the first chance to grab goes to someone else. (The 2018 notes started the next round with the divider, before the lap rule existed.)
+- **A fair divider** keeps no more than the larger of an equal share and their share by stake, rounded up. Bots now veto only greedy dividers who repeat (twice running) or dominate (2 of the last 3 splits). A fair divider who dominates loses at most a welcome, from Early Grabber, Pool Watcher and Edge Watcher (who want their own turn) and Patient. Solidarity and grudges are unchanged.
+
+| Learner style (3,000 tables) | Mean net | Median | Sent out |
+|---|---|---|---|
+| Grabs often, fair split, votes 2 | +6.2 | +5 | 6% (was 48%) |
+| Grabs once, fair split | +5.2 | +6 | 1% |
+| Steady giver | +4.3 | +5 | 0% |
+| Dominator (alternating punish/appease) | +7.1 | +3 | 59% |
+| Coalition (exclude the 0-voter every time) | +11.0 | +4 | 53% |
+
+The greedy patterns are now gambles: their median is below fair play, and they are sent out at more than half of tables. The coalition still averages slightly more than fair play, from the roughly 13% of tables without enough social voters, where it wins big.
+
+Achievement odds for the style that suits each one: Nobody short-changed 91%, Steady hand 90%, One clean grab 84%, Welcomed 54%, Your vote counted 20–40%, Full distance 10–19%. The order is unchanged.

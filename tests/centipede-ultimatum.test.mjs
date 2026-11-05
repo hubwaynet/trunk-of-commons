@@ -31,7 +31,7 @@ test('a broke player passes: no giving, no grabbing, no bonus for them', () => {
   assert.equal(s.pool, 3 + 3);
 });
 
-test('split set per player; accepted split pays out; order reverses from the divider', () => {
+test('split set per player; accepted split pays out; order reverses with the divider last', () => {
   let s = giveAll(fresh());
   s = act(act(s, 'a', 'give'), 'b', 'grab'); // pool 10
   s = divide(s, shares({ a: 4, b: 4, c: 1, d: 1 }));
@@ -40,8 +40,8 @@ test('split set per player; accepted split pays out; order reverses from the div
   assert.equal(s.rounds.at(-1).ultimatum.result, 'accepted');
   assert.equal(total(s), before);
   s = stay(s, { a: true, b: true, c: true, d: true });
-  assert.deepEqual(s.order, ['b', 'a', 'd', 'c']);
-  assert.equal(currentPlayer(s), 'b');
+  assert.deepEqual(s.order, ['a', 'd', 'c', 'b']);
+  assert.equal(currentPlayer(s), 'a');
 });
 
 test('a broke voter can still vote: the vote is paid from their share', () => {
@@ -167,8 +167,11 @@ test('grabbing opens only after the pool has gone round the table since the last
   assert.equal(s.phase, 'divide');
   s = vote(divide(s, splitBy(s.pool, { a: 1, b: 1, c: 1, d: 1 })), { a: 2, b: 1, c: 1, d: 1 });
   s = stay(s, { a: true, b: true, c: true, d: true });
-  assert.equal(currentPlayer(s), 'a'); // the divider starts the next round...
-  s = act(s, 'a', 'grab'); // ...but cannot grab the empty pool
+  assert.deepEqual(s.order, ['d', 'c', 'b', 'a']); // the divider goes last...
+  s = act(s, 'd', 'grab'); // ...and nobody can grab the empty pool
   assert.equal(s.phase, 'turn');
   assert.ok(s.pool > 0);
+  s = act(act(act(s, 'c', 'give'), 'b', 'give'), 'a', 'give'); // lap done on the divider's turn
+  assert.equal(currentPlayer(s), 'd'); // first chance to grab goes to the next player
+  assert.equal(act(s, 'd', 'grab').phase, 'divide');
 });

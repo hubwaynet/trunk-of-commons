@@ -47,17 +47,24 @@ const judgeBy = (ratio) => judge({ welcome: eq(1), accept: eq(ratio) });
 //        'withhold' won't welcome any repeat divider.
 //   v.dominant        the divider also divided at least 2 of the last 3 splits
 //   v.grudge          this divider short-changed me in an earlier split at this table
-// dominance / grudge: 'veto' votes 0; 'withhold' won't welcome (Jason, 2026-11-05, after he
-// kept control of the grab with alternating greedy and fair splits).
-const social = (base, { solidarity = null, turns = null, dominance = null, grudge = null } = {}) => (v) => {
+//   v.dividerFair     the divider keeps no more than a fair share for themselves (the larger of an
+//                     equal share and their share by stake, rounded up)
+// Punishment targets greed, not frequency (Jason, 2026-11-05: three fair grabs got him sent out
+// while a greedy bot got away with two):
+//   turns         a greedy divider dividing twice running
+//   dominance     a greedy divider who divided 2 of the last 3 splits
+//   dominanceFair a fair divider who divided 2 of the last 3 splits (at most a lost welcome)
+// Each takes 'veto' (vote 0) or 'withhold' (vote at most 1).
+const social = (base, { solidarity = null, turns = null, dominance = null, dominanceFair = null, grudge = null } = {}) => (v) => {
   if (v.iDivided) return 2;
   let vote = base(v);
   const othersShort = v.shortChanged.some((id) => id !== v.id);
+  const greedy = !v.dividerFair;
   const flags = [
     [othersShort, solidarity],
-    [v.repeatDivider && v.dividerKeeps > 1.25, turns === 'veto' ? 'veto' : null],
-    [v.repeatDivider, turns === 'withhold' ? 'withhold' : null],
-    [v.dominant, dominance],
+    [v.repeatDivider && greedy, turns],
+    [v.dominant && greedy, dominance],
+    [v.dominant && !greedy, dominanceFair],
     [v.grudge, grudge],
   ];
   for (const [hit, how] of flags) {
@@ -71,7 +78,7 @@ const social = (base, { solidarity = null, turns = null, dominance = null, grudg
 export const STRATEGIES = {
   patient: {
     label: 'Patient', family: 'cooperator',
-    summary: 'Always gives. If it divides, everyone gets an equal share. Welcomes a split that gives it at least an equal share, unless someone else is short-changed, the same player keeps dividing, or that divider short-changed it before; accepts one that gives it at least half.',
+    summary: 'Always gives. If it divides, everyone gets an equal share. Welcomes a split that gives it at least an equal share, unless someone else is short-changed, a greedy divider keeps dividing, or that divider short-changed it before; accepts one that gives it at least half.',
     tell: 'G every turn. Votes 2 for an equal share or better, 0 when badly shortchanged.',
     create: () => ({ turn: () => 'give', divide: equal, vote: social(judgeBy(0.5), { solidarity: 'withhold', turns: 'withhold', dominance: 'withhold', grudge: 'withhold' }) }),
   },
@@ -92,23 +99,23 @@ export const STRATEGIES = {
   },
   earlyGrabber: {
     label: 'Early Grabber', family: 'grabber',
-    summary: 'Grabs the pool at its first turn once grabbing is open and there is anything in it. Keeps 60%. Votes 0 against a player who keeps taking the grab.',
+    summary: 'Grabs the pool at its first turn once grabbing is open and there is anything in it. Keeps 60%. Votes 0 against a greedy player who keeps taking the grab; won\'t welcome even a fair one.',
     tell: 'Grabs early. Keeps well over a fair share.',
-    create: () => ({ turn: (v) => (v.pool > 0 ? 'grab' : 'give'), divide: keepThenEqual(0.6), vote: social(judgeBy(0.5), { dominance: 'veto' }) }),
+    create: () => ({ turn: (v) => (v.pool > 0 ? 'grab' : 'give'), divide: keepThenEqual(0.6), vote: social(judgeBy(0.5), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold' }) }),
   },
   poolWatcher: {
     label: 'Pool Watcher', family: 'grabber',
-    summary: 'Gives until the pool reaches 40, then grabs. Keeps 40% and shares the rest by what each put in. Judges others by what it put in, and votes 0 against a player who keeps taking the grab.',
+    summary: 'Gives until the pool reaches 40, then grabs. Keeps 40% and shares the rest by what each put in. Judges others by what it put in, and votes 0 against a greedy player who keeps taking the grab; won\'t welcome even a fair one.',
     tell: 'Gives for a while, then grabs a big pool. Keeps about twice a fair share.',
     create: () => ({
       turn: (v) => (v.pool >= 40 ? 'grab' : 'give'),
       divide: keepThenStakes((v) => Math.round(0.4 * v.pool)),
-      vote: social(judge({ welcome: prop(1), accept: eq(0.5) }), { turns: 'withhold', dominance: 'veto' }),
+      vote: social(judge({ welcome: prop(1), accept: eq(0.5) }), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold' }),
     }),
   },
   greedy: {
     label: 'Greedy', family: 'grabber',
-    summary: 'Grabs once the pool reaches 20, keeps 80%, and leaves the table if the split goes through. Never pays 2 for anyone else\'s split, and votes 0 against a player who keeps taking the grab.',
+    summary: 'Grabs once the pool reaches 20, keeps 80%, and leaves the table if the split goes through. Never pays 2 for anyone else\'s split, and votes 0 against a greedy player who keeps taking the grab.',
     tell: 'Grabs a mid-sized pool, keeps most of it, then leaves.',
     create: () => {
       let cashedIn = false;
@@ -126,17 +133,17 @@ export const STRATEGIES = {
   },
   edgeWatcher: {
     label: 'Edge Watcher', family: 'grabber',
-    summary: "Gives while it can keep up. Grabs when giving would leave it unable to afford next round. Keeps a little over a fair share and shares the rest by what each put in. Votes 0 against a player who keeps taking the grab, or who short-changed it before.",
+    summary: "Gives while it can keep up. Grabs when giving would leave it unable to afford next round. Keeps a little over a fair share and shares the rest by what each put in. Votes 0 against a greedy player who keeps taking the grab, or one who short-changed it before; won't welcome even a fair one.",
     tell: 'Gives until its balance runs low, then grabs. Splits only a little in its own favour.',
     create: () => ({
       turn: (v) => (v.balance - v.req < requirement(v.round + 1) ? 'grab' : 'give'),
       divide: keepThenStakes((v) => Math.round(1.25 * v.equal)),
-      vote: social(judge({ welcome: prop(1), accept: eq(0.6) }), { turns: 'withhold', dominance: 'veto', grudge: 'veto' }),
+      vote: social(judge({ welcome: prop(1), accept: eq(0.6) }), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold', grudge: 'veto' }),
     }),
   },
   spiteful: {
     label: 'Spiteful', family: 'judge',
-    summary: 'Always gives and splits equally, but votes 0 against any split that gives it less than an equal share. Also votes 0 if anyone else is short-changed, if a greedy player divides twice running, if one player keeps taking the grab, or if the divider short-changed it before. Never votes 2 for anyone else.',
+    summary: 'Always gives and splits equally, but votes 0 against any split that gives it less than an equal share. Also votes 0 if anyone else is short-changed, if a greedy player divides twice running or keeps taking the grab, or if the divider short-changed it before. Never votes 2 for anyone else.',
     tell: 'G every turn. Votes 0 whenever it, or anyone, is shortchanged, otherwise 1.',
     create: () => ({ turn: () => 'give', divide: equal, vote: social(judge({ accept: (v) => Math.floor(v.equal) }), { solidarity: 'veto', turns: 'veto', dominance: 'veto', grudge: 'veto' }) }),
   },
@@ -148,7 +155,7 @@ export const STRATEGIES = {
   },
   mirror: {
     label: 'Mirror', family: 'reciprocator',
-    summary: 'Gives and splits equally, until someone keeps more than a fair share and gets away with it. Then it grabs at its next turn and gives that divider nothing. Votes 0 against a greedy player dividing twice running, a player who keeps taking the grab, or a divider who short-changed it before.',
+    summary: 'Gives and splits equally, until someone keeps more than a fair share and gets away with it. Then it grabs at its next turn and gives that divider nothing. Votes 0 against a greedy player dividing twice running or keeping the grab, or a divider who short-changed it before.',
     tell: 'G until a greedy split goes through, then grabs and cuts the greedy divider out.',
     create: () => {
       let target = null;
@@ -219,6 +226,8 @@ export function botView(s, id) {
     dominant,
     grudge,
     dividerKeeps: u?.shares ? u.shares[u.grabber] / (s.pool / ids.length || 1) : 0,
+    dividerFair: u?.shares ? u.shares[u.grabber] <= Math.ceil(Math.max(s.pool / ids.length,
+      totalStakes ? (s.pool * (stakes[u.grabber] ?? 0)) / totalStakes : 0)) : true,
   };
 }
 

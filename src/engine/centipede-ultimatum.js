@@ -252,8 +252,8 @@ export function vote(s, votes) {
 
 /**
  * After a split is judged, each player stays or sits out the rest of the table. Those who
- * leave are excluded from later rounds (Jason, 2026-11-04). The next round starts with the
- * divider (if still in) and runs in the opposite order.
+ * leave are excluded from later rounds (Jason, 2026-11-04). The next round runs in the opposite
+ * order, starting with the player after the divider, so the divider has the last turn.
  */
 export function stay(s, decisions) {
   if (s.phase !== 'stay') throw new Error('Not deciding now');
@@ -262,9 +262,11 @@ export function stay(s, decisions) {
     p.active && decisions[p.id] === false ? { ...p, active: false, leftAfterRound: r, leftBecause: 'chose' } : p,
   );
   const last = s.rounds.at(-1).ultimatum;
+  // Reverse the order. The divider goes last, so the first chance to grab after the lap goes to
+  // the next player, not the divider again (Jason, 2026-11-05; the 2018 notes started with the divider).
   const rev = s.order.slice().reverse();
   const at = rev.indexOf(last.grabber);
-  const order = [...rev.slice(at), ...rev.slice(0, at)];
+  const order = [...rev.slice(at + 1), ...rev.slice(0, at + 1)];
   const next = { ...s, players, order, round: r + 1, turnIndex: 0, phase: 'turn' };
   if (players.filter((p) => p.active).length < s.minPlayers) return { ...next, phase: 'ended', status: 'ended', endReason: 'too-few' };
   return checkStart(next);
