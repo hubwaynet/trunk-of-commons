@@ -6,6 +6,7 @@ import { STRATEGIES, FAMILIES, botView, selectRoster } from '../../bots/rising-p
 import { strategyEvidence, guessFits } from '../../bots/evidence.js';
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 import { fireworks as showFireworks } from '../fireworks.js';
+import { unlock, isUnlocked, resetControl } from '../progress-store.js';
 
 const START_BALANCE = 20;
 const COMMONS_RESERVE = 120;
@@ -163,6 +164,7 @@ function earn(id) {
   achMemory = all;
   try { localStorage.setItem(ACH_KEY, JSON.stringify([...all])); } catch { /* storage unavailable */ }
   if (allEarned(all)) {
+    unlock('centipede');
     let done = false;
     try { done = localStorage.getItem(CELEBRATED_KEY) === '1'; localStorage.setItem(CELEBRATED_KEY, '1'); } catch { done = !!G.celebratedOnce; }
     G.celebratedOnce = true;
@@ -558,10 +560,17 @@ function progressHtml(have) {
   const n = ACHIEVEMENTS.filter((a) => have.has(a.id)).length;
   return `<div class="progress" role="img" aria-label="${n} of ${ACHIEVEMENTS.length} achievements">
     <div class="progress-segs">${ACHIEVEMENTS.map((a) => `<span class="seg ${have.has(a.id) ? 'on' : ''}" title="${esc(a.name)}${have.has(a.id) ? ' (done)' : ''}"></span>`).join('')}</div>
-    <span class="progress-label">${n} of ${ACHIEVEMENTS.length}${n === ACHIEVEMENTS.length ? ' · Game 2 unlocked' : ''}</span></div>`;
+    <span class="progress-label">${n} of ${ACHIEVEMENTS.length}${n === ACHIEVEMENTS.length || isUnlocked('centipede') ? ' · Game 2 unlocked' : ''}</span></div>`;
 }
 function renderProgress() {
-  document.getElementById('ach-progress').innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(loadAch())}`;
+  const have = loadAch();
+  if (allEarned(have)) unlock('centipede'); // players who finished before unlocks were stored
+  const el = document.getElementById('ach-progress');
+  el.innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(have)}`;
+  el.append(resetControl({
+    game: 'risingPool', keys: [ACH_KEY, CELEBRATED_KEY], count: ACHIEVEMENTS.filter((a) => have.has(a.id)).length,
+    onChange: (reset) => { if (reset) { achMemory = new Set(); G.earned = new Set(); toast('Rising Pool achievements reset.'); } render(); },
+  }));
 }
 
 const fireworks = () => showFireworks({ colors: [...HUES, HUMAN_HUE, '#ffd166'] });

@@ -73,3 +73,7 @@ Ordered easiest to hardest, with estimated per-table odds from 4,000 simulated t
 | Read the table | Every guess fits the evidence, table of 4+ rounds | skill, not luck |
 
 A progress strip in the page header shows how many are earned. Earning all five plays a fireworks show (skipped for reduced motion), and shows a "Game 2 unlocked" box saying the player has demonstrated skill and understanding in social dilemma strategies. The landing page marks Level 2 as unlocked in the same browser.
+
+## Reset achievements (Jason, 2026-11-05)
+
+A Reset link under the achievements strip clears the five achievements and the one-time celebration. The Game 2 unlock is stored separately (`trunk.unlocked.centipede`) and survives a reset. See `docs/design/centipede-ultimatum.md`.

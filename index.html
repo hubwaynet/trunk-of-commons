@@ -42,7 +42,7 @@
       <p class="muted">Keep building the pool, or grab it and decide how to divide it, then face the table's judgement.</p>
     </div>
     <div class="card level">
-      <span class="eyebrow">Level 3 · In design</span>
+      <span class="eyebrow" id="level3-status">Level 3 · In design</span>
       <h2>The Wheel</h2>
       <p class="muted">A turning wheel collects from some and rewards others. Can a table turn a trickle into a cascade?</p>
     </div>
@@ -61,11 +61,18 @@
   </footer>
 </main>
 <script>
-  // Show Level 2 as unlocked once every Rising Pool achievement is earned (stored in this browser).
+  // Show levels as unlocked from progress stored in this browser (see src/ui/progress-store.js).
   try {
-    const need = ['held-line', 'timed-exit', 'long-haul', 'rising-tide', 'read-table'];
-    const have = new Set(JSON.parse(localStorage.getItem('trunk.risingPool.achievements') || '[]'));
-    if (need.every((id) => have.has(id))) document.getElementById('level2-status').textContent = 'Level 2 · Unlocked';
+    const ls = localStorage;
+    const all = (key, ids) => { const have = new Set(JSON.parse(ls.getItem(key) || '[]')); return ids.every((id) => have.has(id)); };
+    if (ls.getItem('trunk.unlocked.centipede') === '1'
+        || all('trunk.risingPool.achievements', ['held-line', 'timed-exit', 'long-haul', 'rising-tide', 'read-table'])) {
+      document.getElementById('level2-status').textContent = 'Level 2 · Unlocked';
+    }
+    if (ls.getItem('trunk.unlocked.wheel') === '1'
+        || all('trunk.centipede.achievements', ['no-one-short', 'steady-hand', 'one-clean-grab', 'welcomed', 'full-distance', 'your-vote-counted'])) {
+      document.getElementById('level3-status').textContent = 'Level 3 · Unlocked · In design';
+    }
   } catch { /* storage unavailable */ }
 </script>
 </body>

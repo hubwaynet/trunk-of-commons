@@ -169,3 +169,9 @@ Decided: **grabbing opens only after the pool has gone round the table once sinc
 Simulation with the fix (4,000 tables): median 10 rounds, 21% reach round 20. 44% of splits are rejected, 50% accepted and 6% welcomed. Bot grabs now come later and are bigger (median pool 51), so greedy keeps are punished more often. Best strategies: Pool Watcher +10.2, Free Voter +8.1, Edge Watcher +7.6. Early Grabber, Greedy and Pushover finish level or behind.
 
 Achievement odds (per table, for the style that suits each one) barely move: Nobody short-changed about 88%, Steady hand 85%, One clean grab 76%, Welcomed about 65% for a fair splitter who votes 2, Full distance 20–39%, Your vote counted 9–41%. The order stays the same.
+
+## Reset achievements, permanent unlocks, Game 3 unlock (Jason, 2026-11-05)
+
+- Both games have a **Reset** link under the achievements strip in the header, with an in-page "are you sure?" step (artifacts can't show browser dialogs). It clears that game's achievements and its one-time celebration, so the full fireworks play again.
+- **Unlocks are permanent once earned** (`src/ui/progress-store.js`: `trunk.unlocked.centipede`, `trunk.unlocked.wheel`), so resetting Rising Pool never locks Game 2 again. Players who completed a game before this existed get the unlock recorded the next time they open that game.
+- **All six Game 2 achievements unlock Game 3.** The full fireworks play once, the "mastered" card says the Wheel is unlocked for when it's ready, the header strip says "Game 3 unlocked", and the home page shows "Level 3 · Unlocked · In design". When Game 3 is built, its lock should check `isUnlocked('wheel')`.

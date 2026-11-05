@@ -33,6 +33,8 @@ These are the key rules settled with Jason:
 
 - Rules and simulation findings: `docs/design/centipede-ultimatum.md`. Key choices: the pool carries over until someone grabs; the grabber sets each share; a rejected grabber leaves and the pool is refunded by stake; broke players pass but keep their vote; votes are paid from the share; start balance 20.
 - The page is locked behind the five Rising Pool achievements. `?preview` on the page address opens it for testing (Jason is fine with this staying).
+- Six achievements; all six unlock Game 3. Unlocks are permanent and stored by `src/ui/progress-store.js` (`isUnlocked('centipede')`, `isUnlocked('wheel')`); each game's Reset clears only its achievements.
+- Rules added 2026-11-05: an average of 1.5 or more welcomes a split (+1 point per player from the Commons); 20-round limit; an end-of-table pool goes back by stake; grabbing opens only after the pool has gone once round the table since the last split.
 - Bot strategies are a first draft and need more imagination (Jason, 2026-11-05).
 
 ## Next

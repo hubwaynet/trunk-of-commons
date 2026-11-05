@@ -112,3 +112,9 @@ h3 { font-family: var(--font-display); font-weight: 600; font-size: 16px; margin
 
 /* Celebration canvas (src/ui/fireworks.js) */
 .fireworks { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
+
+/* Reset achievements control (src/ui/progress-store.js) */
+.reset-ach { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 13px; color: var(--muted); }
+.linkish { font: inherit; font-size: 13px; background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.linkish:hover, .linkish:focus-visible { color: var(--ink); }
+.linkish.danger { color: var(--low); font-weight: 700; }

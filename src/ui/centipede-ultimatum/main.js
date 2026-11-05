@@ -8,6 +8,7 @@ import { STRATEGIES, FAMILIES, botView, selectRoster } from '../../bots/centiped
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 import { ACHIEVEMENTS, splitAchievements, endAchievements } from './achievements.js';
 import { fireworks } from '../fireworks.js';
+import { unlock, isUnlocked, resetControl } from '../progress-store.js';
 
 const START_BALANCE = 20;
 const COMMONS_RESERVE = 120;
@@ -27,6 +28,7 @@ const signed = (n) => (n > 0 ? `+${n}` : `${n}`);
 
 // ---------- lock ----------
 function game1Done() {
+  if (isUnlocked('centipede')) return true;
   try {
     const have = new Set(JSON.parse(localStorage.getItem(GAME1_ACH_KEY) || '[]'));
     return GAME1_NEED.every((id) => have.has(id));
@@ -53,6 +55,7 @@ function earn(ids) {
   const names = fresh.map((id) => ACHIEVEMENTS.find((a) => a.id === id).name);
   toast(`Achievement: ${names.join(' · ')}`);
   if (ACHIEVEMENTS.every((a) => all.has(a.id))) {
+    unlock('wheel');
     let done = false;
     try { done = localStorage.getItem(CELEBRATED_KEY) === '1'; localStorage.setItem(CELEBRATED_KEY, '1'); } catch { done = Boolean(G.celebratedOnce); }
     G.celebratedOnce = true;
@@ -76,11 +79,22 @@ function progressHtml(have) {
   const n = ACHIEVEMENTS.filter((a) => have.has(a.id)).length;
   return `<div class="progress" role="img" aria-label="${n} of ${ACHIEVEMENTS.length} achievements">
     <div class="progress-segs">${ACHIEVEMENTS.map((a) => `<span class="seg ${have.has(a.id) ? 'on' : ''}" title="${esc(a.name)}${have.has(a.id) ? ' (done)' : ''}"></span>`).join('')}</div>
-    <span class="progress-label">${n} of ${ACHIEVEMENTS.length}</span></div>`;
+    <span class="progress-label">${n} of ${ACHIEVEMENTS.length}${n === ACHIEVEMENTS.length || isUnlocked('wheel') ? ' · Game 3 unlocked' : ''}</span></div>`;
 }
 function renderProgress() {
   const el = document.getElementById('ach-progress');
-  if (el) el.innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(loadAch())}`;
+  if (!el) return;
+  const have = loadAch();
+  if (ACHIEVEMENTS.every((a) => have.has(a.id))) unlock('wheel');
+  el.innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(have)}`;
+  if (G.watch) return;
+  el.append(resetControl({
+    game: 'centipede', keys: [ACH_KEY, CELEBRATED_KEY], count: ACHIEVEMENTS.filter((a) => have.has(a.id)).length,
+    onChange: (reset) => {
+      if (reset) { achMemory = new Set(); G.earned = new Set(); G.celebratedOnce = false; toast('Centipede & Ultimatum achievements reset.'); }
+      render();
+    },
+  }));
 }
 
 function renderExtras() {
@@ -93,7 +107,7 @@ function renderExtras() {
     const card = h(`<section class="card extra unlocked" aria-labelledby="all-h"><div class="eyebrow">All achievements</div>
       <h3 id="all-h">Centipede &amp; Ultimatum mastered</h3>
       <p>You've shown you can share fairly, hold back, grab well, win a table's welcome, go the full distance, and make your own vote count.</p>
-      <p class="muted small">Game 3, the Wheel, is in design.</p>
+      <p class="muted small">Game 3, the Wheel, is unlocked for you and opens when it's ready.</p>
       <div class="btn-row"><button class="btn ghost" type="button" id="celebrate-again">Celebrate again</button></div></section>`);
     card.querySelector('#celebrate-again').addEventListener('click', () => celebrate(5200));
     parts.push(card);
