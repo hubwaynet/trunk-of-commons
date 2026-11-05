@@ -29,6 +29,12 @@ These are the key rules settled with Jason:
 - Reputation uses a fixed threshold: green if the player's average choice is at least medium. Relative reputation is reserved for a later, more complex game.
 - There are five achievements, ordered easiest to hardest by simulated odds. Earning all five plays fireworks and unlocks Game 2. The check uses localStorage key `trunk.risingPool.achievements`.
 
+## Game 2, Centipede & Ultimatum (playable draft, Nov 2026)
+
+- Rules and simulation findings: `docs/design/centipede-ultimatum.md`. Key choices: the pool carries over until someone grabs; the grabber sets each share; a rejected grabber leaves and the pool is refunded by stake; broke players pass but keep their vote; votes are paid from the share; start balance 20.
+- The page is locked behind the five Rising Pool achievements. `?preview` on the page address opens it for testing (Jason is fine with this staying).
+- Bot strategies are a first draft and need more imagination (Jason, 2026-11-05).
+
 ## Next
 
-Game 2 is Centipede & Ultimatum, from the TrunK of Commons notes (2018). Game 3 is the Wheel of Fortune, which needs headless simulation first. After that comes the larger framework (token economy, governance), followed by legal review and onboarding.
+Game 3 is the Wheel of Fortune, which needs headless simulation first. After that comes the larger framework (token economy, governance), followed by legal review and onboarding.
