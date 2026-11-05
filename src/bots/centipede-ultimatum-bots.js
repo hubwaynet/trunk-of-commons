@@ -235,7 +235,9 @@ export function botView(s, id) {
   }
   const u = s.ultimatum;
   const stakes = u?.stakes ?? s.stakes;
-  const shortChanged = u?.shares ? Object.keys(u.shares).filter((x) => (stakes[x] ?? 0) > 0 && u.shares[x] < stakes[x]) : [];
+  // A divider who gives themselves less than they put in is being generous, not short-changed
+  // (Jason, 2026-11-05: Bookkeeper vetoed him for keeping another player alive).
+  const shortChanged = u?.shares ? Object.keys(u.shares).filter((x) => x !== u.grabber && (stakes[x] ?? 0) > 0 && u.shares[x] < stakes[x]) : [];
   const repeatDivider = Boolean(u && lastRec && lastRec.grabber === u.grabber && lastRec.result !== 'rejected');
   const pastSplits = s.rounds.filter((r) => r.result === 'ultimatum').map((r) => r.ultimatum);
   // Free riders: voted 0 at least twice on a split that passed and gave them at least what they
@@ -245,7 +247,7 @@ export function botView(s, id) {
     if (x.result === 'rejected') continue;
     const n = Object.keys(x.shares).length;
     const eqx = x.pool / n;
-    const others = Object.keys(x.shares).filter((y) => (x.stakes[y] ?? 0) > 0 && x.shares[y] < x.stakes[y]);
+    const others = Object.keys(x.shares).filter((y) => y !== x.grabber && (x.stakes[y] ?? 0) > 0 && x.shares[y] < x.stakes[y]);
     for (const [y, vt] of Object.entries(x.votes)) {
       if (vt !== 0 || y === x.grabber) continue;
       const sh = x.shares[y] ?? 0;

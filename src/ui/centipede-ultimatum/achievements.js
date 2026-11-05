@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 export const ACHIEVEMENTS = [
-  { id: 'no-one-short', name: 'Nobody short-changed', text: 'Your split passed and every player got back at least what they put in.' },
+  { id: 'no-one-short', name: 'Nobody short-changed', text: 'Your split passed and every other player got back at least what they put in.' },
   { id: 'steady-hand', name: 'Steady hand', text: 'Reached the end of a table without grabbing, still seated and ahead.' },
   { id: 'one-clean-grab', name: 'One clean grab', text: 'Grabbed exactly once at a table, the split passed, and you finished ahead.' },
   { id: 'full-distance', name: 'Full distance', text: 'Still at the table when round 20, the last round, ended.' },
@@ -21,7 +21,7 @@ export function splitAchievements(s, id = 'you') {
   for (const u of splitsBy(s, id)) {
     if (!passed(u)) continue;
     const ids = Object.keys(u.shares);
-    if (ids.every((x) => u.shares[x] >= (u.stakes[x] ?? 0))) got.add('no-one-short');
+    if (ids.every((x) => x === id || u.shares[x] >= (u.stakes[x] ?? 0))) got.add('no-one-short');
     const total = ids.reduce((a, x) => a + u.votes[x], 0);
     if (u.votes[id] === 2 && ids.some((x) => u.votes[x] === 0) && total - 1 < ids.length) got.add('your-vote-counted');
     if (u.result === 'welcomed') got.add('welcomed');

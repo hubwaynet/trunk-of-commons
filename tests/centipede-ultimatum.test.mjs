@@ -188,3 +188,14 @@ test('a grabber sent out by a rejection leaves all their points in the pool', ()
   assert.ok(s.pool > 0);
   assert.equal(total(s), before);
 });
+
+import { STRATEGIES, botView } from '../src/bots/centipede-ultimatum-bots.js';
+
+test('a divider who gives themselves less than they put in is not "short-changed"', () => {
+  let s = giveAll(giveAll(fresh())); // stakes 3 each, pool 20
+  s = act(s, 'a', 'grab');
+  s = divide(s, { a: 1, b: 3, c: 3, d: 13 }); // a keeps 1 of the 3 it put in, keeps d alive
+  assert.deepEqual(botView(s, 'b').shortChanged, []);
+  const bk = STRATEGIES.bookkeeper.create(() => 0.5);
+  assert.equal(bk.vote(botView(s, 'b')), 1); // gets back exactly its stake: accepts
+});

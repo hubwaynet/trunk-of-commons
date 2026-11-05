@@ -273,3 +273,7 @@ Results (3,000 tables per learner style):
 - Being sent out costs everything, so greedy styles typically end around −20. The points they leave behind lift everyone who stays, so tables run longer: median 15 rounds, 43% reach round 20.
 - Bot tables: Bookkeeper +17.7, Patient +15.9, Spiteful +15.8, Edge Watcher +14.9, Free Voter +13.5, Skimmer +8.6, Pushover +5.3, Mirror −0.2, Pool Watcher −10.8, Early Grabber −19.4, Greedy −19.8.
 - Achievement order by odds for the style that suits each one: Nobody short-changed 96%, Steady hand 93%, One clean grab 77%, **Full distance about 72%** (moved up from last), Welcomed 65–69%, Your vote counted 25–55%.
+
+## Generous dividers aren't short-changed (Jason, 2026-11-05)
+
+In round 20 Jason gave himself less than he had put in, to keep another player alive, and paid everyone else exactly their stake. The Bookkeeper vetoed it, because the solidarity check counted the divider among the short-changed. Fixed: the divider's own share no longer counts as short-changing, for solidarity, for free-rider detection, or for the "Nobody short-changed" achievement, which now reads "every other player".
