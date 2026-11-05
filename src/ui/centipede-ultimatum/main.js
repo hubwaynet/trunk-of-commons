@@ -393,7 +393,7 @@ function divideCard() {
   const pool = s.pool;
   const ones = Object.fromEntries(ids.map((id) => [id, 1]));
   const stakeW = Object.fromEntries(ids.map((id) => [id, s.stakes[id] ?? 0]));
-  const riders = botView(s, 'you').freeRiders;
+  const { freeRiders: riders, freeZeros } = botView(s, 'you');
   const anyStake = ids.some((id) => (s.stakes[id] ?? 0) > 0);
   let shares = anyStake ? splitBy(pool, stakeW) : splitBy(pool, ones);
   const c = h(`<div class="card divide"><h2>Divide the pool of ${pool}</h2>
@@ -412,7 +412,7 @@ function divideCard() {
     rows.replaceChildren(...ids.map((id) => {
       const st = seat(id);
       const row = h(`<div class="share-row">
-        <span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}${riders.includes(id) ? ' <span class="chip-fr" title="Voted 0 at least twice on fair splits that passed anyway">free rider</span>' : ''}</span>
+        <span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}${riders.includes(id) ? ' <span class="chip-fr" title="Voted 0 at least twice on fair splits that passed anyway">free rider</span>' : freeZeros[id] === 1 && id !== 'you' ? ' <span class="chip-fr soft" title="Voted 0 once on a fair split that passed anyway. A second time makes a free rider.">1 free 0</span>' : ''}</span>
         <span class="muted small">put in ${s.stakes[id] ?? 0}</span>
         <span class="stepper">
           <button type="button" class="step" aria-label="Less for ${esc(st.name)}">−</button>
@@ -504,7 +504,11 @@ function tallyLine(u) {
   const total = ids.reduce((a, id) => a + u.votes[id], 0);
   const names = (v) => ids.filter((id) => u.votes[id] === v).map((id) => esc(seat(id).name));
   const list = (a) => (a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a.at(-1)}`);
-  const zeros = names(0);
+  const zeros = ids.filter((id) => u.votes[id] === 0).map((id) => {
+    const fair = u.result !== 'rejected' && id !== u.grabber && (u.shares[id] ?? 0) >= (u.stakes[id] ?? 0) && (u.shares[id] ?? 0) >= 0.8 * (u.pool / n)
+      && !ids.some((z) => z !== u.grabber && z !== id && (u.stakes[z] ?? 0) > 0 && u.shares[z] < u.stakes[z]);
+    return `${esc(seat(id).name)}${fair ? ' (a free 0: treated fairly)' : ''}`;
+  });
   const twos = names(2);
   let why = '';
   if (u.result === 'rejected') {

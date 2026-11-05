@@ -277,3 +277,9 @@ Results (3,000 tables per learner style):
 ## Generous dividers aren't short-changed (Jason, 2026-11-05)
 
 In round 20 Jason gave himself less than he had put in, to keep another player alive, and paid everyone else exactly their stake. The Bookkeeper vetoed it, because the solidarity check counted the divider among the short-changed. Fixed: the divider's own share no longer counts as short-changing, for solidarity, for free-rider detection, or for the "Nobody short-changed" achievement, which now reads "every other player".
+
+## Free-rider label made visible; no rematch or table choice (Jason, 2026-11-06)
+
+- Jason waited for the free-rider label before cutting Free Voter, and it was slow to come. Measured (2,500 tables each): of Free Voter's 0 votes, 20–40% fall on rejected splits and about 40% come when it got less than its stake or under 80% of an equal share (a fair protest), so they don't count. It ends up labelled at 93% of tables where the player divides fairly, but only 27% where the player just gives.
+- The divide card now shows **1 free 0** for a player one step from the label. The vote result marks a 0 as "a free 0: treated fairly" when it counts. The rules on the page explain free 0s and free riders. Bots and the page use the same list, so no bot treats a player as a free rider before the label shows. A split by stake can still leave someone slightly under their stake, which can look like a sanction.
+- **No rematch and no choosing the bots** (Jason): either could be gamed by finding an easy table to farm achievements. Tables stay random. A practice mode without achievements remains possible later.

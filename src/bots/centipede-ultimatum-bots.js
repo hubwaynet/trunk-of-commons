@@ -279,6 +279,7 @@ export function botView(s, id) {
     myShare: u?.shares?.[id] ?? null,
     shortChanged,
     freeRiders,
+    freeZeros, // per player: 0 votes on fair splits that passed anyway (2 makes a free rider)
     repeatDivider,
     dominant,
     grudge,
