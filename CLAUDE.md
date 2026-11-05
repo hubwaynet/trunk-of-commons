@@ -29,13 +29,15 @@ These are the key rules settled with Jason:
 - Reputation uses a fixed threshold: green if the player's average choice is at least medium. Relative reputation is reserved for a later, more complex game.
 - There are five achievements, ordered easiest to hardest by simulated odds. Earning all five plays fireworks and unlocks Game 2. The check uses localStorage key `trunk.risingPool.achievements`.
 
-## Game 2, Centipede & Ultimatum (playable draft, Nov 2026)
+## Game 2, Centipede & Ultimatum (playable, Nov 2026)
 
-- Rules and simulation findings: `docs/design/centipede-ultimatum.md`. Key choices: the pool carries over until someone grabs; the grabber sets each share; a rejected grabber leaves and the pool is refunded by stake; broke players pass but keep their vote; votes are paid from the share; start balance 20.
-- The page is locked behind the five Rising Pool achievements. `?preview` on the page address opens it for testing (Jason is fine with this staying).
-- Six achievements; all six unlock Game 3. Unlocks are permanent and stored by `src/ui/progress-store.js` (`isUnlocked('centipede')`, `isUnlocked('wheel')`); each game's Reset clears only its achievements.
-- Rules added 2026-11-05: an average of 1.5 or more welcomes a split (+1 point per player from the Commons); 20-round limit; an end-of-table pool goes back by stake; grabbing opens only after the pool has gone once round the table since the last split.
-- Bot strategies are a first draft and need more imagination (Jason, 2026-11-05).
+- **The current rules are summarised at the top of `docs/design/centipede-ultimatum.md`.** The rest of that file is a dated decision log.
+- Engine options (`createGame`) default to Jason's decisions. Older variants are kept as options so simulations can compare them.
+- Bots: 11 strategies with social voting (solidarity, turn-taking, dominance, grudges, free-rider sanctions). They read everything from `botView`, which also computes free riders.
+- Simulators: `tools/sim-centipede.mjs` (bot tables) and `tools/sim-centipede-achievements.mjs` (learner styles for the human seat, including Jason's exploit patterns: coalition, dominator, skimmer).
+- Locked behind the five Rising Pool achievements; `?preview` opens it (Jason is fine with this). Six achievements; all six unlock Game 3. Unlocks are permanent and stored by `src/ui/progress-store.js`; each game's Reset clears only its achievements.
+- No rematch or choosing the bots, because either could be gamed (Jason, 2026-11-06).
+- Since 2026-11-05 changes have been pushed straight to `main` with Jason's agreement (the `game-2-centipede-sim` branch mirrors it).
 
 ## Next
 

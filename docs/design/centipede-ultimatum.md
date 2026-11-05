@@ -2,6 +2,26 @@
 
 Source: *Game 2 - multiplayer iterated - centipede with ultimatum (MI-CU)*, TrunK of Commons, 2018-08-07.
 
+## Current rules (summary, 2026-11-06)
+
+This section describes the game as it stands. Everything below it is the dated log of how each rule was reached; where the log and this summary differ, this summary is current.
+
+- **Table:** six seats (the player and five bots, or six bots in watch mode). Everyone starts with 20. The Commons holds a reserve of 120.
+- **Turns:** each turn a player gives the round's amount (1 in round 1, one more each round) or grabs the pool. A player who can't pay in full **passes**: no giving, no grabbing, but they keep their seat and vote.
+- **When grabbing opens:** only after the pool has gone once round the table since the last split (or the start).
+- **No grab:** the Commons adds 1 per giver and the pool carries over.
+- **Dividing:** the grabber sets each player's share in whole points. The page starts it as a split by what each put in.
+- **Voting:** everyone votes 0, 1 or 2, paid from their share first, then their balance; a 0 is free.
+  - Average below 1: **rejected**.
+  - 1 up to (but not including) 1.5: **accepted**. The vote pool is shared equally.
+  - 1.5 or more: **welcomed**. The Commons rounds the vote pool up and adds 1 point per player.
+- **Rejection:** the pool goes back by what each put in, the grabber leaves the table, and everything the grabber holds stays in the pool for the others.
+- **After a split:** each player stays or sits out for good. The next round runs in reverse order, starting with the player after the divider, so the divider goes last.
+- **End of the table:** after round 20, when nobody can give, when fewer than three remain, or when the Commons can't pay the round bonus. Any pool left goes back by what each put in (leftover points go to the largest fractions).
+- **Free riders:** two free 0s, meaning 0 votes on a split that passed and treated the voter fairly. Free riders can be cut without the solidarity voters defending them.
+- **Access:** locked behind all five Rising Pool achievements (`?preview` opens it). Six achievements, ordered easiest first. All six unlock Game 3. Unlocks are permanent, and Reset clears only that game's achievements.
+- **Bots (11 strategies):** Patient and Pushover (cooperators); Bookkeeper and Mirror (reciprocators); Early Grabber, Pool Watcher, Greedy, Edge Watcher and Skimmer (grabbers); Spiteful and Free Voter (judges). Social habits: solidarity, turn-taking against greedy repeat dividers, dominance, grudges, and sanctions on free riders.
+
 ## Rules as implemented (engine draft 2, 2026-11-04)
 
 - Six seats, everyone starts with 20 points. The Commons is a finite reserve of 120, as in Game 1.
