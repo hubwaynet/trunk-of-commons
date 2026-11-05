@@ -80,6 +80,16 @@ async function axeCheck(page, label) {
   assert.deepEqual(fresh, [], `${label}: new accessibility problems`);
 }
 
+// "What this table showed": one or two moments, each naming an idea, with https links
+async function showedCard(page, label) {
+  const moments = await page.$$eval('.showed .moment', (ms) => ms.map((m) => ({ text: m.textContent, links: [...m.querySelectorAll('a')].map((a) => a.href) })));
+  assert.ok(moments.length >= 1 && moments.length <= 2, `${label}: ${moments.length} moments on the card`);
+  for (const m of moments) {
+    assert.doesNotMatch(m.text, /undefined|NaN/, `${label}: ${m.text}`);
+    for (const url of m.links) assert.match(url, /^https:\/\//);
+  }
+}
+
 async function noSidewaysScroll(page, label) {
   const extra = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.ok(extra <= 0, `${label}: page scrolls sideways by ${extra}px`);
@@ -134,6 +144,7 @@ for (const setup of [DESKTOP, PHONE]) {
     assert.ok(await page.$('.debrief'), 'the table closes with a debrief');
     await page.click('#check');
     assert.ok((await page.$$('.reveal')).length >= 5, 'Read the table gives a verdict for each bot');
+    await showedCard(page, label);
     await noSidewaysScroll(page, label);
     if (setup === DESKTOP) await axeCheck(page, label);
     await finish(t, run, label);
@@ -212,6 +223,7 @@ for (const setup of [DESKTOP, PHONE]) {
     assert.equal(seen.round21, false, `${label}: asked to stay for a round 21`);
     const roundLabel = await page.$$eval('#table text', (ts) => ts.map((x) => x.textContent).find((x) => /ROUND|TABLE OVER/.test(x)));
     assert.match(roundLabel, /^TABLE OVER AFTER ROUND \d+$/);
+    await showedCard(page, label);
     await noSidewaysScroll(page, label);
     if (setup === DESKTOP) await axeCheck(page, label);
     await finish(t, run, label);

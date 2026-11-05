@@ -337,6 +337,11 @@ From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai pro
   - The round log shows the same text on hover over a 0. On phones there's no hover, so the result card is the place to read it.
   - Also fixed: on the split table, a long divider name pushed "divider" into the bar. It now sits under the name.
 - **"What this table showed" card.** One or two things that happened at this table, each with one sentence naming the idea and its source, with a link. Sources include de Waal's reciprocity via Ostrom & Walker, Ostrom's sanctions, the ultimatum and centipede games, and equality vs equity. Jason picks from drafts.
+  - *Built; Jason kept all ten Game 2 ideas as drafted (2026-11-06).*
+  - The ideas and their wording live in `src/ui/ideas.js`, and the moment-finder in `src/ui/centipede-ultimatum/moments.js`.
+  - The card shows at most two moments: ones involving the player first, never two of the same idea, and no strategy names.
+  - Share of 1,500 simulated tables showing each idea: selective protest 66%, rewarding fair dealing 30%, equality or equity 28%, the ultimatum game 27%, monitoring and graduated sanctions 24%, partner specificity 8%, turn-taking 7%, free rider 6%, the rising amount 3%, the centipede game 2%.
+  - Jason saw and kept three known quirks: the centipede game rarely shows; Ostrom's sanctions are graduated, while this game's are one step; and Game 1's "out of step with the table" hints at the noisy bot.
 - **Being sent out, and carry-over: no change.** A rejected grabber still leaves everything in the pool, and points still don't carry between tables. Re-test once the 0-vote reasons show.
 - **The Commons stays at 120.**
   - The page says this game's pressure is the rising amount (Game 1 teaches the finite Commons).

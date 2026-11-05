@@ -86,6 +86,9 @@ From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai pro
 
 - **The escalation lesson (settles the open question above).** The debrief says what failed this table ("Reed chose 0", or "Quoll couldn't afford medium ↓"). It also says that rising stakes outrun balances, so even a trusting table has limits. No rule change. In simulation, 84% of failing rounds include a ↓, and 12% fail on affordability alone.
 - **"What this table showed" card.** One or two things that happened at this table, each with one sentence naming the idea and its source, with a link (for example Axelrod's nice, retaliatory, forgiving and clear; noise; public goods). Jason picks from drafts. Same card as Game 2.
+  - *Built; Jason kept all seven Game 1 ideas as drafted (2026-11-06).*
+  - A failed round gives one card, named by its cause. If anyone couldn't afford their gift (↓), it shows "rules people can keep" (Ostrom's congruence, which carries the escalation lesson). If players only chose nothing, it shows "a threshold public good".
+  - Share of 1,500 simulated tables showing each idea: rules people can keep 60%, nice/retaliatory/forgiving/clear 44%, threshold public good 40%, end-game problem 26%, free rider 15%, mistakes and forgiveness 2%. The shadow of the future is found at 10% of tables but is always outranked.
 - **Screen readers.** One quiet announcer per page gives each round's result. Jason sees the exact sentences before they go live.
   - *Built, and the wording approved as drafted (Jason, 2026-11-06).*
     - It reads the round prompt ("Round 2: give nothing, medium 2 or high 4. You have 21 points."), the result with your gain or loss and the stay question, the table's end, Read the table's verdict, and the "not enough points" screen.
