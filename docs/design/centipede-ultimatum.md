@@ -14,7 +14,7 @@ Source: *Game 2 - multiplayer iterated - centipede with ultimatum (MI-CU)*, Trun
   - Average from 1 to 1.5 (1.5 counts as closer to 1): the split is paid. The vote pool is shared equally in whole points, with any remainder going to the Commons.
   - Average above 1.5: the split is paid. The Commons rounds the vote pool up to a whole number per player (Jason, 2026-11-04).
 - After a split, each player stays or sits out. Players who sit out are excluded from the rest of the table (Jason, 2026-11-04). The pool restarts at 0, the requirement keeps rising, and the next round starts with the divider and runs in the opposite order.
-- The table ends when fewer than 3 players remain, when nobody can afford to give (any pool left is shared equally), or when the Commons can't pay the round bonus.
+- The table ends when fewer than 3 players remain, when nobody can afford to give (any pool left goes back by what each put in; see 2026-11-05), or when the Commons can't pay the round bonus.
 - Game 2 stays locked until all five Game 1 achievements are earned (Jason, 2026-11-04).
 
 ## What a rejection does (decided)
@@ -134,7 +134,7 @@ Jason chose the challenges; the order (easiest first) comes from `tools/sim-cent
 
 - **An average of 1.5 or more welcomes a split** (`welcomeAt: 'atLeast'`, now the default). This replaces the 2026-11-04 rule that 1.5 counts as accepted.
 - **A welcomed split pays a bonus.** The Commons rounds the vote pool up as before and then adds 1 point for every player (`welcomeBonus: 1`), as far as its reserve allows.
-- **Round limit 20** (`maxRound: 20`). The table ends after round 20, and any pool is shared equally.
+- **Round limit 20** (`maxRound: 20`). The table ends after round 20, and any pool goes back by what each put in.
 - **New achievement, Full distance:** still at the table when round 20 ends.
 
 New achievement order (odds per table for the style that suits each one): Nobody short-changed (about 85%), Steady hand (86%), One clean grab (74%), Welcomed (63%), Full distance (30–53%, depends on the table more than on you), Your vote counted (10–40%).
@@ -151,3 +151,11 @@ Simulation (4,000 tables, 6 seats): median 11 rounds; 34% reach round 20; 26% of
 | 10 | 20 | 90% | 14.7 | round 1 | 20% | 38% | 57% |
 
 The Commons never ran out at any size, so scaling its reserve made no difference.
+
+## End-of-table pool goes back by stake (Jason, 2026-11-05)
+
+When a table ends with a pool still on it (round 20, nobody can afford the amount, or the Commons runs dry), the pool now goes back to each player in proportion to what they put in, the same way a rejected pool is refunded. Before this it was shared equally. That was an agent's interim default from draft 1, never Jason's decision.
+
+Rounding: when a pool is split in proportion (the "by what each put in" preset, refunds, and the end-of-table return), leftover points from rounding down now go one each to the players with the largest fractions. Before, they went to the biggest contributors. For example, a pool of 12 with stakes 1, 3 and 3 now returns 2, 5 and 5 (it was 1, 6 and 5).
+
+Simulation after both changes (4,000 tables): median 11 rounds, 34% reach round 20. Free Voter is close behind Edge Watcher as the best strategy (+9.6 and +9.9 per seat), and Pushover now finishes slightly behind (−1.1).

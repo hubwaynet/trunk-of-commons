@@ -146,3 +146,13 @@ test('achievements: end-of-table checks need a finished table', () => {
   assert.equal(endAchievements(s, 'a').size, 0);
   assert.equal(ACHIEVEMENTS.length, 6);
 });
+
+test('a pool left at the end goes back by what each put in', () => {
+  let s = createGame({ players: [{ id: 'a', balance: 1 }, { id: 'b', balance: 3 }, { id: 'c', balance: 3 }] });
+  for (const id of ['a', 'b', 'c']) s = act(s, id, 'give'); // round 1: pool 3 + 3 bonus
+  s = act(s, 'a', 'give'); // a is broke: passes
+  s = act(act(s, 'b', 'give'), 'c', 'give'); // round 2: b, c give 2 each, +2 bonus -> pool 12; round 3 needs 3, nobody can
+  assert.equal(s.endReason, 'all-broke');
+  assert.deepEqual(s.finalShares, { a: 2, b: 5, c: 5 }); // stakes 1, 3, 3 of 12
+  assert.equal(s.players.reduce((x, p) => x + p.balance, 0), 12);
+});

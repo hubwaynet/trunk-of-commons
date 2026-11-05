@@ -509,10 +509,10 @@ function stayCard() {
 }
 
 const END_TEXT = {
-  'all-broke': 'Nobody could afford the amount any more. What was in the pool was shared equally.',
+  'all-broke': 'Nobody could afford the amount any more. What was in the pool went back by what each player put in.',
   'too-few': 'Fewer than three players remained.',
-  'commons-exhausted': 'The Commons ran out and could not pay the round bonus. The pool was shared equally.',
-  'round-cap': 'The table reached round 20, the last round. What was in the pool was shared equally.',
+  'commons-exhausted': 'The Commons ran out and could not pay the round bonus. The pool went back by what each player put in.',
+  'round-cap': 'The table reached round 20, the last round. What was in the pool went back by what each player put in.',
   rejected: 'A split was rejected and the table ended.',
 };
 

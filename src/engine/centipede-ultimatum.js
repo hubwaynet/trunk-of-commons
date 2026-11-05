@@ -131,17 +131,18 @@ function checkStart(s) {
   return s;
 }
 
-/** The table ends with a pool still on it: it is shared equally, any remainder to the Commons. */
+/**
+ * The table ends with a pool still on it: it goes back to each player in proportion to what
+ * they put in, like a rejected pool (Jason, 2026-11-05; it was shared equally before).
+ */
 function endSeason(s, reason) {
   const ids = activeIds(s);
-  const each = Math.floor(s.pool / ids.length);
+  const back = s.pool > 0 ? splitBy(s.pool, Object.fromEntries(ids.map((id) => [id, s.stakes[id] ?? 0]))) : {};
   let players = s.players;
-  for (const id of ids) players = setBal(players, id, each);
-  const rem = s.pool - each * ids.length;
+  for (const id of ids) players = setBal(players, id, back[id] ?? 0);
   return {
     ...s, players, pool: 0, stakes: {}, status: 'ended', endReason: reason, phase: 'ended',
-    finalShare: each,
-    commons: { ...s.commons, reserve: s.commons.reserve + rem, received: s.commons.received + rem },
+    finalShares: back,
   };
 }
 
@@ -271,15 +272,14 @@ export function splitBy(pool, weights, keeper = null, keep = 0) {
   const shares = Object.fromEntries(ids.map((id) => [id, 0]));
   if (keeper) shares[keeper] = keep;
   if (!others.length) { if (keeper) shares[keeper] = pool; return shares; }
+  const exact = Object.fromEntries(others.map((id) => [id, w > 0 ? (rest * weights[id]) / w : rest / others.length]));
   let given = 0;
-  for (const id of others) {
-    shares[id] = w > 0 ? Math.floor((rest * weights[id]) / w) : Math.floor(rest / others.length);
-    given += shares[id];
-  }
-  // leftovers go one at a time to the largest weights (or the keeper)
+  for (const id of others) { shares[id] = Math.floor(exact[id]); given += shares[id]; }
+  // Leftover points go to the keeper if there is one; otherwise one each to the largest
+  // fractions left over by rounding down, ties to the larger weight, then seat order.
   let left = rest - given;
-  const byWeight = [...others].sort((a, b) => weights[b] - weights[a]);
   if (keeper) { shares[keeper] += left; left = 0; }
-  for (let i = 0; left > 0; i = (i + 1) % byWeight.length, left--) shares[byWeight[i]]++;
+  const byFraction = [...others].sort((a, b) => (exact[b] - shares[b]) - (exact[a] - shares[a]) || weights[b] - weights[a]);
+  for (let i = 0; left > 0; i = (i + 1) % byFraction.length, left--) shares[byFraction[i]]++;
   return shares;
 }
