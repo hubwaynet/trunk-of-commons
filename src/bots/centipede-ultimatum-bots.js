@@ -23,15 +23,26 @@ const keepThenEqual = (frac) => (v) => splitBy(v.pool, ones(v), v.id, Math.round
 const keepThenStakes = (keep) => (v) =>
   splitBy(v.pool, Object.fromEntries(v.ids.map((id) => [id, v.stakes[id] ?? 0])), v.id, keep(v));
 
-// Judging habits. A "fair share" is an equal share of the pool.
-const judgeBy = (ratio) => (v) => (v.iDivided ? 2 : v.myShare >= ratio * v.equal ? 1 : 0);
-const gotBackStake = (v) => (v.iDivided ? 2 : v.myShare >= (v.stakes[v.id] ?? 0) ? 1 : 0);
+// Judging habits. Each bot measures an offer against its own idea of a fair share:
+//   v.equal        an equal share of the pool
+//   v.proportional a share in proportion to what it put in (the pool includes the Commons bonus)
+//   v.myStake      exactly what it put in
+// welcome: vote 2 at or above this; accept: vote 1 at or above this; otherwise 0.
+// Bots always vote 2 on their own split.
+const judge = ({ welcome = null, accept }) => (v) => {
+  if (v.iDivided) return 2;
+  if (welcome && v.myShare >= welcome(v)) return 2;
+  return v.myShare >= accept(v) ? 1 : 0;
+};
+const eq = (k) => (v) => k * v.equal;
+const prop = (k) => (v) => k * v.proportional;
+const judgeBy = (ratio) => judge({ welcome: eq(1), accept: eq(ratio) });
 
 export const STRATEGIES = {
   patient: {
     label: 'Patient', family: 'cooperator',
-    summary: 'Always gives. If it divides, everyone gets an equal share. Accepts any split that gives it at least half a fair share.',
-    tell: 'G every turn. Votes 1, or 0 when badly shortchanged.',
+    summary: 'Always gives. If it divides, everyone gets an equal share. Welcomes a split that gives it at least an equal share; accepts one that gives it at least half.',
+    tell: 'G every turn. Votes 2 for an equal share or better, 0 when badly shortchanged.',
     create: () => ({ turn: () => 'give', divide: equal, vote: judgeBy(0.5) }),
   },
   pushover: {
@@ -42,10 +53,10 @@ export const STRATEGIES = {
   },
   bookkeeper: {
     label: 'Bookkeeper', family: 'reciprocator',
-    summary: 'Always gives. Divides in proportion to what each player put in, so players who sat out get nothing. Accepts a split if it gets back at least what it put in.',
+    summary: 'Always gives. Divides in proportion to what each player put in, so players who passed get less or nothing. Accepts a split if it gets back at least what it put in; welcomes one that pays in proportion to what it put in.',
     tell: 'G every turn. Its splits pay givers and leave passers with 0.',
     create: () => ({
-      turn: () => 'give', divide: byStakes, vote: gotBackStake,
+      turn: () => 'give', divide: byStakes, vote: judge({ welcome: prop(1), accept: (v) => v.myStake }),
       stay: (v) => !(v.lastUltimatum && v.lastUltimatum.result !== 'rejected' && v.lastUltimatum.myNet < 0 && v.lastUltimatum.round === v.round),
     }),
   },
@@ -57,24 +68,24 @@ export const STRATEGIES = {
   },
   poolWatcher: {
     label: 'Pool Watcher', family: 'grabber',
-    summary: 'Gives until the pool reaches 40, then grabs. Keeps 40% and shares the rest by what each put in.',
+    summary: 'Gives until the pool reaches 40, then grabs. Keeps 40% and shares the rest by what each put in. Judges others by what it put in.',
     tell: 'Gives for a while, then grabs a big pool. Keeps about twice a fair share.',
     create: () => ({
       turn: (v) => (v.pool >= 40 ? 'grab' : 'give'),
       divide: keepThenStakes((v) => Math.round(0.4 * v.pool)),
-      vote: judgeBy(0.5),
+      vote: judge({ welcome: prop(1), accept: eq(0.5) }),
     }),
   },
   greedy: {
     label: 'Greedy', family: 'grabber',
-    summary: 'Grabs once the pool reaches 20, keeps 80%, and leaves the table if the split goes through.',
+    summary: 'Grabs once the pool reaches 20, keeps 80%, and leaves the table if the split goes through. Never pays 2 for anyone else\'s split.',
     tell: 'Grabs a mid-sized pool, keeps most of it, then leaves.',
     create: () => {
       let cashedIn = false;
       return {
         turn: (v) => (v.pool >= 20 ? 'grab' : 'give'),
         divide: keepThenEqual(0.8),
-        vote: judgeBy(0.3),
+        vote: judge({ accept: eq(0.3) }),
         stay: (v) => {
           const u = v.lastUltimatum;
           if (u && u.grabber === v.id && u.result !== 'rejected') cashedIn = true;
@@ -90,14 +101,14 @@ export const STRATEGIES = {
     create: () => ({
       turn: (v) => (v.balance - v.req < requirement(v.round + 1) ? 'grab' : 'give'),
       divide: keepThenStakes((v) => Math.round(1.25 * v.equal)),
-      vote: judgeBy(0.6),
+      vote: judge({ welcome: prop(1), accept: eq(0.6) }),
     }),
   },
   spiteful: {
     label: 'Spiteful', family: 'judge',
-    summary: 'Always gives and splits equally, but votes 0 against any split that gives it less than a fair share.',
-    tell: 'G every turn. Votes 0 whenever it gets less than an equal share.',
-    create: () => ({ turn: () => 'give', divide: equal, vote: (v) => (v.iDivided ? 2 : v.myShare >= Math.floor(v.equal) ? 1 : 0) }),
+    summary: 'Always gives and splits equally, but votes 0 against any split that gives it less than an equal share. Never votes 2 for anyone else.',
+    tell: 'G every turn. Votes 0 whenever it gets less than an equal share, otherwise 1.',
+    create: () => ({ turn: () => 'give', divide: equal, vote: judge({ accept: (v) => Math.floor(v.equal) }) }),
   },
   freeVoter: {
     label: 'Free Voter', family: 'judge',
@@ -147,9 +158,15 @@ export function botView(s, id) {
     };
   }
   const u = s.ultimatum;
+  const stakes = u?.stakes ?? s.stakes;
+  const totalStakes = ids.reduce((a, x) => a + (stakes[x] ?? 0), 0);
+  const myStake = stakes[id] ?? 0;
   return {
     id,
     ids,
+    myStake,
+    totalStakes,
+    proportional: totalStakes ? (s.pool * myStake) / totalStakes : s.pool / ids.length,
     round: s.round,
     req: requirement(s.round),
     balance: me.balance,

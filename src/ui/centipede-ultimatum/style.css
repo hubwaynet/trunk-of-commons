@@ -97,7 +97,14 @@ th { font-family: var(--font-data); font-weight: 500; font-size: 11px; letter-sp
 .step { font: inherit; font-weight: 700; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
 .remaining { margin: 0; font-family: var(--font-data); font-size: 14px; }
 .miss { color: var(--low); }
-.split-row { display: grid; grid-template-columns: minmax(0, 7rem) minmax(0, 1fr) 2.2em auto; gap: 8px; align-items: center; font-size: 14px; }
+.split-row { display: grid; grid-template-columns: minmax(0, 7rem) minmax(0, 1fr) 2.6em 3.6em 2.6em; gap: 8px; align-items: center; font-size: 14px; }
+.split-row.head { white-space: nowrap; font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
+.split-row .num.muted { color: var(--muted); }
+.split-row .vote { justify-self: end; }
+.split-row.head span:last-child { text-align: right; }
+.short { color: var(--low); font-weight: 700; }
+.need, .tally { margin: 0; font-size: 14px; }
+.need { padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--flow) 10%, var(--surface)); }
 .split-row.me { font-weight: 700; }
 .split-row .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
 .split-row .bar span { display: block; height: 100%; background: var(--brass); }

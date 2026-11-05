@@ -53,22 +53,24 @@ The vote tokens of a rejected split always go to the Commons.
 2. A round cap of 60, as a safety stop for simulation.
 3. `firstGrabRound` exists as a switch but changed little, so it is off.
 
-## Bot roster (draft 2, 10 strategies)
+## Bot roster (draft 3, 10 strategies, 2026-11-05)
 
-| Strategy | Grabs | Divides | Judges | Leaves |
-|---|---|---|---|---|
-| Patient | never | equal | accepts at least half a fair share | no |
-| Pushover | never | equal | always 2 | no |
-| Bookkeeper | never | by what each put in (passers get 0) | accepts if it gets back what it put in | after a split that lost it points |
-| Early Grabber | first turn with anything in the pool | keeps 60%, rest equal | at least half a fair share | no |
-| Pool Watcher | pool at 40 or more | keeps 40%, rest by what each put in | at least half a fair share | no |
-| Greedy | pool at 20 or more | keeps 80%, rest equal | at least 30% of a fair share | after its split goes through |
-| Edge Watcher | when giving would leave it short next round | keeps 1.25 × fair, rest by what each put in | at least 60% of a fair share | no |
-| Spiteful | never | equal | 0 unless given a fair share | no |
-| Free Voter | never | equal | always 0 | no |
-| Mirror | after a greedy split goes through | cuts the greedy divider out | at least 70% of a fair share | no |
+Each bot measures an offer against its own idea of a fair share: an **equal** share of the pool, a share **in proportion** to what it put in (the pool includes the Commons bonus), or **exactly what it put in**. It votes 2 (welcome) at or above one level, 1 (accept) at or above a lower one, and 0 below. Every bot votes 2 on its own split.
 
-Every bot votes 2 on its own split. "Never" grabs still allows a bot to give until it is broke. Tables seat at least one grabber, one judge and one reciprocator.
+| Strategy | Grabs | Divides | Welcomes (2) at | Accepts (1) at | Leaves |
+|---|---|---|---|---|---|
+| Patient | never | equal | equal share | half an equal share | no |
+| Pushover | never | equal | anything | – | no |
+| Bookkeeper | never | by what each put in | proportional share | what it put in | after a split that lost it points |
+| Early Grabber | first turn with anything in the pool | keeps 60%, rest equal | equal share | half an equal share | no |
+| Pool Watcher | pool at 40 or more | keeps 40%, rest by what each put in | proportional share | half an equal share | no |
+| Greedy | pool at 20 or more | keeps 80%, rest equal | never | 30% of an equal share | after its split goes through |
+| Edge Watcher | when giving would leave it short next round | keeps 1.25 × equal, rest by what each put in | proportional share | 60% of an equal share | no |
+| Spiteful | never | equal | never | an equal share (rounded down) | no |
+| Free Voter | never | equal | never | never (always 0) | no |
+| Mirror | after a greedy split goes through | cuts the greedy divider out | equal share | 70% of an equal share | no |
+
+"Never" grabs still allows a bot to give until it is broke. Tables seat at least one grabber, one judge and one reciprocator.
 
 ## First playable page (2026-11-04)
 
@@ -79,3 +81,27 @@ Every bot votes 2 on its own split. "Never" grabs still allows a bot to give unt
 - The end card reveals every bot's strategy and each player's net, and asks what the leader did differently.
 - Locked until all five Rising Pool achievements are earned (same localStorage key the landing page uses). `node tools/build-preview.mjs centipede-ultimatum --unlocked` builds a preview that opens anyway, because an artifact can't see the Game 1 achievements stored on the live site.
 - Not built yet: points carrying between tables, Game 2 achievements, a "Read the table" exercise, and the landing page and nav links on other pages.
+
+## Round 9 and the vote arithmetic (Jason, 2026-11-05)
+
+Jason grabbed a pool of 103 at a five-player table and split it almost equally (21 each, 19 for himself). The split was rejected, with votes totalling 4 out of the 5 needed. He had voted 1 on his own split, and the Bookkeeper voted 0 because it had put in 24 and was offered 21. Two lessons were hidden there: your own vote counts, and an equal split shortchanges the heavy contributors.
+
+Decided (Jason, 2026-11-05):
+
+- **Make the arithmetic visible.** The divide and vote cards say how many votes are needed to pass and that each 0 needs a 2 to cover it. Split tables show each player's share beside what they put in, with a share below the stake marked red. The outcome card gives the vote total, the number needed, and who voted 0 or 2.
+- **Generous judges.** Most bots now vote 2 when an offer meets their own idea of fair (see the roster). Greedy, Spiteful and Free Voter never pay for a 2.
+- **Split by what each put in is the first preset and the starting split** when a player divides.
+
+### Do bots think equal or proportional is fair?
+
+Both, depending on the bot and on where it sits. I tested this at 11,840 real grabs where the two splits differ, asking each table how it would vote on an equal split and on a split by stake of the same pool:
+
+- Both kinds of split pass 99% of the time with the generous judges, and they average almost the same vote (1.40 equal, 1.38 by stake).
+- An equal split upsets the heavy contributors: Bookkeeper rejects it 28% of the time. A split by stake upsets players who put in less and judge by equal shares: Greedy rejects it 58% of the time, Spiteful 45% and Patient 33%. Those are mostly cases where the bot itself had passed or given less.
+- Edge Watcher and Pool Watcher welcome a split by stake far more often (82% and 88%) than an equal one (37% and 39%).
+
+So there is no single fair split at the table. Equality protects players who couldn't give; proportion rewards those who did. That tension is the lesson.
+
+### Simulation with draft 3 bots (4,000 tables)
+
+Median 11 rounds, 82% reach round 8. 20% of splits rejected, 53% accepted, 27% welcomed. 63% of seats finish ahead. Edge Watcher is still best (+10.6 per seat), and Greedy and Early Grabber are still the only strategies behind on average.

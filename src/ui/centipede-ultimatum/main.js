@@ -290,12 +290,14 @@ function divideCard() {
   const pool = s.pool;
   const ones = Object.fromEntries(ids.map((id) => [id, 1]));
   const stakeW = Object.fromEntries(ids.map((id) => [id, s.stakes[id] ?? 0]));
-  let shares = splitBy(pool, ones);
+  const anyStake = ids.some((id) => (s.stakes[id] ?? 0) > 0);
+  let shares = anyStake ? splitBy(pool, stakeW) : splitBy(pool, ones);
   const c = h(`<div class="card divide"><h2>Divide the pool of ${pool}</h2>
-    <p class="muted small">Set each share. An equal share is about ${(pool / ids.length).toFixed(1)}. Everyone votes next, you included; an average below 1 sends you away and refunds the pool.</p>
+    <p class="muted small">Set each share. It starts split by what each player put in; an equal share would be about ${(pool / ids.length).toFixed(1)}.</p>
+    ${needLine(ids.length)}
     <div class="btn-row presets">
-      <button class="btn ghost small-btn" type="button" data-p="equal">Equal</button>
       <button class="btn ghost small-btn" type="button" data-p="stakes">By what each put in</button>
+      <button class="btn ghost small-btn" type="button" data-p="equal">Equal</button>
       <button class="btn ghost small-btn" type="button" data-p="half">Keep half</button>
     </div>
     <div class="share-rows"></div>
@@ -340,16 +342,19 @@ function splitTable(u, { votes = false } = {}) {
   const ids = Object.keys(u.shares);
   const max = Math.max(1, ...ids.map((id) => u.shares[id]));
   const eq = u.pool / ids.length;
-  return `<div class="split">${ids.map((id) => {
+  return `<div class="split"><div class="split-row head"><span></span><span></span><span class="num">gets</span><span class="num">put in</span>${votes ? '<span class="num">vote</span>' : '<span></span>'}</div>${ids.map((id) => {
     const st = seat(id);
     const w = Math.round((100 * u.shares[id]) / max);
+    const stake = u.stakes[id] ?? 0;
+    const short = u.shares[id] < stake;
     return `<div class="split-row ${id === 'you' ? 'me' : ''}">
       <span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}${id === u.grabber ? ' <span class="muted small">divider</span>' : ''}</span>
       <span class="bar"><span style="width:${w}%"></span></span>
-      <span class="num">${u.shares[id]}</span>
-      ${votes ? `<span class="vote v${u.votes[id]}">${u.votes[id]}</span>` : `<span class="muted small">in ${u.stakes[id] ?? 0}</span>`}
+      <span class="num${short ? ' short' : ''}"${short ? ` title="Less than ${stake} put in"` : ''}>${u.shares[id]}</span>
+      <span class="num muted">${stake}</span>
+      ${votes ? `<span class="vote v${u.votes[id]}">${u.votes[id]}</span>` : '<span></span>'}
     </div>`;
-  }).join('')}<p class="muted small">Equal share ≈ ${eq.toFixed(1)}</p></div>`;
+  }).join('')}<p class="muted small">Equal share ≈ ${eq.toFixed(1)}. <span class="short">Red</span> means getting back less than was put in.</p></div>`;
 }
 
 function voteCard() {
@@ -363,7 +368,8 @@ function voteCard() {
       <button class="choice" type="button" data-v="1"><span class="lbl">Accept</span><span class="amt">1</span><span class="sub">Costs 1 from your share.</span></button>
       <button class="choice" type="button" data-v="2"><span class="lbl">Welcome</span><span class="amt">2</span><span class="sub">Costs 2. Pushes the average up.</span></button>
     </div>
-    <p class="muted small">Average below 1: rejected. The divider leaves and the pool goes back by what each put in. Vote tokens are shared back out, unless the split is rejected.</p></div>`);
+    ${needLine(Object.keys(u.shares).length)}
+    <p class="muted small">If rejected, the divider leaves and the pool goes back by what each put in. Vote tokens are shared back out, unless the split is rejected.</p></div>`);
   c.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => humanVote(Number(b.dataset.v))));
   return c;
 }
@@ -371,13 +377,37 @@ function voteCard() {
 function outcomeCard(u) {
   const tag = u.result === 'rejected' ? 'fail' : u.result === 'welcomed' ? 'bonus' : 'base';
   const g = seat(u.grabber).name;
+  const whose = u.grabber === 'you' ? 'Your' : `${esc(g)}'s`;
   let text;
   if (u.result === 'rejected') {
-    text = `${esc(g)}'s split was rejected (average ${u.voteAvg.toFixed(2)}). ${u.grabber === 'you' ? 'You leave' : esc(g) + ' leaves'} the table, and the pool of ${u.pool} went back by what each put in.`;
+    text = `${whose} split was rejected (average ${u.voteAvg.toFixed(2)}). ${u.grabber === 'you' ? 'You leave' : esc(g) + ' leaves'} the table, and the pool of ${u.pool} went back by what each put in.`;
   } else {
-    text = `${esc(g)}'s split was ${u.result} (average ${u.voteAvg.toFixed(2)}). The shares were paid${u.voteEach ? `, and everyone got ${u.voteEach} back from the vote pool` : ''}.`;
+    text = `${whose} split was ${u.result} (average ${u.voteAvg.toFixed(2)}). The shares were paid${u.voteEach ? `, and everyone got ${u.voteEach} back from the vote pool` : ''}.`;
   }
-  return h(`<div class="card outcome ${tag}"><div><span class="tag ${tag}">${u.result}</span></div><p>${text}</p>${splitTable(u, { votes: true })}</div>`);
+  return h(`<div class="card outcome ${tag}"><div><span class="tag ${tag}">${u.result}</span></div><p>${text}</p>${tallyLine(u)}${splitTable(u, { votes: true })}</div>`);
+}
+
+function needLine(n) {
+  return `<p class="need">To pass, the ${n} votes must add up to at least <b>${n}</b> (an average of 1). Every vote counts, the divider's too, and each 0 needs a 2 somewhere to make up for it.</p>`;
+}
+
+function tallyLine(u) {
+  const ids = Object.keys(u.votes);
+  const n = ids.length;
+  const total = ids.reduce((a, id) => a + u.votes[id], 0);
+  const names = (v) => ids.filter((id) => u.votes[id] === v).map((id) => esc(seat(id).name));
+  const list = (a) => (a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a.at(-1)}`);
+  const zeros = names(0);
+  const twos = names(2);
+  let why = '';
+  if (u.result === 'rejected') {
+    why = `Short by ${n - total}. ${zeros.length ? `Voted 0: ${list(zeros)}.` : ''}${twos.length ? ` Voted 2: ${list(twos)}.` : ''}`;
+  } else if (zeros.length) {
+    why = `${list(zeros)} voted 0, covered by 2s from ${list(twos)}.`;
+  } else if (twos.length) {
+    why = `Voted 2: ${list(twos)}.`;
+  }
+  return `<p class="tally"><b>Votes totalled ${total}</b>, needed ${n}. ${why}</p>`;
 }
 
 function stayCard() {
