@@ -10,9 +10,9 @@ import { shuffle } from '../engine/rng.js';
 
 export const FAMILIES = {
   cooperator: 'Cooperators',
+  reciprocator: 'Reciprocators',
   grabber: 'Grabbers',
   judge: 'Judges',
-  reciprocator: 'Reciprocators',
 };
 
 // Division habits

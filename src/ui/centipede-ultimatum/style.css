@@ -144,3 +144,6 @@ th { font-family: var(--font-data); font-weight: 500; font-size: 11px; letter-sp
 .extra p { margin: 0; }
 
 .choice:disabled { opacity: 0.55; cursor: not-allowed; }
+
+#log, .extras, .game, .fold { min-width: 0; }
+.log-wrap { max-width: 100%; }

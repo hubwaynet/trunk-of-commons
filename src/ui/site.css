@@ -46,7 +46,9 @@ body {
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 20px 40px;
 }
-.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 20px; }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+/* Wide content (the round log) scrolls inside its own box instead of stretching the page. */
+.wrap > * { min-width: 0; }
 
 header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px; }
 .eyebrow { font-family: var(--font-data); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
@@ -118,3 +120,5 @@ h3 { font-family: var(--font-display); font-weight: 600; font-size: 16px; margin
 .linkish { font: inherit; font-size: 13px; background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .linkish:hover, .linkish:focus-visible { color: var(--ink); }
 .linkish.danger { color: var(--low); font-weight: 700; }
+.fold { grid-template-columns: minmax(0, 1fr); }
+.fold > * { min-width: 0; }
