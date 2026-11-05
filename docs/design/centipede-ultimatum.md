@@ -321,6 +321,12 @@ From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai pro
   - When the player needs to act, it speaks a summary: "Moss, Tern and Fig gave 3; Reed passed. Pool 14. Your turn."
   - It also speaks every split result.
   - The panel stops being a live region. Jason sees the exact sentences before they go live.
+  - *Built, and the wording approved as drafted (Jason, 2026-11-06).*
+    - Each prompt starts with what happened since your last turn, for example "Quoll, Moss and Ember gave 2. The Commons added 6. Pool 12. Round 2, your turn: give 2, or grab the pool."
+    - Reasons for 0s are read out on your own splits. On bots' splits it names the 0-voters, and the reasons are on the card.
+    - When you're watching, it reads each split result.
+    - The table picture has a spoken label with the round, pool, balances and the Commons.
+    - The play-through test checks that the announcer stays quiet between your turns.
 - **Why someone voted 0.** Each 0-voter's reason shows after every vote, for every split, on the result card and in the round log: protest, grudge, turn-taking, dominance or free 0. The divide card gives no warning: working out who would object stays the player's job.
   - *Built 2026-11-06.* Each bot's vote and its reasons come from one function (`assess`), so they can't disagree. Both simulators give identical output before and after.
   - The result card lists "Why the 0 votes", one line per bot. For example:

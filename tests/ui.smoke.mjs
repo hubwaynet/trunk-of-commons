@@ -248,6 +248,43 @@ test('all six Game 2 achievements show the mastered card; Reset clears them but 
   await finish(t, run, 'centipede-mastered');
 });
 
+// The announcer (src/ui/announce.js) speaks when the player needs to act, after each split and at
+// the end, never on every bot move (Jason, 2026-11-06).
+const listenToAnnouncer = () => {
+  window.__said = [];
+  new MutationObserver(() => { const t = document.getElementById('announcer').textContent; if (t) window.__said.push(t); })
+    .observe(document.getElementById('announcer'), { childList: true, characterData: true, subtree: true });
+};
+test('Centipede & Ultimatum: the announcer speaks at your turn, not on every bot move', { timeout: 120_000 }, async (t) => {
+  const run = await open('/games/centipede-ultimatum/?preview', DESKTOP);
+  const { page } = run;
+  await page.clock.install();
+  await page.goto(page.url());
+  await page.waitForSelector('#give');
+  assert.equal(await page.$('[aria-live]:not(#announcer):not(.remaining)'), null, 'only the announcer (and the divide card\'s running total) is live');
+  await page.evaluate(listenToAnnouncer);
+  for (let lap = 0; lap < 3; lap++) {
+    await page.evaluate(() => { window.__said = []; });
+    await page.click('#give');
+    for (let i = 0; i < 40 && !(await page.$('#give, #vote-2, #pass')); i++) await page.clock.runFor(700);
+    await page.clock.runFor(200);
+    const said = await page.evaluate(() => window.__said);
+    assert.ok(said.length >= 1 && said.length <= 2, `lap ${lap}: ${said.length} announcements: ${said.join(' | ')}`);
+    assert.match(said.at(-1), /your turn|Vote 0|you pass/);
+    if (!(await page.$('#give'))) break;
+  }
+  // watching: one sentence per split, plus the start and the end
+  await page.click('#watch-toggle');
+  await page.evaluate(() => { window.__said = []; });
+  for (let i = 0; i < 3000 && !(await page.$('#again')); i++) await page.clock.runFor(700);
+  await page.clock.runFor(500);
+  const said = await page.evaluate(() => window.__said);
+  const splits = await page.$$eval('#log tfoot .tag', (tags) => tags.length);
+  assert.ok(said.length <= splits + 2, `${said.length} announcements for ${splits} splits`);
+  assert.match(said.at(-1), /^Table over after round/);
+  await finish(t, run, 'centipede-announcer');
+});
+
 test('Centipede & Ultimatum: watching six bots runs to the end', { timeout: 120_000 }, async (t) => {
   const run = await open('/games/centipede-ultimatum/?preview', PHONE);
   const { page } = run;

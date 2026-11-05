@@ -87,5 +87,9 @@ From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai pro
 - **The escalation lesson (settles the open question above).** The debrief says what failed this table ("Reed chose 0", or "Quoll couldn't afford medium ↓"). It also says that rising stakes outrun balances, so even a trusting table has limits. No rule change. In simulation, 84% of failing rounds include a ↓, and 12% fail on affordability alone.
 - **"What this table showed" card.** One or two things that happened at this table, each with one sentence naming the idea and its source, with a link (for example Axelrod's nice, retaliatory, forgiving and clear; noise; public goods). Jason picks from drafts. Same card as Game 2.
 - **Screen readers.** One quiet announcer per page gives each round's result. Jason sees the exact sentences before they go live.
+  - *Built, and the wording approved as drafted (Jason, 2026-11-06).*
+    - It reads the round prompt ("Round 2: give nothing, medium 2 or high 4. You have 21 points."), the result with your gain or loss and the stay question, the table's end, Read the table's verdict, and the "not enough points" screen.
+    - When you're watching, it says nothing until the table closes, because rounds come every 1.4 seconds.
+    - The table picture's spoken label describes each ring as "gives medium or more on average" or "gives less than medium on average".
 - **Reputation rings.** Explained on the page, with a legend and a text alternative. The threshold is unchanged.
 - **Order of work, and review flow.** See the same section in `centipede-ultimatum.md`.
