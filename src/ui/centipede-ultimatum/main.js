@@ -11,6 +11,7 @@ import * as Game1 from '../rising-pool/achievements.js';
 import { fireworks } from '../fireworks.js';
 import { unlock, isUnlocked, resetControl } from '../progress-store.js';
 import { keepFocus } from '../focus.js';
+import { announce, listNames } from '../announce.js';
 import {
   NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, h, signed, toast,
   achievementStore, progressHtml, achievementsCardHtml,
@@ -101,12 +102,19 @@ function newSession({ watch = false } = {}) {
     game: createGame({ players: seats.map((s) => ({ id: s.id })), seed, startBalance: START_BALANCE, commonsReserve: COMMONS_RESERVE }),
     timer: null, fast: false, lastUlt: null, note: null, earned: new Set(), allNow: false, endChecked: false,
     reasons: {}, // round -> { voter id: [reasons for a 0] }, from the bots' own judgement
+    heard: { moves: [], bonus: 0 }, promptKey: null, // what the screen reader hears at the player's next prompt
   };
   $('#watch-toggle').setAttribute('aria-pressed', String(watch));
   $('#watch-toggle').textContent = watch ? 'Play a table' : 'Watch the bots';
   render();
+  if (!firstLoad) announce(watch ? 'Watching six bots. Each split result will be read out.'
+    : `New table: you, ${listNames(G.seats.filter((x) => !x.human).map((x) => x.name))}. Everyone starts with ${START_BALANCE}.`);
+  if (!firstLoad) announcePrompt();
+  else G.promptKey = promptKey(); // the turn card is read with the page on arrival
+  firstLoad = false;
   schedule();
 }
+let firstLoad = true; // the page itself is read on arrival; announce from the first new table on
 
 const seat = (id) => G.seats.find((s) => s.id === id);
 const player = (id) => G.game.players.find((p) => p.id === id);
@@ -137,6 +145,7 @@ function botStep() {
   if (s.phase === 'turn') {
     const id = currentPlayer(s);
     G.game = act(s, id, G.agents[id].turn(botView(s, id)));
+    noteMove(s, G.game);
   } else if (s.phase === 'divide') {
     const g = s.ultimatum.grabber;
     G.game = divide(s, G.agents[g].divide(botView(s, g)));
@@ -160,13 +169,92 @@ function afterChange() {
       earn(splitAchievements(G.game));
     }
   }
+  const judged = last?.result === 'ultimatum' && last.ultimatum === G.lastUlt?.u && G.lastUlt.said !== true;
+  if (judged && !G.fast) announce(sayResult(last.ultimatum));
+  if (judged) G.lastUlt.said = true;
   if (!G.watch && G.game.status === 'ended' && !G.endChecked) {
     G.endChecked = true;
     earn(endAchievements(G.game));
   }
+  if (G.game.status === 'ended' && !G.endSaid) { G.endSaid = true; announce(sayEnd()); }
   render();
+  announcePrompt();
   schedule();
 }
+
+// ---------- what a screen reader hears (src/ui/announce.js) ----------
+// A summary when the player needs to act, every split result, and the end of the table
+// (Jason, 2026-11-06). Bot moves in between are gathered into the next summary.
+const nameOf = (id) => (id === 'you' ? 'you' : seat(id).name);
+function noteMove(prev, next) {
+  if (!humanIn()) return;
+  const rec = next.current?.round === prev.round ? next.current : next.rounds.at(-1);
+  const m = rec?.moves.at(-1);
+  if (m && m.id !== 'you' && m.move !== 'grab') G.heard.moves.push(m);
+  if (next.round > prev.round && next.rounds.at(-1)?.result === 'complete') G.heard.bonus += next.rounds.at(-1).topUp;
+}
+function heardSoFar() {
+  const { moves, bonus } = G.heard;
+  const byAmount = new Map();
+  for (const m of moves.filter((x) => x.move === 'give')) byAmount.set(m.amount, [...(byAmount.get(m.amount) ?? []), seat(m.id).name]);
+  const parts = [...byAmount].map(([amt, names]) => `${listNames(names)} gave ${amt}`);
+  const passed = moves.filter((x) => x.move === 'pass').map((x) => seat(x.id).name);
+  if (passed.length) parts.push(`${listNames(passed)} passed`);
+  G.heard = { moves: [], bonus: 0 };
+  return (parts.length ? `${parts.join('; ')}.` : '') + (bonus ? ` The Commons added ${bonus}.` : '');
+}
+function announcePrompt() {
+  if (!needsHuman() || G.game.phase === 'stay') return; // the stay question comes with the split result
+  const key = promptKey();
+  if (key === G.promptKey) return;
+  G.promptKey = key;
+  announce(`${heardSoFar()} ${sayPrompt()}`.trim());
+}
+function promptKey() { const s = G.game; return `${s.phase}:${s.round}:${s.turnIndex}:${s.rounds.length}`; }
+// Reasons as spoken: "own share: offered 9, wanted 11, what they put in".
+const whySaid = (u, id) => whyAll(u, id).replace(/ \(([^)]*)\)/g, ', $1');
+function sayPrompt() {
+  const s = G.game;
+  const r = requirement(s.round);
+  if (s.phase === 'turn') {
+    if (!canGive(s, 'you')) return `Pool ${s.pool}. Round ${s.round}, your turn: you can't afford ${r}, so you pass.`;
+    if (canGrab(s, 'you')) return `Pool ${s.pool}. Round ${s.round}, your turn: give ${r}, or grab the pool.`;
+    const wait = Math.max(0, activeIds(s).length - s.turnsSinceSplit);
+    return `Pool ${s.pool}. Round ${s.round}, your turn: give ${r}. Grabbing opens in ${wait} more turn${wait === 1 ? '' : 's'}.`;
+  }
+  const u = s.ultimatum;
+  const n = activeIds(s).length;
+  if (s.phase === 'divide') return `You grabbed the pool of ${u.pool}. Set each player's share; it starts split by what each put in. To pass, the ${n} votes must add up to ${n}.`;
+  if (u.grabber === 'you') return `Your split is on the table, keeping ${u.shares.you} for you. Now everyone votes, you included: 0 rejects, 1 accepts, 2 welcomes.`;
+  return `${seat(u.grabber).name} grabbed the pool of ${u.pool}. You're offered ${u.shares.you}; you put in ${u.stakes.you ?? 0}. Vote 0 to reject, 1 to accept, 2 to welcome.`;
+}
+function sayResult(u) {
+  const ids = Object.keys(u.votes);
+  const total = ids.reduce((a, id) => a + u.votes[id], 0);
+  const mine = u.grabber === 'you';
+  const g = seat(u.grabber).name;
+  let msg = `${mine ? 'Your' : `${g}'s`} split was ${u.result}: votes totalled ${total}, ${ids.length} needed.`;
+  const zeros = ids.filter((id) => u.votes[id] === 0 && id !== 'you');
+  // On your own split, say why each 0 came; on others' splits, say who.
+  if (zeros.length) msg += mine ? zeros.map((id) => ` ${seat(id).name} voted 0 (${whySaid(u, id) || 'no reason given'}).`).join('') : ` Voted 0: ${listNames(zeros.map(nameOf))}.`;
+  if (u.result === 'rejected') msg += mine ? ' You leave the table.' : ` ${g} leaves the table, and the pool went back by what each put in.`;
+  else {
+    if (!mine && !G.watch && u.shares.you !== undefined) msg += ` You get ${u.shares.you}.`;
+    if (u.bonusEach) msg += ` Everyone gets a ${u.bonusEach}-point welcome bonus.`;
+  }
+  if (humanIn() && G.game.phase === 'stay') msg += ` Stay for round ${G.game.round + 1}, or sit out?`;
+  return msg;
+}
+function sayEnd() {
+  const s = G.game;
+  const last = s.rounds.at(-1)?.round ?? 0;
+  const ranked = G.seats.map((st) => ({ st, net: player(st.id).balance - player(st.id).start })).sort((a, b) => b.net - a.net);
+  if (G.watch) return `Table over after round ${last}. ${END_TEXT[s.endReason] ?? ''} ${ranked[0].st.name} finished furthest ahead, ${signed(ranked[0].net)}.`;
+  const me = player('you');
+  const place = ranked.findIndex((x) => x.st.id === 'you') + 1;
+  return `Table over after round ${last}. ${END_TEXT[s.endReason] ?? ''} You finished with ${me.balance}, ${signed(me.balance - me.start)}, ${ORDINAL[place]} of ${ranked.length}. Each bot's strategy is on the end card.`;
+}
+const ORDINAL = ['', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth'];
 
 function applyVotes(mine) {
   const s = G.game;
@@ -194,7 +282,9 @@ function applyStay(mine) {
 
 // ---------- human actions ----------
 function humanMove(move) {
+  const before = G.game;
   G.game = act(G.game, 'you', move);
+  noteMove(before, G.game);
   afterChange();
 }
 function humanDivide(shares) {
@@ -279,6 +369,14 @@ function renderTable() {
     ? `ROUND ${s.round} OF ${s.maxRound} · AMOUNT ${requirement(s.round)}`
     : `TABLE OVER AFTER ROUND ${s.rounds.at(-1)?.round ?? s.round}`; // not the round that never started
   svg.append(el('text', { x: 384, y: 429, 'text-anchor': 'end', class: 'pool-sub' }, roundLabel));
+  // What a screen reader hears for the picture: the same facts, in words.
+  const seatsSaid = G.seats.map((st) => {
+    const p = player(st.id);
+    return `${st.name} ${p.active ? p.balance : p.leftBecause === 'rejected' ? 'sent out' : 'sat out'}`;
+  }).join(', ');
+  svg.setAttribute('aria-label', s.status === 'playing'
+    ? `The table, round ${s.round} of ${s.maxRound}, amount ${requirement(s.round)}. Pool ${u ? u.pool : s.pool}${u ? `, held by ${nameOf(u.grabber)}` : ''}. ${seatsSaid}. Commons ${s.commons.reserve}.`
+    : `The table, over after round ${s.rounds.at(-1)?.round ?? s.round}. ${seatsSaid}. Commons ${s.commons.reserve}.`);
 }
 
 // ---------- the panel ----------

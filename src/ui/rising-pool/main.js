@@ -8,6 +8,7 @@ import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 import { fireworks as showFireworks } from '../fireworks.js';
 import { unlock, isUnlocked, resetControl } from '../progress-store.js';
 import { keepFocus } from '../focus.js';
+import { announce } from '../announce.js';
 import {
   NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, frag, signed, toast,
   achievementStore, progressHtml, achievementsCardHtml, rememberToggle,
@@ -61,7 +62,11 @@ function newSession({ watch = false } = {}) {
   };
   render();
   if (watch) scheduleAuto();
+  if (G.phase === 'broke') announce(sayBroke());
+  else if (!watch && !firstLoad) announce(sayChoose());
+  firstLoad = false;
 }
+let firstLoad = true; // the page itself is read on arrival; announce from the first new table on
 
 const seatOf = (id) => G.seats.find((s) => s.id === id);
 const playerOf = (state, id) => state.players.find((p) => p.id === id);
@@ -97,6 +102,8 @@ function reveal() {
   G.phase = state.status === 'ended' ? 'ended' : 'revealed';
   if (G.phase === 'ended' && !G.watch) checkEndAchievements();
   render();
+  if (!G.watch) announce(sayRound(outcome) + (G.phase === 'ended' ? '' : ` Stay for round ${outcome.round + 1}, or leave with ${playerOf(state, 'you').balance}?`));
+  if (G.phase === 'ended') announce(sayEnd());
   animatePool(outcome.avg / outcome.stakes.high);
   if (G.watch && G.phase !== 'ended') scheduleAuto();
 }
@@ -119,7 +126,30 @@ function nextRound(humanStays) {
   G.poolRatio = 0;
   render();
   if (G.watch && G.phase !== 'ended') scheduleAuto();
+  if (G.phase === 'ended') announce(sayEnd());
+  else if (!G.watch) announce(sayChoose());
 }
+
+// ---------- what a screen reader hears (src/ui/announce.js) ----------
+function sayChoose() {
+  const r = G.game.round, s = stakes(r), you = playerOf(G.game, 'you');
+  const cant = ['high', 'medium'].filter((lv) => affordableLevel(lv, r, you.balance) !== lv);
+  return `Round ${r}: give nothing, medium ${s.medium} or high ${s.high}. You have ${you.balance} points.`
+    + (cant.length ? ` You can't afford ${cant.join(' or ')}.` : '');
+}
+function sayRound(o) {
+  const you = 'you' in o.levels && !G.watch
+    ? ` You gave ${o.contributions.you} and received ${o.payouts.you}: ${signed(o.payouts.you - o.contributions.you)}.` : '';
+  return `Round ${o.round}: ${RESULT_TAG[o.result].toLowerCase()}. ${RESULT_TEXT[o.result](o)}${you}`;
+}
+function sayEnd() {
+  const s = G.game;
+  if (G.watch) return `Table closed. ${closingLead(s)}`;
+  const p = playerOf(s, 'you');
+  return `Table closed. ${closingLead(s)} You finished with ${p.balance} points, ${signed(p.balance - p.start)} at this table.`
+    + (p.balance < START_BALANCE ? ` A table needs ${START_BALANCE} to join, so you can watch or start over.` : '');
+}
+const sayBroke = () => `Not enough points to join: you have ${walletMemory}. A table needs ${START_BALANCE}. You can start over with ${START_BALANCE}, or watch the bots.`;
 
 function playOutWithoutYou() {
   let s = G.game;
@@ -238,6 +268,13 @@ function drawTable() {
     g.append(title);
     svg.append(g);
   });
+  // What a screen reader hears for the picture: the same facts, in words.
+  const seatsSaid = G.seats.map((seat) => {
+    const p = playerOf(G.game, seat.id);
+    const ring = rep[seat.id] === 'good' ? ', gives medium or more on average' : rep[seat.id] === 'low' ? ', gives less than medium on average' : '';
+    return `${seat.name} ${p.balance}${p.active ? '' : ' (left)'}${ring}`;
+  }).join('; ');
+  svg.setAttribute('aria-label', `The table, round ${round}: medium ${s.medium}, high ${s.high}.${o ? ` Average gift ${fmt(o.avg)}.` : ''} ${seatsSaid}. Commons reserve ${cm.reserve} of ${cm.start}.`);
 }
 
 function animatePool(target) {
@@ -306,7 +343,7 @@ function renderPanel() {
         }).join('')}
       </div>`}
       <div class="btn-row" id="actions"></div>
-      <div id="outcome" aria-live="polite"></div>
+      <div id="outcome"></div>
     </div>`);
     panel.append(card);
     const actions = panel.querySelector('#actions');
@@ -432,6 +469,15 @@ function commonsSummary(s) {
     + `Together the players finished ${signed(players)} on where they started. Every point the table gained came out of the Commons, and every point it lost went into it.`;
 }
 
+function closingLead(s) {
+  const last = s.rounds.at(-1)?.round ?? 0;
+  if (G.humanLeftAfter === null) return END_TEXT[s.endReason](last);
+  const a = G.afterYouLeft;
+  return `You left after round ${G.humanLeftAfter} with ${playerOf(s, 'you').balance} points. ` +
+    (a.rounds === 0 ? 'The table closed straight after.' :
+      `The bots played ${a.rounds} more round${a.rounds === 1 ? '' : 's'} without you. ${END_TEXT[a.reason](last)}`);
+}
+
 function startOver() {
   saveWallet(START_BALANCE);
   newSession({ watch: false });
@@ -452,17 +498,8 @@ function renderBroke() {
 
 function renderDebrief() {
   const s = G.game;
-  const last = s.rounds.at(-1)?.round ?? 0;
   const ranking = G.seats.map((seat) => ({ seat, bal: playerOf(s, seat.id).balance })).sort((a, b) => b.bal - a.bal);
-  let lead;
-  if (G.humanLeftAfter !== null) {
-    const a = G.afterYouLeft;
-    lead = `You left after round ${G.humanLeftAfter} with ${playerOf(s, 'you').balance} points. ` +
-      (a.rounds === 0 ? 'The table closed straight after.' :
-        `The bots played ${a.rounds} more round${a.rounds === 1 ? '' : 's'} without you. ${END_TEXT[a.reason](last)}`);
-  } else {
-    lead = END_TEXT[s.endReason](last);
-  }
+  const lead = closingLead(s);
   const piece = frag(`<div class="card debrief">
     <h2>Table closed</h2>
     <p>${esc(lead)}</p>
@@ -566,6 +603,8 @@ function renderExtras() {
     const allFit = bots.every((b) => guessFits(G.evidence[b.id], G.guesses[b.id], b.strategy));
     if (allFit && rounds >= MIN_READ_ROUNDS) earn('read-table');
     render();
+    const fit = bots.filter((b) => guessFits(G.evidence[b.id], G.guesses[b.id], b.strategy)).length;
+    announce(`Read the table: ${fit} of ${bots.length} guesses fit the evidence. Each verdict is under its bot.`);
   });
 
   const have = store.load();

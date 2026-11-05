@@ -2,6 +2,8 @@
 // card, and achievements stored in this browser. Game rules stay in src/engine/.
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import { announce } from './announce.js';
+
 export const NAMES = ['Wren', 'Quoll', 'Tern', 'Moss', 'Ember', 'Reed', 'Kestrel', 'Fig', 'Banksia', 'Curlew'];
 // Seat colours from the 2017 RGB colour wheel: rose, orange, chartreuse, spring, azure, violet.
 export const HUES = ['#d1386f', '#d9741c', '#6fa52a', '#1f9c66', '#2f78cc', '#7650c8'];
@@ -28,8 +30,9 @@ export const signed = (n) => (n > 0 ? `+${n}` : `${n}`);
 export function toast(msg, ms = 5000) {
   const t = document.createElement('div');
   t.className = 'toast';
-  t.setAttribute('role', 'status');
+  t.setAttribute('aria-hidden', 'true'); // screen readers hear it through the announcer
   t.textContent = msg;
+  announce(msg);
   const stacked = document.querySelectorAll('.toast').length;
   if (stacked) t.style.bottom = `calc(${20 + stacked * 56}px + env(safe-area-inset-bottom, 0px))`;
   document.body.append(t);
