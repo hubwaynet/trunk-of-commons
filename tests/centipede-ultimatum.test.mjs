@@ -2,7 +2,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, currentPlayer, act, divide, vote, stay, splitBy } from '../src/engine/centipede-ultimatum.js';
-import { simulate } from '../tools/sim-centipede.mjs';
+import { simulate, playTable } from '../tools/sim-centipede.mjs';
+import { selectRoster } from '../src/bots/centipede-ultimatum-bots.js';
+import { mulberry32 } from '../src/engine/rng.js';
 
 const ids = ['a', 'b', 'c', 'd'];
 const fresh = (opts = {}, balances = {}) =>
@@ -124,6 +126,14 @@ test('simulated tables conserve points and finish', () => {
     const st = simulate(200, 'random', opts);
     assert.equal(Object.values(st.ends).reduce((a, b) => a + b, 0), 200);
   }
+  // Points only move between players, the pool and the Commons, and nobody goes below 0.
+  for (let t = 0; t < 300; t++) {
+    const keys = selectRoster(mulberry32(3000 + t), 6);
+    const s = playTable(keys, 3000 + t);
+    assert.equal(s.status, 'ended');
+    assert.equal(total(s), 6 * 20 + 120, `table ${t}`);
+    assert.ok(s.players.every((p) => p.balance >= 0), `table ${t}`);
+  }
 });
 
 import { splitAchievements, endAchievements, ACHIEVEMENTS } from '../src/ui/centipede-ultimatum/achievements.js';
@@ -187,6 +197,24 @@ test('a grabber sent out by a rejection leaves all their points in the pool', ()
   assert.equal(s.pool, s.rounds.at(-1).ultimatum.forfeit);
   assert.ok(s.pool > 0);
   assert.equal(total(s), before);
+});
+
+test('a split judged in the last round ends the table there (no stay step for a round 21)', () => {
+  const rich = () => createGame({ players: ids.map((id) => ({ id, balance: 400 })), commonsReserve: 500 });
+  let s = rich();
+  while (s.round < 20) s = act(s, currentPlayer(s), 'give');
+  s = act(act(act(s, 'a', 'give'), 'b', 'give'), 'c', 'grab');
+  s = divide(s, splitBy(s.pool, { a: 1, b: 1, c: 1, d: 1 }));
+  const before = total(s);
+  const passed = vote(s, { a: 1, b: 1, c: 2, d: 1 });
+  assert.equal(passed.status, 'ended');
+  assert.equal(passed.endReason, 'round-cap'); // not 'too-few', even if players would have left
+  assert.equal(passed.round, 20);
+  assert.equal(total(passed), before);
+  const rejected = vote(s, { a: 0, b: 0, c: 2, d: 0 }); // the grabber's points still go back to those left
+  assert.equal(rejected.endReason, 'round-cap');
+  assert.equal(rejected.pool, 0);
+  assert.equal(total(rejected), before);
 });
 
 import { STRATEGIES, botView } from '../src/bots/centipede-ultimatum-bots.js';

@@ -10,10 +10,10 @@
   --line: #c6d3cd;
   --brass: #a06f17;      /* the Commons */
   --flow: #1d74b0;       /* tokens moving */
-  --good: #2b9149;       /* reputation: gave at or above the table */
+  --good: #237d3b;       /* reputation: gave at or above the table (darkened from #2b9149 for text contrast) */
   --low: #b8338a;        /* reputation: gave below the table */
   --fail: #b8338a;
-  --base: #1d74b0;
+  --base: #1b6ea8;      /* darkened from #1d74b0 for text contrast on --paper */
   --bonus: #a06f17;
   --on-seat: #ffffff;
   --font-display: "Chakra Petch", "Trebuchet MS", system-ui, sans-serif;
@@ -77,6 +77,8 @@ h3 { font-family: var(--font-display); font-weight: 600; font-size: 16px; margin
 .btn:disabled { opacity: 0.45; cursor: default; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
 :focus-visible { outline: 3px solid var(--flow); outline-offset: 2px; }
+/* Regions that receive focus only to keep the keyboard in place after a redraw (src/ui/focus.js). */
+[tabindex="-1"]:focus { outline: none; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 

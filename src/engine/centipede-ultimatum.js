@@ -20,7 +20,8 @@ export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptabl
  * rejectedGrabberPoints: 'pool' (default) — a grabber sent out by a rejection leaves all their
  *   points, refund included, in the pool for the players who remain (Jason, 2026-11-05);
  *   'keep' — they leave with their points (the earlier rule).
- * maxRound: the table ends after this round and any pool is shared equally (20, Jason 2026-11-05).
+ * maxRound: the table ends after this round (20, Jason 2026-11-05). Any pool left goes back by
+ *   what each put in. A split judged in the last round ends the table there.
  * onReject: what else a rejected split does.
  *   'end'        the table ends (2018 rule)
  *   'continue'   play carries on
@@ -181,11 +182,14 @@ export function divide(s, shares) {
  * A vote is paid from the voter's share first, then their balance, so a broke player can
  * still vote on a split that pays them (Jason, 2026-11-04). On a rejected split there is no
  * share, so a voter pays only what their balance covers. Rejecting (0) is free.
- * - average below 1: rejected. Both pools go to the Commons; then onReject applies.
- * - average 1 to 1.5 (1.5 counts as closer to 1): the split is paid; the vote pool is
- *   shared equally in whole points, any remainder to the Commons.
- * - average above 1.5: the split is paid; the Commons rounds the vote pool up to a whole
- *   number per player and it is shared equally.
+ * - average below 1: rejected. The vote pool goes to the Commons; the split pool goes back by
+ *   what each put in (rejectedPool 'refund') or to the Commons ('commons'); then onReject applies.
+ * - average from 1 up to 1.5: accepted. The split is paid; the vote pool is shared equally in
+ *   whole points, any remainder to the Commons.
+ * - average 1.5 or more (welcomeAt 'atLeast'; above 1.5 with 'above'): welcomed. The split is
+ *   paid; the Commons rounds the vote pool up to a whole number per player, it is shared
+ *   equally, and the Commons adds welcomeBonus per player.
+ * After a split in the last round (maxRound) the table ends: there is no next round to stay for.
  */
 export function vote(s, votes) {
   if (s.phase !== 'vote') throw new Error('Not voting now');
@@ -254,6 +258,8 @@ export function vote(s, votes) {
       next.rounds = [...next.rounds.slice(0, -1), { ...next.rounds.at(-1), ultimatum: { ...record, forfeit: left } }];
     }
   }
+  // The last round is over: end here rather than ask everyone to stay for a round that won't come.
+  if (s.round >= s.maxRound) return endSeason(next, 'round-cap');
   return { ...next, phase: 'stay' };
 }
 

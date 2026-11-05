@@ -26,12 +26,12 @@ export function resetControl({ game, keys, count, onChange }) {
   wrap.className = 'reset-ach';
   if (!count && !pending[game]) return wrap;
   if (!pending[game]) {
-    wrap.innerHTML = '<button type="button" class="linkish">Reset</button>';
+    wrap.innerHTML = `<button type="button" class="linkish" id="reset-${game}">Reset</button>`;
     wrap.firstElementChild.addEventListener('click', () => { pending[game] = true; onChange(); });
     return wrap;
   }
   wrap.innerHTML = `<span class="small">Clear all ${count} achievement${count === 1 ? '' : 's'}? Levels you've unlocked stay open.</span>
-    <button type="button" class="linkish danger" data-yes>Yes, reset</button> <button type="button" class="linkish" data-no>Cancel</button>`;
+    <button type="button" class="linkish danger" data-yes id="reset-${game}-yes">Yes, reset</button> <button type="button" class="linkish" data-no id="reset-${game}-no">Cancel</button>`;
   wrap.querySelector('[data-yes]').addEventListener('click', () => {
     for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } }
     pending[game] = false;

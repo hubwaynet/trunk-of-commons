@@ -7,6 +7,7 @@ import { strategyEvidence, guessFits } from '../../bots/evidence.js';
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 import { fireworks as showFireworks } from '../fireworks.js';
 import { unlock, isUnlocked, resetControl } from '../progress-store.js';
+import { keepFocus } from '../focus.js';
 
 const START_BALANCE = 20;
 const COMMONS_RESERVE = 120;
@@ -427,7 +428,7 @@ function renderLog() {
       <span class="legend small"><span class="lv low"><span class="code">0</span></span> nothing
       <span class="lv medium"><span class="code">M</span></span> medium
       <span class="lv high"><span class="code">H</span></span> high · number = points given · ↓ couldn't afford what they chose</span></div>
-    ${rounds.length ? `<div class="log-wrap"><table class="grid">
+    ${rounds.length ? `<div class="log-wrap" id="log-scroll" tabindex="0" role="region" aria-label="Round log, scrolls sideways"><table class="grid">
       <thead><tr><th scope="col">Player</th>${head}<th scope="col" title="Total points given">Gave</th><th scope="col" title="Total points received">Got</th>
         <th scope="col" title="Average choice: 0 nothing, 1 medium, 2 high">Avg</th><th scope="col">Points</th></tr></thead>
       <tbody>${seatRows}</tbody>
@@ -653,12 +654,14 @@ function renderExtras() {
 }
 
 function render() {
-  renderProgress();
-  drawTable();
-  renderPanel();
-  renderExtras();
-  renderLog();
-  renderKey();
+  keepFocus(() => {
+    renderProgress();
+    drawTable();
+    renderPanel();
+    renderExtras();
+    renderLog();
+    renderKey();
+  }, ['panel', 'extras', 'log', 'ach-progress', 'key']);
   const w = document.getElementById('watch-toggle');
   w.setAttribute('aria-pressed', String(G.watch));
   w.textContent = G.watch ? 'Play yourself' : 'Watch the bots';
