@@ -14,6 +14,9 @@ export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptabl
  * welcomeAt: 'atLeast' (default; an average of 1.5 or more is welcomed, Jason 2026-11-05)
  *   or 'above' (1.5 counts as accepted, the earlier rule).
  * welcomeBonus: points the Commons adds per player when a split is welcomed (Jason, 2026-11-05).
+ * grabOpens: when the pool can be grabbed. 'afterLap' (default): only once every player still at
+ *   the table has had a turn since the last split (or the start), so no empty or token pools
+ *   (Jason, 2026-11-05). 'nonEmpty': any time the pool has points. 'any': the first draft's rule.
  * maxRound: the table ends after this round and any pool is shared equally (20, Jason 2026-11-05).
  * onReject: what else a rejected split does.
  *   'end'        the table ends (2018 rule)
@@ -22,11 +25,12 @@ export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptabl
  */
 export function createGame({
   players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = 20,
-  onReject = 'grabberOut', firstGrabRound = 1, rejectedPool = 'refund', welcomeAt = 'atLeast', welcomeBonus = 1,
+  onReject = 'grabberOut', firstGrabRound = 1, rejectedPool = 'refund', welcomeAt = 'atLeast', welcomeBonus = 1, grabOpens = 'afterLap',
 }) {
   if (!players || players.length < minPlayers) throw new Error(`Need at least ${minPlayers} players`);
   return {
-    seed, startBalance, minPlayers, maxRound, onReject, firstGrabRound, rejectedPool, welcomeAt, welcomeBonus,
+    seed, startBalance, minPlayers, maxRound, onReject, firstGrabRound, rejectedPool, welcomeAt, welcomeBonus, grabOpens,
+    turnsSinceSplit: 0, // gives and passes since the last split (or the start)
     round: 1,
     phase: 'turn',
     order: players.map((p) => p.id), // turn order this round (join order to begin with)
@@ -66,7 +70,10 @@ export function canGive(s, id) {
   return bal(s, id) >= requirement(s.round);
 }
 export function canGrab(s, id) {
-  return canGive(s, id) && s.round >= s.firstGrabRound;
+  if (!canGive(s, id) || s.round < s.firstGrabRound) return false;
+  if (s.grabOpens === 'afterLap') return s.turnsSinceSplit >= activeIds(s).length;
+  if (s.grabOpens === 'nonEmpty') return s.pool > 0;
+  return true;
 }
 
 /** move: 'give' or 'grab'. A broke player's move is recorded as 'pass' whatever they asked for. */
@@ -75,7 +82,7 @@ export function act(s, id, move) {
   if (move !== 'give' && move !== 'grab') throw new Error('Move must be give or grab');
   const r = s.round;
   const cur = s.current ?? { round: r, moves: [] };
-  if (!canGive(s, id)) return advance({ ...s, current: { ...cur, moves: [...cur.moves, { id, move: 'pass', amount: 0, asked: move }] } });
+  if (!canGive(s, id)) return advance({ ...s, turnsSinceSplit: s.turnsSinceSplit + 1, current: { ...cur, moves: [...cur.moves, { id, move: 'pass', amount: 0, asked: move }] } });
   if (move === 'grab' && !canGrab(s, id)) move = 'give';
   if (move === 'give') {
     const amount = requirement(r);
@@ -84,6 +91,7 @@ export function act(s, id, move) {
       players: setBal(s.players, id, -amount),
       pool: s.pool + amount,
       stakes: { ...s.stakes, [id]: (s.stakes[id] ?? 0) + amount },
+      turnsSinceSplit: s.turnsSinceSplit + 1,
       current: { ...cur, moves: [...cur.moves, { id, move: 'give', amount }] },
     });
   }
@@ -230,7 +238,7 @@ export function vote(s, votes) {
   };
   const record = { ...u, votes: { ...votes }, paid, voteAvg: avg, result, voteEach, bonusEach, topUp, toCommons, refunds };
   const next = {
-    ...s, players, commons, pool: 0, stakes: {}, ultimatum: null, current: null,
+    ...s, players, commons, pool: 0, stakes: {}, ultimatum: null, current: null, turnsSinceSplit: 0,
     rounds: [...s.rounds, { ...s.current, result: 'ultimatum', ultimatum: record }],
   };
   if (result === 'rejected') {

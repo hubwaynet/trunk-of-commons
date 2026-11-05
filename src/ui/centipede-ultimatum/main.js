@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import {
-  createGame, currentPlayer, act, divide, vote, stay, requirement, canGive, activeIds, splitBy,
+  createGame, currentPlayer, act, divide, vote, stay, requirement, canGive, canGrab, activeIds, splitBy,
 } from '../../engine/centipede-ultimatum.js';
 import { STRATEGIES, FAMILIES, botView, selectRoster } from '../../bots/centipede-ultimatum-bots.js';
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
@@ -358,13 +358,18 @@ function turnCard() {
     return c;
   }
   const grabNote = s.pool === 0 ? 'The pool is empty right now.' : `You'd hold ${s.pool} and decide who gets what.`;
+  const open = canGrab(s, 'you');
+  const wait = Math.max(0, activeIds(s).length - s.turnsSinceSplit);
+  const grabSub = open
+    ? `${esc(grabNote)} Then the table votes on your split.`
+    : `Not yet: the pool has to go round the table once after each split. ${wait} more turn${wait === 1 ? '' : 's'} before anyone can grab.`;
   const c = h(`<div class="card"><h2>Your turn</h2>
     <div class="choices two">
       <button class="choice" type="button" id="give"><span class="lbl">Give</span><span class="amt">${r}</span><span class="sub">The pool grows. If everyone gives, the Commons adds 1 per giver.</span></button>
-      <button class="choice grab" type="button" id="grab"><span class="lbl">Grab</span><span class="amt">${s.pool}</span><span class="sub">${esc(grabNote)} Then the table votes on your split.</span></button>
+      <button class="choice grab" type="button" id="grab" ${open ? '' : 'disabled'}><span class="lbl">Grab</span><span class="amt">${s.pool}</span><span class="sub">${grabSub}</span></button>
     </div></div>`);
   c.querySelector('#give').addEventListener('click', () => humanMove('give'));
-  c.querySelector('#grab').addEventListener('click', () => humanMove('grab'));
+  if (open) c.querySelector('#grab').addEventListener('click', () => humanMove('grab'));
   return c;
 }
 

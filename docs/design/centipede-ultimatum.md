@@ -159,3 +159,13 @@ When a table ends with a pool still on it (round 20, nobody can afford the amoun
 Rounding: when a pool is split in proportion (the "by what each put in" preset, refunds, and the end-of-table return), leftover points from rounding down now go one each to the players with the largest fractions. Before, they went to the biggest contributors. For example, a pool of 12 with stakes 1, 3 and 3 now returns 2, 5 and 5 (it was 1, 6 and 5).
 
 Simulation after both changes (4,000 tables): median 11 rounds, 34% reach round 20. Free Voter is close behind Edge Watcher as the best strategy (+9.6 and +9.9 per seat), and Pushover now finishes slightly behind (−1.1).
+
+## Empty-pool exploit closed (Jason found it, 2026-11-05)
+
+Jason found that a divider who survives a split starts the next round with an empty pool, so they could grab 0, "split" 0, vote 2, and collect the welcome bonus every round. The bots welcomed it because a share of 0 equals an equal share of 0. Bots exploited it too: Edge Watcher's grab trigger ignores the pool size. Once empty pools were blocked, welcomed splits fell from 24% to 9%, so the earlier welcome figures and achievement odds were inflated.
+
+Decided: **grabbing opens only after the pool has gone round the table once since the last split (and at the start)** (`grabOpens: 'afterLap'`). Until then the Grab button is greyed out and says how many turns are left. This was Jason's second suggestion. It blocks token pools as well as empty ones, which "can't grab an empty pool" (`grabOpens: 'nonEmpty'`, also available) would not.
+
+Simulation with the fix (4,000 tables): median 10 rounds, 21% reach round 20. 44% of splits are rejected, 50% accepted and 6% welcomed. Bot grabs now come later and are bigger (median pool 51), so greedy keeps are punished more often. Best strategies: Pool Watcher +10.2, Free Voter +8.1, Edge Watcher +7.6. Early Grabber, Greedy and Pushover finish level or behind.
+
+Achievement odds (per table, for the style that suits each one) barely move: Nobody short-changed about 88%, Steady hand 85%, One clean grab 76%, Welcomed about 65% for a fair splitter who votes 2, Full distance 20–39%, Your vote counted 9–41%. The order stays the same.

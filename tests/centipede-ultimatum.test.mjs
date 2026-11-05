@@ -156,3 +156,19 @@ test('a pool left at the end goes back by what each put in', () => {
   assert.deepEqual(s.finalShares, { a: 2, b: 5, c: 5 }); // stakes 1, 3, 3 of 12
   assert.equal(s.players.reduce((x, p) => x + p.balance, 0), 12);
 });
+
+test('grabbing opens only after the pool has gone round the table since the last split', () => {
+  let s = fresh();
+  s = act(s, 'a', 'grab'); // round 1, nobody has had a turn yet: treated as give
+  assert.equal(s.phase, 'turn');
+  assert.equal(s.current.moves[0].move, 'give');
+  s = act(act(act(s, 'b', 'give'), 'c', 'give'), 'd', 'give'); // lap complete
+  s = act(s, 'a', 'grab');
+  assert.equal(s.phase, 'divide');
+  s = vote(divide(s, splitBy(s.pool, { a: 1, b: 1, c: 1, d: 1 })), { a: 2, b: 1, c: 1, d: 1 });
+  s = stay(s, { a: true, b: true, c: true, d: true });
+  assert.equal(currentPlayer(s), 'a'); // the divider starts the next round...
+  s = act(s, 'a', 'grab'); // ...but cannot grab the empty pool
+  assert.equal(s.phase, 'turn');
+  assert.ok(s.pool > 0);
+});
