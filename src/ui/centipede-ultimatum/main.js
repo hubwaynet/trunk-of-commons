@@ -9,6 +9,7 @@ import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 import { ACHIEVEMENTS, splitAchievements, endAchievements } from './achievements.js';
 import { fireworks } from '../fireworks.js';
 import { unlock, isUnlocked, resetControl } from '../progress-store.js';
+import { keepFocus } from '../focus.js';
 
 const START_BALANCE = 20;
 const COMMONS_RESERVE = 120;
@@ -310,7 +311,10 @@ function renderTable() {
   svg.append(el('rect', { x: 76, y: 421, width: w, height: 8, rx: 4, class: 'commons-track' }));
   svg.append(el('rect', { x: 76, y: 421, width: w * frac, height: 8, rx: 4, class: 'commons-fill' }));
   svg.append(el('text', { x: 204, y: 429, class: 'commons-val' }, String(s.commons.reserve)));
-  svg.append(el('text', { x: 384, y: 429, 'text-anchor': 'end', class: 'pool-sub' }, `ROUND ${s.round} OF ${s.maxRound} · AMOUNT ${requirement(s.round)}`));
+  const roundLabel = s.status === 'playing'
+    ? `ROUND ${s.round} OF ${s.maxRound} · AMOUNT ${requirement(s.round)}`
+    : `TABLE OVER AFTER ROUND ${s.rounds.at(-1)?.round ?? s.round}`; // not the round that never started
+  svg.append(el('text', { x: 384, y: 429, 'text-anchor': 'end', class: 'pool-sub' }, roundLabel));
 }
 
 // ---------- the panel ----------
@@ -400,24 +404,24 @@ function divideCard() {
     <p class="muted small">Set each share. It starts split by what each player put in; an equal share would be about ${(pool / ids.length).toFixed(1)}.${riders.some((x) => x !== 'you') ? ' A <b>free rider</b> has voted 0 at least twice on fair splits that passed anyway: you can cut their share and the others won\'t defend them.' : ''}</p>
     ${needLine(ids.length)}
     <div class="btn-row presets">
-      <button class="btn ghost small-btn" type="button" data-p="stakes">By what each put in</button>
-      <button class="btn ghost small-btn" type="button" data-p="equal">Equal</button>
-      <button class="btn ghost small-btn" type="button" data-p="half">Keep half</button>
+      <button class="btn ghost small-btn" type="button" id="preset-stakes" data-p="stakes">By what each put in</button>
+      <button class="btn ghost small-btn" type="button" id="preset-equal" data-p="equal">Equal</button>
+      <button class="btn ghost small-btn" type="button" id="preset-half" data-p="half">Keep half</button>
     </div>
     <div class="share-rows"></div>
     <p class="remaining" aria-live="polite"></p>
     <div class="btn-row"><button class="btn" type="button" id="offer">Offer this split</button></div></div>`);
   const rows = c.querySelector('.share-rows');
-  const draw = () => {
+  const draw = () => keepFocus(() => {
     rows.replaceChildren(...ids.map((id) => {
       const st = seat(id);
       const row = h(`<div class="share-row">
         <span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}${riders.includes(id) ? ' <span class="chip-fr" title="Voted 0 at least twice on fair splits that passed anyway">free rider</span>' : freeZeros[id] === 1 && id !== 'you' ? ' <span class="chip-fr soft" title="Voted 0 once on a fair split that passed anyway. A second time makes a free rider.">1 free 0</span>' : ''}</span>
         <span class="muted small">put in ${s.stakes[id] ?? 0}</span>
         <span class="stepper">
-          <button type="button" class="step" aria-label="Less for ${esc(st.name)}">−</button>
-          <input type="number" min="0" max="${pool}" step="1" inputmode="numeric" value="${shares[id]}" aria-label="Share for ${esc(st.name)}">
-          <button type="button" class="step" aria-label="More for ${esc(st.name)}">+</button>
+          <button type="button" class="step" id="less-${id}" aria-label="Less for ${esc(st.name)}">−</button>
+          <input type="number" id="share-${id}" min="0" max="${pool}" step="1" inputmode="numeric" value="${shares[id]}" aria-label="Share for ${esc(st.name)}">
+          <button type="button" class="step" id="more-${id}" aria-label="More for ${esc(st.name)}">+</button>
         </span></div>`);
       const [minus, plus] = row.querySelectorAll('.step');
       const input = row.querySelector('input');
@@ -431,7 +435,7 @@ function divideCard() {
     rem.textContent = left === 0 ? 'Every point is assigned.' : left > 0 ? `${left} still to assign.` : `${-left} too many assigned.`;
     rem.className = `remaining ${left === 0 ? 'ok' : 'miss'}`;
     c.querySelector('#offer').disabled = left !== 0;
-  };
+  }, ['panel']);
   c.querySelectorAll('[data-p]').forEach((b) => b.addEventListener('click', () => {
     const p = b.dataset.p;
     shares = p === 'equal' ? splitBy(pool, ones) : p === 'stakes' ? splitBy(pool, stakeW) : splitBy(pool, ones, 'you', Math.ceil(pool / 2));
@@ -468,9 +472,9 @@ function voteCard() {
     ${splitTable(u)}
     <p>${u.grabber === 'you' ? 'Now everyone votes, you included.' : `You're offered <b>${mine}</b>. How do you judge it?`}</p>
     <div class="choices three">
-      <button class="choice" type="button" data-v="0"><span class="lbl">Reject</span><span class="amt">0</span><span class="sub">Free.</span></button>
-      <button class="choice" type="button" data-v="1"><span class="lbl">Accept</span><span class="amt">1</span><span class="sub">Costs 1 from your share.</span></button>
-      <button class="choice" type="button" data-v="2"><span class="lbl">Welcome</span><span class="amt">2</span><span class="sub">Costs 2. An average of 1.5 or more welcomes the split: everyone gets 1 bonus.</span></button>
+      <button class="choice" type="button" id="vote-0" data-v="0"><span class="lbl">Reject</span><span class="amt">0</span><span class="sub">Free.</span></button>
+      <button class="choice" type="button" id="vote-1" data-v="1"><span class="lbl">Accept</span><span class="amt">1</span><span class="sub">Costs 1 from your share.</span></button>
+      <button class="choice" type="button" id="vote-2" data-v="2"><span class="lbl">Welcome</span><span class="amt">2</span><span class="sub">Costs 2. An average of 1.5 or more welcomes the split: everyone gets 1 bonus.</span></button>
     </div>
     ${needLine(Object.keys(u.shares).length)}
     <p class="muted small">If rejected, the divider leaves the table, the pool goes back by what each put in, and everything the divider holds stays in the pool for the others. Vote tokens are shared back out, unless the split is rejected.</p></div>`);
@@ -566,6 +570,11 @@ function renderLog() {
   const rounds = [...s.rounds];
   if (s.current) rounds.push({ ...s.current, result: 'live' });
   if (!rounds.length) { $('#log').replaceChildren(); return; }
+  // The log is rebuilt after every move: keep it open or closed as the player left it, and keep
+  // its sideways scroll, following the newest round when one is added.
+  const oldFold = $('#log details');
+  if (oldFold) G.logOpen = oldFold.open;
+  const oldScroll = $('#log .log-wrap')?.scrollLeft ?? 0;
   const cell = (r, id) => {
     const m = r.moves.find((x) => x.id === id);
     let html = '';
@@ -578,15 +587,18 @@ function renderLog() {
   };
   const resLabel = (r) => r.result === 'live' ? '…' : r.result === 'complete' ? `+${r.topUp}` : r.result === 'stalled' ? 'stalled' : r.ultimatum.result;
   const resCls = (r) => r.result === 'ultimatum' ? (r.ultimatum.result === 'rejected' ? 'fail' : r.ultimatum.result === 'welcomed' ? 'bonus' : 'base') : '';
-  $('#log').replaceChildren(h(`<details class="fold" open><summary><h2>Round log</h2></summary>
+  $('#log').replaceChildren(h(`<details class="fold" ${G.logOpen === false ? '' : 'open'}><summary><h2>Round log</h2></summary>
     <p class="muted small legend-line">G = gave · <b>·</b> = passed (couldn't afford) · GRAB, then each player's offered share with their vote</p>
-    <div class="log-wrap"><table class="grid">
+    <div class="log-wrap" id="log-scroll" tabindex="0" role="region" aria-label="Round log, scrolls sideways"><table class="grid">
       <thead><tr><th>Player</th>${rounds.map((r) => `<th>R${r.round}</th>`).join('')}<th>Now</th></tr></thead>
       <tbody>${G.seats.map((st) => `<tr><th scope="row"><span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}</span></th>
         ${rounds.map((r) => `<td>${cell(r, st.id)}</td>`).join('')}<td class="sum strong">${player(st.id).balance}</td></tr>`).join('')}</tbody>
       <tfoot><tr><th scope="row">Result</th>${rounds.map((r) => `<td><span class="${resCls(r) ? `tag ${resCls(r)}` : ''}">${resLabel(r)}</span></td>`).join('')}<td></td></tr>
       <tr><th scope="row">Pool after</th>${rounds.map((r) => `<td>${r.result === 'complete' ? r.poolAfter : r.result === 'ultimatum' ? (r.ultimatum.forfeit ?? 0) : ''}</td>`).join('')}<td></td></tr></tfoot>
     </table></div></details>`));
+  const wrap = $('#log .log-wrap');
+  wrap.scrollLeft = rounds.length !== G.logRounds ? wrap.scrollWidth : oldScroll;
+  G.logRounds = rounds.length;
 }
 
 // ---------- strategy key ----------
@@ -599,11 +611,13 @@ function renderKey() {
 }
 
 function render() {
-  renderProgress();
-  renderTable();
-  renderPanel();
-  renderExtras();
-  renderLog();
+  keepFocus(() => {
+    renderProgress();
+    renderTable();
+    renderPanel();
+    renderExtras();
+    renderLog();
+  }, ['panel', 'extras', 'log', 'ach-progress']);
   if (G.allNow) {
     G.allNow = false;
     setTimeout(() => celebrate(5200), 400);

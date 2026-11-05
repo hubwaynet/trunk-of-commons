@@ -59,6 +59,7 @@ th, td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--lin
 th:first-child, td:first-child { text-align: left; }
 th { font-family: var(--font-data); font-weight: 500; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .pos { color: var(--good); }
+.neg { color: var(--low); }
 .debrief { display: grid; gap: 14px; }
 .debrief p { margin: 0; max-width: 65ch; }
 .who { display: flex; align-items: center; gap: 8px; font-weight: 700; }

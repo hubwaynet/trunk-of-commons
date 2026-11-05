@@ -77,6 +77,8 @@ h3 { font-family: var(--font-display); font-weight: 600; font-size: 16px; margin
 .btn:disabled { opacity: 0.45; cursor: default; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
 :focus-visible { outline: 3px solid var(--flow); outline-offset: 2px; }
+/* Regions that receive focus only to keep the keyboard in place after a redraw (src/ui/focus.js). */
+[tabindex="-1"]:focus { outline: none; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
