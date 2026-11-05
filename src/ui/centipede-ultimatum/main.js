@@ -300,6 +300,15 @@ function humanStay(v) { applyStay(v); afterChange(); }
 
 // ---------- the table picture ----------
 const REP_CLASS = { exploitive: 'exploit', 'free loading': 'free', cooperative: 'coop', generous: 'generous' };
+// Each state has its own shape as well as its colour, so colour is never the only cue (Jason, 2026-11-06):
+// exploitive a heavy solid ring, generous a double ring, free loading a thick dashed ring,
+// cooperative a single thin ring.
+const RING_SHAPES = {
+  exploitive: [{ r: 27.5, 'stroke-width': 5 }],
+  generous: [{ r: 29.2, 'stroke-width': 2.4 }, { r: 25, 'stroke-width': 2.4 }],
+  'free loading': [{ r: 27.5, 'stroke-width': 4.5, 'stroke-dasharray': '6 4' }],
+  cooperative: [{ r: 27.5, 'stroke-width': 2 }],
+};
 function seatPos(i, n = 6, r = 140) {
   const a = (-90 + (360 / n) * i) * (Math.PI / 180);
   return { x: 200 + r * Math.cos(a), y: 200 + r * Math.sin(a), a };
@@ -327,8 +336,7 @@ function renderTable() {
     const p = player(st.id);
     const pos = seatPos(i);
     const g = el('g', { class: `seat ${p.active ? '' : 'left'} ${st.id === turnId ? 'turn' : ''}` });
-    if (st.id === turnId) g.append(el('circle', { cx: pos.x, cy: pos.y, r: 33, class: 'turn-ring' }));
-    if (rep[st.id]) g.append(el('circle', { cx: pos.x, cy: pos.y, r: 27.5, class: `seat-rep rep-${REP_CLASS[rep[st.id]]}` }));
+    if (rep[st.id]) for (const ring of RING_SHAPES[rep[st.id]]) g.append(el('circle', { cx: pos.x, cy: pos.y, ...ring, class: `seat-rep rep-${REP_CLASS[rep[st.id]]}` }));
     g.append(el('circle', { cx: pos.x, cy: pos.y, r: 22, fill: st.hue }));
     g.append(el('text', { x: pos.x, y: pos.y + 5, 'text-anchor': 'middle', class: 'seat-bal' }, String(p.balance)));
     const below = pos.y > 200;
@@ -359,8 +367,10 @@ function renderTable() {
     const order = ids.indexOf(st.id);
     if (s.status === 'playing' && s.phase === 'turn' && order >= 0) {
       const b = seatPos(i, 6, 98);
-      g.append(el('circle', { cx: b.x, cy: b.y, r: 9, class: 'order-badge' }));
-      g.append(el('text', { x: b.x, y: b.y + 4, 'text-anchor': 'middle', class: 'order-num' }, String(order + 1)));
+      // Whose turn: their order badge is filled in (no extra ring, so rings mean only reputation).
+      const now = st.id === turnId;
+      g.append(el('circle', { cx: b.x, cy: b.y, r: now ? 11 : 9, class: now ? 'order-badge now' : 'order-badge' }));
+      g.append(el('text', { x: b.x, y: b.y + 4, 'text-anchor': 'middle', class: now ? 'order-num now' : 'order-num' }, String(order + 1)));
     }
     svg.append(g);
   });

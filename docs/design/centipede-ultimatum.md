@@ -352,6 +352,25 @@ From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai pro
     - The rules say "The rising amount is this game's real pressure: every round costs one more."
     - The end card says where the table's points came from, and that the Commons rarely runs out here.
 - **Reputation.** A four-state ring on each seat, from the 2018 notes: exploitive, free loading, cooperative, generous. It has a text label as well as colour, and a legend. The thresholds are simulated before building.
+  - *Built 2026-11-06. Jason approved it with thicker rings and a different line style for each state, so colour is never the only cue.*
+  - The rule (`reputations()` in the bots module, from 3,600 simulated tables):
+    - **Exploitive:** the latest split kept more than a fair share, worked out after setting aside anyone being punished (free riders, and the divider of a greedy split just before). Without that, Mirror read as exploitive 56% of the time; with it, 4%. A later fair split clears it.
+    - **Free loading:** the free-rider label.
+    - **Generous:** never exploitive at the table, and either kept less than their own fair share or voted 2 on at least two-thirds of others' splits (three or more).
+    - **Cooperative:** everyone else.
+    - No ring before the first split.
+  - Shapes, so colour is never the only cue: exploitive is a heavy solid magenta ring, generous a green double ring, free loading a thick dashed brass ring, and cooperative a thin grey ring. Checked in greyscale and in simulated deuteranopia and protanopia.
+  - The state also shows under each name in the round log and in the table's spoken label, and a legend sits under the table.
+  - Whose turn it is is now a filled order badge instead of a blue ring, so the rings mean only reputation.
+  - Where players end (share of tables):
+    - Early Grabber, Greedy, Pool Watcher and Skimmer: exploitive, 90–100%.
+    - Edge Watcher: exploitive, 76%.
+    - Free Voter: free loading, 62%.
+    - Pushover: generous, 100%.
+    - Patient: cooperative 61%, generous 39%.
+    - Bookkeeper and Spiteful: cooperative, 95–98%.
+    - A fair player: cooperative 84–88%, otherwise generous.
+    - Keeping 1.5 shares: exploitive, 94%.
 - **Your vote counted.** It counts only when the player's split was fair, meaning they kept no more than a fair share (the same test the bots use). Welcomed is unchanged. The achievement odds are re-run.
   - *Built 2026-11-06.*
   - Odds per table (2,000 tables per style):

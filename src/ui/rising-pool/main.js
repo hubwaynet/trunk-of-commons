@@ -255,7 +255,7 @@ function drawTable() {
     const [x, y] = polar(deg, R_SEAT);
     const g = el('g', { class: p.active || (o && seat.id in o.levels) ? 'seat' : 'seat left' });
     const repColor = rep[seat.id] === 'good' ? 'var(--good)' : rep[seat.id] === 'low' ? 'var(--low)' : 'var(--line)';
-    g.append(el('circle', { cx: x, cy: y, r: 27, class: 'seat-rep', stroke: repColor }));
+    g.append(el('circle', { cx: x, cy: y, r: 27, class: rep[seat.id] === 'low' ? 'seat-rep dashed' : 'seat-rep', stroke: repColor })); // dashed: shape as well as colour
     g.append(el('circle', { cx: x, cy: y, r: 21, fill: seat.hue }));
     g.append(el('text', { x, y: y + 4.5, 'text-anchor': 'middle', class: 'seat-bal' }, String(p.balance)));
     const [nx, ny] = polar(deg, R_SEAT + 41);

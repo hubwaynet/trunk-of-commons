@@ -95,6 +95,6 @@ th { font-family: var(--font-data); font-weight: 500; font-size: 11px; letter-sp
 /* Reputation rings: legend under the table (both games) */
 .ring-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0; padding: 0 10px; }
 .ring-legend > span:not(.eyebrow) { display: inline-flex; align-items: center; gap: 5px; }
-.ring-legend svg { width: 16px; height: 16px; flex: none; }
-.ring-legend .seat-rep { fill: none; stroke-width: 2.5; }
+.ring-legend svg { width: 22px; height: 22px; flex: none; }
+.ring-legend .seat-rep { fill: none; }
 .ring-legend .ring-help { flex-basis: 100%; font-size: 13px; }

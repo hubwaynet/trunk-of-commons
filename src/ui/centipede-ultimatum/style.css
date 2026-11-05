@@ -12,7 +12,6 @@
 .pool-fill.held { fill: color-mix(in srgb, var(--brass) 50%, var(--surface)); stroke-width: 3; }
 .pool-num { font-size: 24px; font-weight: 500; fill: var(--ink); }
 
-.turn-ring { fill: none; stroke: var(--flow); stroke-width: 3; }
 .seat-chip { font-size: 11px; fill: var(--muted); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 .seat-chip.grab { fill: var(--brass); font-weight: 700; }
 .seat-chip.pass { fill: var(--low); }
@@ -74,9 +73,12 @@
 .split-row .who { flex-wrap: wrap; row-gap: 0; min-width: 0; }
 .split-row .divider-tag { flex-basis: 100%; padding-left: 22px; font-size: 12px; font-weight: 400; line-height: 1.2; }
 /* Reputation (2018 notes): colour plus line style, so colour isn't the only cue */
-.seat-rep { fill: none; stroke-width: 3.5; }
+.seat-rep { fill: none; }
 .rep-generous { stroke: var(--good); }
-.rep-coop { stroke: var(--muted); stroke-width: 1.5; }
-.rep-free { stroke: var(--brass); stroke-dasharray: 4 3; }
+.rep-coop { stroke: var(--muted); }
+.rep-free { stroke: var(--brass); }
 .rep-exploit { stroke: var(--low); }
 .grid th[scope="row"] .rep-word { display: block; font-weight: 400; font-size: 12px; }
+/* the player whose turn it is: a filled order badge (surface on flow blue: 4.8:1 light, 6.1:1 dark) */
+.order-badge.now { fill: var(--flow); stroke: var(--flow); }
+.order-num.now { fill: var(--surface); font-weight: 700; font-size: 11px; }

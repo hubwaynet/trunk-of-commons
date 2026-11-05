@@ -94,5 +94,5 @@ From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai pro
     - It reads the round prompt ("Round 2: give nothing, medium 2 or high 4. You have 21 points."), the result with your gain or loss and the stay question, the table's end, Read the table's verdict, and the "not enough points" screen.
     - When you're watching, it says nothing until the table closes, because rounds come every 1.4 seconds.
     - The table picture's spoken label describes each ring as "gives medium or more on average" or "gives less than medium on average".
-- **Reputation rings.** Explained on the page, with a legend and a text alternative. The threshold is unchanged.
+- **Reputation rings.** Explained on the page, with a legend and a text alternative. The threshold is unchanged. *Built 2026-11-06:* the rings are thicker, and "gives less than medium" is dashed as well as magenta, so colour is never the only cue (Jason). The legend under the table says "solid" and "dashed", and the spoken label gives each player's ring in words.
 - **Order of work, and review flow.** See the same section in `centipede-ultimatum.md`.

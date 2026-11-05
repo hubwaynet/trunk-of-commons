@@ -10,7 +10,9 @@
 .pool-fill { transition: fill 0.3s; }
 .pool-avg { font-size: 20px; font-weight: 500; }
 
-.seat-rep { fill: none; stroke-width: 4; }
+#table .seat-rep { fill: none; stroke-width: 5; }
+#table .seat-rep.dashed { stroke-dasharray: 6 4; }
+.ring-legend .seat-rep { fill: none; }
 .seat-chip { font-size: 11px; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 .seat-chip.gift { fill: var(--muted); }
 .seat-chip.pay { fill: var(--flow); font-weight: 500; }

@@ -283,3 +283,27 @@ test('a 0 against a greedy divider is a protest, not a free 0 (Jason, 2026-11-06
   assert.equal(isFreeZero(greedy.rounds.at(-1).ultimatum, 'd'), false);
   assert.equal(isFreeZero(fair.rounds.at(-1).ultimatum, 'd'), true);
 });
+
+import { reputations } from '../src/bots/centipede-ultimatum-bots.js';
+
+test('reputation ring: exploitive, punishing, free loading, generous, cooperative', () => {
+  const split = (round, grabber, shares, votes, result = 'accepted') => ({ round, grabber, pool: Object.values(shares).reduce((x, y) => x + y, 0), shares, stakes: { a: 3, b: 3, c: 3, d: 3 }, votes, result });
+  assert.deepEqual(reputations([], ids), { a: null, b: null, c: null, d: null });
+  const greedy = split(2, 'a', { a: 11, b: 3, c: 3, d: 3 }, { a: 2, b: 1, c: 1, d: 1 }); // a keeps 11 of 20
+  assert.equal(reputations([greedy], ids).a, 'exploitive');
+  // b then cuts a out (punishing the greedy divider): b's share is fair once a is set aside
+  const punish = split(4, 'b', { a: 0, b: 7, c: 7, d: 6 }, { a: 0, b: 2, c: 2, d: 1 });
+  const r = reputations([greedy, punish], ids);
+  assert.equal(r.b, 'cooperative');
+  // a fair split later clears a's ring
+  const fairA = split(6, 'a', { a: 5, b: 5, c: 5, d: 5 }, { a: 2, b: 1, c: 1, d: 1 });
+  assert.notEqual(reputations([greedy, punish, fairA], ids).a, 'exploitive');
+  // d votes 0 on two fair splits that passed: free loading
+  const f1 = split(8, 'b', { a: 5, b: 5, c: 5, d: 5 }, { a: 1, b: 2, c: 2, d: 0 });
+  const f2 = split(10, 'c', { a: 5, b: 5, c: 5, d: 5 }, { a: 1, b: 2, c: 2, d: 0 });
+  assert.equal(reputations([f1, f2], ids).d, 'free loading');
+  // c votes 2 on every split it judges (3 or more): generous
+  const g = [f1, split(12, 'a', { a: 5, b: 5, c: 5, d: 5 }, { a: 2, b: 1, c: 2, d: 1 }), split(14, 'd', { a: 5, b: 5, c: 5, d: 5 }, { a: 1, b: 1, c: 2, d: 2 })];
+  assert.equal(reputations(g, ids).c, 'generous');
+  assert.equal(reputations(g, ids).a, 'cooperative');
+});
