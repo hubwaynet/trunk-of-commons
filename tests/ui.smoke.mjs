@@ -1,0 +1,232 @@
+// Play-through test: opens the real pages in a headless browser and plays whole tables of both
+// games, at desktop width in light theme and phone width in dark theme. It fails on page errors,
+// sideways scrolling, lost keyboard focus, a round past the last, or new accessibility problems.
+// Run: npm run test:ui   (needs Playwright with Chromium; see CLAUDE.md)
+// SPDX-License-Identifier: AGPL-3.0-only
+
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { readFile, mkdir } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { extname, join, normalize, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const require = createRequire(import.meta.url);
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const OUT = join(ROOT, 'test-results');
+
+let chromium;
+try { ({ chromium } = require('playwright')); } catch {
+  throw new Error('Playwright is not installed here. Install it (npm i -D playwright && npx playwright install chromium) to run the play-through test.');
+}
+const AXE = await readFile(require.resolve('axe-core/axe.min.js'), 'utf8');
+
+// Known issues the review left for Jason (claude/review-2026-11-06.md, L5 and L6). Anything else fails.
+const KNOWN = [
+  { rule: 'label-content-name-mismatch', target: /wordmark/ }, // L6: wordmark's spoken name
+  { rule: 'color-contrast', target: /\.grab|\.bonus/ }, // L5: white on brass (GRAB chip, Welcomed tag)
+];
+
+// ---------- a tiny static server for the repo ----------
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' };
+let server, BASE, browser;
+before(async () => {
+  server = createServer(async (req, res) => {
+    let path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname));
+    if (path.endsWith('/')) path += 'index.html';
+    const file = join(ROOT, path);
+    if (!file.startsWith(ROOT)) { res.writeHead(403).end(); return; }
+    try { const body = await readFile(file); res.writeHead(200, { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream' }).end(body); }
+    catch { res.writeHead(404).end('not found'); }
+  });
+  await new Promise((ok) => server.listen(0, '127.0.0.1', ok));
+  BASE = `http://127.0.0.1:${server.address().port}`;
+  browser = await chromium.launch();
+  await mkdir(OUT, { recursive: true });
+});
+after(async () => { await browser?.close(); server?.close(); });
+
+// Tables are random. Each run seeds the page's randomness so a failure can be replayed:
+// UI_SEED=12345 npm run test:ui
+const SEED = Number(process.env.UI_SEED ?? 20261106) >>> 0;
+console.log(`# UI_SEED=${SEED}`);
+const seedRandom = (seed) => {
+  let a = seed;
+  Math.random = () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+};
+
+const DESKTOP = { name: 'desktop-light', viewport: { width: 1280, height: 900 }, colorScheme: 'light', reducedMotion: 'no-preference' };
+const PHONE = { name: 'phone-dark', viewport: { width: 390, height: 844 }, colorScheme: 'dark', reducedMotion: 'reduce' };
+
+async function open(path, setup, { init } = {}) {
+  const ctx = await browser.newContext({ viewport: setup.viewport, colorScheme: setup.colorScheme, reducedMotion: setup.reducedMotion });
+  await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort()); // offline-safe; fallback fonts are fine here
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(`page error: ${e.message}`));
+  page.on('console', (m) => { if (m.type() === 'error' && !/fonts\.g/.test(m.location()?.url ?? '')) errors.push(`console: ${m.text()}`); });
+  await page.addInitScript(seedRandom, SEED);
+  if (init) await page.addInitScript(init);
+  await page.goto(BASE + path);
+  return { ctx, page, errors };
+}
+
+async function axeCheck(page, label) {
+  await page.addScriptTag({ content: AXE });
+  const found = await page.evaluate(async () => (await window.axe.run(document, { resultTypes: ['violations'] })).violations
+    .flatMap((v) => v.nodes.map((n) => ({ rule: v.id, target: n.target.join(' '), help: v.help }))));
+  const fresh = found.filter((f) => !KNOWN.some((k) => k.rule === f.rule && k.target.test(f.target)));
+  assert.deepEqual(fresh, [], `${label}: new accessibility problems`);
+}
+
+async function noSidewaysScroll(page, label) {
+  const extra = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  assert.ok(extra <= 0, `${label}: page scrolls sideways by ${extra}px`);
+}
+
+const focusId = (page) => page.evaluate(() => {
+  const a = document.activeElement;
+  return a === document.body || !a ? 'BODY' : a.id || a.closest('[id]')?.id || a.tagName;
+});
+
+async function finish(t, { ctx, page, errors }, label) {
+  try { assert.deepEqual(errors, [], `${label}: errors in the page`); }
+  catch (e) { await page.screenshot({ path: join(OUT, `${label}.png`), fullPage: true }).catch(() => {}); throw e; }
+  finally { await ctx.close(); }
+}
+
+// ---------- home page ----------
+test('home page loads and shows unlocked levels from this browser', async (t) => {
+  const run = await open('/', DESKTOP, { init: () => localStorage.setItem('trunk.unlocked.centipede', '1') });
+  assert.match(await run.page.textContent('#level2-status'), /Unlocked/);
+  assert.match(await run.page.textContent('#level3-status'), /In design/);
+  await finish(t, run, 'home');
+});
+
+// ---------- Game 1 ----------
+for (const setup of [DESKTOP, PHONE]) {
+  test(`Rising Pool: a whole table at ${setup.name}`, { timeout: 120_000 }, async (t) => {
+    const run = await open('/games/rising-pool/', setup);
+    const { page } = run;
+    const label = `rising-pool-${setup.name}`;
+    await page.waitForSelector('#choice-medium');
+    // keyboard: choosing a gift keeps focus on it, and Tab carries on to the next control
+    await page.focus('#choice-medium');
+    await page.keyboard.press('Space');
+    assert.equal(await focusId(page), 'choice-medium', 'focus stays on the gift after choosing it');
+    await page.keyboard.press('Tab');
+    assert.equal(await focusId(page), 'choice-high');
+    await page.keyboard.press('Tab');
+    assert.equal(await focusId(page), 'reveal');
+    let rounds = 0;
+    while (rounds < 40 && !(await page.$('.debrief'))) {
+      if (await page.$('#reveal')) {
+        for (const lv of ['high', 'medium', 'low']) {
+          const b = await page.$(`#choice-${lv}`);
+          if (b && await b.isEnabled()) { await b.click(); break; }
+        }
+        await page.click('#reveal');
+        rounds++;
+      } else if (await page.$('#stay')) await page.click('#stay');
+      else if (await page.$('#start-over')) await page.click('#start-over');
+    }
+    assert.ok(await page.$('.debrief'), 'the table closes with a debrief');
+    await page.click('#check');
+    assert.ok((await page.$$('.reveal')).length >= 5, 'Read the table gives a verdict for each bot');
+    await noSidewaysScroll(page, label);
+    if (setup === DESKTOP) await axeCheck(page, label);
+    await finish(t, run, label);
+  });
+}
+
+// ---------- Game 2 ----------
+async function playCentipede(page, { grabAt = 25, label }) {
+  await page.clock.install();
+  await page.goto(page.url()); // reload so the page's timers run on the test clock
+  await page.waitForSelector('#panel .card');
+  const seen = { grabbed: false, keyedTurn: false, keyedDivide: false, logChecked: false, round21: false, steps: 0 };
+  while (seen.steps++ < 4000) {
+    if (await page.$('#again')) break;
+    const headings = await page.$$eval('#panel h2', (hs) => hs.map((h) => h.textContent).join(' | '));
+    if (/round 21/i.test(headings)) seen.round21 = true;
+    if (!seen.logChecked && await page.$('#log details[open]')) {
+      // the round log stays collapsed after the next bot move
+      await page.click('#log summary');
+      await page.clock.runFor(1500);
+      assert.equal(await page.$eval('#log details', (d) => d.open), false, `${label}: the log reopened itself`);
+      await page.click('#log summary');
+      seen.logChecked = true;
+      continue;
+    }
+    if (await page.$('#skip')) { await page.click('#skip'); continue; }
+    if (await page.$('#give')) {
+      const open = await page.$eval('#grab', (b) => !b.disabled);
+      const pool = Number(await page.$eval('#grab .amt', (e) => e.textContent));
+      if (open && !seen.grabbed && pool >= grabAt) {
+        seen.grabbed = true;
+        await page.focus('#grab');
+        await page.keyboard.press('Enter');
+      } else if (!seen.keyedTurn) {
+        seen.keyedTurn = true;
+        await page.focus('#give');
+        await page.keyboard.press('Enter');
+        assert.notEqual(await focusId(page), 'BODY', `${label}: focus fell to the top of the page after giving`);
+      } else await page.click('#give');
+      continue;
+    }
+    if (await page.$('#pass')) { await page.click('#pass'); continue; }
+    if (await page.$('#offer')) {
+      if (!seen.keyedDivide) {
+        seen.keyedDivide = true;
+        await page.focus('#more-you');
+        await page.keyboard.press('Enter');
+        assert.equal(await focusId(page), 'more-you', `${label}: focus stays on + after pressing it`);
+        await page.click('#preset-stakes');
+      }
+      await page.click('#offer');
+      continue;
+    }
+    if (await page.$('#vote-2')) { await page.click('#vote-2'); continue; }
+    if (await page.$('#stay')) { await page.click('#stay'); continue; }
+    await page.clock.runFor(700); // let the bots move
+  }
+  return seen;
+}
+
+for (const setup of [DESKTOP, PHONE]) {
+  test(`Centipede & Ultimatum: a whole table at ${setup.name}`, { timeout: 120_000 }, async (t) => {
+    const label = `centipede-${setup.name}`;
+    const run = await open('/games/centipede-ultimatum/?preview', setup);
+    const { page } = run;
+    const seen = await playCentipede(page, { label });
+    assert.ok(await page.$('#again'), `${label}: the table ends with the end card`);
+    assert.equal(seen.round21, false, `${label}: asked to stay for a round 21`);
+    const roundLabel = await page.$$eval('#table text', (ts) => ts.map((x) => x.textContent).find((x) => /ROUND|TABLE OVER/.test(x)));
+    assert.match(roundLabel, /^TABLE OVER AFTER ROUND \d+$/);
+    await noSidewaysScroll(page, label);
+    if (setup === DESKTOP) await axeCheck(page, label);
+    await finish(t, run, label);
+  });
+}
+
+test('Centipede & Ultimatum: locked until Rising Pool is done, then opens', async (t) => {
+  const locked = await open('/games/centipede-ultimatum/', DESKTOP);
+  assert.ok(await locked.page.$('.locked-card'), 'shows the lock card');
+  await finish(t, locked, 'centipede-locked');
+  const opened = await open('/games/centipede-ultimatum/', DESKTOP, { init: () => localStorage.setItem('trunk.unlocked.centipede', '1') });
+  await opened.page.waitForSelector('#panel .card');
+  assert.equal(await opened.page.$('.locked-card'), null, 'opens once unlocked');
+  await finish(t, opened, 'centipede-unlocked');
+});
+
+test('Centipede & Ultimatum: watching six bots runs to the end', { timeout: 120_000 }, async (t) => {
+  const run = await open('/games/centipede-ultimatum/?preview', PHONE);
+  const { page } = run;
+  await page.clock.install();
+  await page.goto(page.url());
+  await page.click('#watch-toggle');
+  for (let i = 0; i < 3000 && !(await page.$('#again')); i++) await page.clock.runFor(700);
+  assert.ok(await page.$('#again'), 'the watched table ends');
+  await finish(t, run, 'centipede-watch');
+});

@@ -25,7 +25,7 @@ python3 -m http.server 8000
 # then http://localhost:8000/games/rising-pool/
 ```
 
-Tests (Node 20+): `npm test`
+Tests (Node 20+): `npm test`. Play-through of both games in a headless browser: `npm run test:ui` (needs Playwright with Chromium).
 
 Single-file preview for sharing: `npm install && npm run preview` writes `dist/rising-pool.html`.
 

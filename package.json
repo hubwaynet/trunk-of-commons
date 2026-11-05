@@ -8,9 +8,11 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "preview": "node tools/build-preview.mjs rising-pool",
-    "serve": "python3 -m http.server 8000"
+    "serve": "python3 -m http.server 8000",
+    "test:ui": "node --test tests/ui.smoke.mjs"
   },
   "devDependencies": {
+    "axe-core": "^4.11.1",
     "esbuild": "^0.24.0"
   }
 }

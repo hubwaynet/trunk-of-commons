@@ -17,7 +17,7 @@ Educational social dilemma games. Jason Lee Lasky directs the design and does no
 - `src/ui/site.css` holds the shared tokens, site bar and footer. Each game adds its own `src/ui/<game>/style.css` and `main.js`.
 - `games/_template/` is the starting page for a new game. `games/index.html` redirects home until a games list page exists.
 - There is no build step for the site: GitHub Pages serves ES modules from `main`. `npm run preview` bundles one game into `dist/<game>.html` for sharing as a claude.ai artifact (dist/ is gitignored).
-- Tests: `npm test` (node:test).
+- Tests: `npm test` (rules, bots, achievements) and `npm run test:ui` (plays whole tables of both games in headless Chromium at desktop/light and phone/dark; fails on page errors, sideways scroll, lost keyboard focus or new accessibility problems). Run both before pushing to `main`. The UI test needs Playwright; tables are seeded, so `UI_SEED=n npm run test:ui` replays a failure. Known accessibility issues awaiting Jason are listed at the top of the test.
 
 ## Game 1, Rising Pool (done, Nov 2026)
 
@@ -37,7 +37,7 @@ These are the key rules settled with Jason:
 - Simulators: `tools/sim-centipede.mjs` (bot tables) and `tools/sim-centipede-achievements.mjs` (learner styles for the human seat, including Jason's exploit patterns: coalition, dominator, skimmer).
 - Locked behind the five Rising Pool achievements; `?preview` opens it (Jason is fine with this). Six achievements; all six unlock Game 3. Unlocks are permanent and stored by `src/ui/progress-store.js`; each game's Reset clears only its achievements.
 - No rematch or choosing the bots, because either could be gamed (Jason, 2026-11-06).
-- Changes go straight to `main` with Jason's agreement (since 2026-11-05, confirmed 2026-11-06). Run `npm test` first. The `game-2-centipede-sim` branch mirrors main.
+- Changes go straight to `main` with Jason's agreement (since 2026-11-05, confirmed 2026-11-06). Run `npm test` and `npm run test:ui` first. The `game-2-centipede-sim` branch mirrors main.
 
 ## Next
 

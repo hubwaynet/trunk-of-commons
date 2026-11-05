@@ -10,7 +10,7 @@
   --line: #c6d3cd;
   --brass: #a06f17;      /* the Commons */
   --flow: #1d74b0;       /* tokens moving */
-  --good: #237d3b;       /* reputation: gave at or above the table (darkened from #2b9149 for text contrast) */
+  --good: #1f7536;       /* reputation: gave at or above the table (darkened from #2b9149 for text contrast, incl. tinted log cells) */
   --low: #b8338a;        /* reputation: gave below the table */
   --fail: #b8338a;
   --base: #1b6ea8;      /* darkened from #1d74b0 for text contrast on --paper */
