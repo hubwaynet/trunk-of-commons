@@ -60,20 +60,16 @@
     <p class="licences">Content <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> · Code <a href="https://www.gnu.org/licenses/agpl-3.0.html">AGPL-3.0</a> · <a href="https://github.com/hubwaynet/trunk-of-commons">Source on GitHub</a></p>
   </footer>
 </main>
-<script>
-  // Show levels as unlocked from progress stored in this browser (see src/ui/progress-store.js).
-  try {
-    const ls = localStorage;
-    const all = (key, ids) => { const have = new Set(JSON.parse(ls.getItem(key) || '[]')); return ids.every((id) => have.has(id)); };
-    if (ls.getItem('trunk.unlocked.centipede') === '1'
-        || all('trunk.risingPool.achievements', ['held-line', 'timed-exit', 'long-haul', 'rising-tide', 'read-table'])) {
-      document.getElementById('level2-status').textContent = 'Level 2 · Unlocked';
-    }
-    if (ls.getItem('trunk.unlocked.wheel') === '1'
-        || all('trunk.centipede.achievements', ['no-one-short', 'steady-hand', 'one-clean-grab', 'welcomed', 'full-distance', 'your-vote-counted'])) {
-      document.getElementById('level3-status').textContent = 'Level 3 · Unlocked · In design';
-    }
-  } catch { /* storage unavailable */ }
+<script type="module">
+  // Show levels as unlocked from progress stored in this browser. The achievement lists come from
+  // each game's own module, so renaming an achievement can't silently break this page.
+  import { isUnlocked } from './src/ui/progress-store.js';
+  import { achievementStore } from './src/ui/common.js';
+  import * as Game1 from './src/ui/rising-pool/achievements.js';
+  import * as Game2 from './src/ui/centipede-ultimatum/achievements.js';
+  const done = (g) => achievementStore({ key: g.STORAGE_KEY, celebratedKey: g.CELEBRATED_KEY, all: g.ACHIEVEMENTS }).complete();
+  if (isUnlocked('centipede') || done(Game1)) document.getElementById('level2-status').textContent = 'Level 2 · Unlocked';
+  if (isUnlocked('wheel') || done(Game2)) document.getElementById('level3-status').textContent = 'Level 3 · Unlocked · In design';
 </script>
 </body>
 </html>

@@ -220,6 +220,26 @@ test('Centipede & Ultimatum: locked until Rising Pool is done, then opens', asyn
   await finish(t, opened, 'centipede-unlocked');
 });
 
+test('all six Game 2 achievements show the mastered card; Reset clears them but keeps unlocks', { timeout: 120_000 }, async (t) => {
+  const run = await open('/games/centipede-ultimatum/?preview', DESKTOP);
+  const { page } = run;
+  await page.evaluate(() => {
+    localStorage.setItem('trunk.centipede.achievements', JSON.stringify(['no-one-short', 'steady-hand', 'one-clean-grab', 'full-distance', 'welcomed', 'your-vote-counted']));
+    localStorage.setItem('trunk.centipede.celebrated', '1');
+  });
+  await playCentipede(page, { label: 'centipede-mastered' }); // reloads, then plays a table to the end
+  assert.match(await page.textContent('#ach-progress'), /6 of 6 · Game 3 unlocked/);
+  assert.match(await page.textContent('.extra.unlocked'), /mastered/);
+  await page.click('#reset-centipede');
+  await page.click('#reset-centipede-yes');
+  assert.match(await page.textContent('#ach-progress'), /0 of 6 · Game 3 unlocked/, 'achievements cleared, unlock kept');
+  assert.equal(await page.$('.extra.unlocked'), null);
+  const home = await run.ctx.newPage();
+  await home.goto(BASE + '/');
+  assert.match(await home.textContent('#level3-status'), /Unlocked/);
+  await finish(t, run, 'centipede-mastered');
+});
+
 test('Centipede & Ultimatum: watching six bots runs to the end', { timeout: 120_000 }, async (t) => {
   const run = await open('/games/centipede-ultimatum/?preview', PHONE);
   const { page } = run;

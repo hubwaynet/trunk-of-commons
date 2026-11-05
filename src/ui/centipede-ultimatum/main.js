@@ -6,93 +6,58 @@ import {
 } from '../../engine/centipede-ultimatum.js';
 import { STRATEGIES, FAMILIES, botView, selectRoster } from '../../bots/centipede-ultimatum-bots.js';
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
-import { ACHIEVEMENTS, splitAchievements, endAchievements } from './achievements.js';
+import { ACHIEVEMENTS, STORAGE_KEY, CELEBRATED_KEY, splitAchievements, endAchievements } from './achievements.js';
+import * as Game1 from '../rising-pool/achievements.js';
 import { fireworks } from '../fireworks.js';
 import { unlock, isUnlocked, resetControl } from '../progress-store.js';
 import { keepFocus } from '../focus.js';
+import {
+  NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, h, signed, toast,
+  achievementStore, progressHtml, achievementsCardHtml,
+} from '../common.js';
 
 const START_BALANCE = 20;
 const COMMONS_RESERVE = 120;
-const NAMES = ['Wren', 'Quoll', 'Tern', 'Moss', 'Ember', 'Reed', 'Kestrel', 'Fig', 'Banksia', 'Curlew'];
-const HUES = ['#d1386f', '#d9741c', '#6fa52a', '#1f9c66', '#2f78cc', '#7650c8'];
-const HUMAN_HUE = '#a06f17';
-const SVGNS = 'http://www.w3.org/2000/svg';
-const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-const GAME1_ACH_KEY = 'trunk.risingPool.achievements';
-const GAME1_NEED = ['held-line', 'timed-exit', 'long-haul', 'rising-tide', 'read-table'];
 const BOT_DELAY = reduceMotion ? 250 : 650;
 
 const $ = (sel) => document.querySelector(sel);
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
-const signed = (n) => (n > 0 ? `+${n}` : `${n}`);
 
 // ---------- lock ----------
 function game1Done() {
   if (isUnlocked('centipede')) return true;
-  try {
-    const have = new Set(JSON.parse(localStorage.getItem(GAME1_ACH_KEY) || '[]'));
-    return GAME1_NEED.every((id) => have.has(id));
-  } catch { return false; }
+  return achievementStore({ key: Game1.STORAGE_KEY, celebratedKey: Game1.CELEBRATED_KEY, all: Game1.ACHIEVEMENTS }).complete();
 }
 const previewMode = () => Boolean(globalThis.TRUNK_PREVIEW) || /[?&]preview\b/.test(globalThis.location?.search ?? '');
 
 let G = null;
 
-// ---------- achievements (stored in this browser) ----------
-const ACH_KEY = 'trunk.centipede.achievements';
-const CELEBRATED_KEY = 'trunk.centipede.celebrated';
-let achMemory = new Set(); // fallback when browser storage is unavailable
-function loadAch() {
-  try { return new Set(JSON.parse(localStorage.getItem(ACH_KEY) || '[]')); } catch { return new Set(achMemory); }
-}
+// ---------- achievements (checks in ./achievements.js, stored in this browser) ----------
+const store = achievementStore({ key: STORAGE_KEY, celebratedKey: CELEBRATED_KEY, all: ACHIEVEMENTS });
+const UNLOCK = () => ({ unlocked: isUnlocked('wheel'), unlockLabel: 'Game 3 unlocked' });
 function earn(ids) {
-  const all = loadAch();
-  const fresh = [...ids].filter((id) => !all.has(id));
+  const fresh = store.add(ids);
   if (!fresh.length) return;
-  for (const id of fresh) { all.add(id); G.earned.add(id); }
-  achMemory = all;
-  try { localStorage.setItem(ACH_KEY, JSON.stringify([...all])); } catch { /* storage unavailable */ }
+  for (const id of fresh) G.earned.add(id);
   const names = fresh.map((id) => ACHIEVEMENTS.find((a) => a.id === id).name);
   toast(`Achievement: ${names.join(' · ')}`);
-  if (ACHIEVEMENTS.every((a) => all.has(a.id))) {
+  if (store.complete()) {
     unlock('wheel');
-    let done = false;
-    try { done = localStorage.getItem(CELEBRATED_KEY) === '1'; localStorage.setItem(CELEBRATED_KEY, '1'); } catch { done = Boolean(G.celebratedOnce); }
-    G.celebratedOnce = true;
-    if (!done) G.allNow = true;
+    if (store.firstCelebration()) G.allNow = true;
   }
 }
-const celebrate = (duration) => fireworks({ colors: [...HUES, HUMAN_HUE, '#ffd166'], duration });
+const celebrate = (duration) => fireworks({ colors: CELEBRATION_COLOURS, duration });
 
-function toast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.setAttribute('role', 'status');
-  t.textContent = msg;
-  const stacked = document.querySelectorAll('.toast').length;
-  if (stacked) t.style.bottom = `calc(${20 + stacked * 56}px + env(safe-area-inset-bottom, 0px))`;
-  document.body.append(t);
-  setTimeout(() => t.remove(), 5000);
-}
-
-function progressHtml(have) {
-  const n = ACHIEVEMENTS.filter((a) => have.has(a.id)).length;
-  return `<div class="progress" role="img" aria-label="${n} of ${ACHIEVEMENTS.length} achievements">
-    <div class="progress-segs">${ACHIEVEMENTS.map((a) => `<span class="seg ${have.has(a.id) ? 'on' : ''}" title="${esc(a.name)}${have.has(a.id) ? ' (done)' : ''}"></span>`).join('')}</div>
-    <span class="progress-label">${n} of ${ACHIEVEMENTS.length}${n === ACHIEVEMENTS.length || isUnlocked('wheel') ? ' · Game 3 unlocked' : ''}</span></div>`;
-}
 function renderProgress() {
-  const el = document.getElementById('ach-progress');
-  if (!el) return;
-  const have = loadAch();
-  if (ACHIEVEMENTS.every((a) => have.has(a.id))) unlock('wheel');
-  el.innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(have)}`;
+  const box = document.getElementById('ach-progress');
+  if (!box) return;
+  const have = store.load();
+  if (store.complete(have)) unlock('wheel');
+  box.innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(ACHIEVEMENTS, have, UNLOCK())}`;
   if (G.watch) return;
-  el.append(resetControl({
-    game: 'centipede', keys: [ACH_KEY, CELEBRATED_KEY], count: ACHIEVEMENTS.filter((a) => have.has(a.id)).length,
+  box.append(resetControl({
+    game: 'centipede', keys: store.keys, count: ACHIEVEMENTS.filter((a) => have.has(a.id)).length,
     onChange: (reset) => {
-      if (reset) { achMemory = new Set(); G.earned = new Set(); G.celebratedOnce = false; toast('Centipede & Ultimatum achievements reset.'); }
+      if (reset) { store.forget(); G.earned = new Set(); toast('Centipede & Ultimatum achievements reset.'); }
       render();
     },
   }));
@@ -102,9 +67,9 @@ function renderExtras() {
   const box = $('#extras');
   if (!box) return;
   if (G.watch || G.game.status === 'playing') { box.replaceChildren(); return; }
-  const have = loadAch();
+  const have = store.load();
   const parts = [];
-  if (ACHIEVEMENTS.every((a) => have.has(a.id))) {
+  if (store.complete(have)) {
     const card = h(`<section class="card extra unlocked" aria-labelledby="all-h"><div class="eyebrow">All achievements</div>
       <h3 id="all-h">Centipede &amp; Ultimatum mastered</h3>
       <p>You've shown you can share fairly, hold back, grab well, win a table's welcome, go the full distance, and make your own vote count.</p>
@@ -113,10 +78,7 @@ function renderExtras() {
     card.querySelector('#celebrate-again').addEventListener('click', () => celebrate(5200));
     parts.push(card);
   }
-  parts.push(h(`<section class="card extra" aria-labelledby="ach-h"><h3 id="ach-h">Achievements</h3>${progressHtml(have)}<p class="muted small">Easiest first, judged from simulated tables.</p><ul class="achievements">
-    ${ACHIEVEMENTS.map((a) => `<li class="${have.has(a.id) ? '' : 'locked'}"><span class="badge">${have.has(a.id) ? (G.earned.has(a.id) ? 'NEW' : 'DONE') : '····'}</span>
-      <span><b>${esc(a.name)}</b> ${esc(a.text)}</span></li>`).join('')}
-  </ul></section>`));
+  parts.push(h(achievementsCardHtml(ACHIEVEMENTS, have, G.earned, { note: 'Easiest first, judged from simulated tables.', ...UNLOCK() })));
   box.replaceChildren(...parts);
 }
 
@@ -137,7 +99,7 @@ function newSession({ watch = false } = {}) {
   G = {
     seed, watch, seats, agents,
     game: createGame({ players: seats.map((s) => ({ id: s.id })), seed, startBalance: START_BALANCE, commonsReserve: COMMONS_RESERVE }),
-    timer: null, fast: false, lastUlt: null, note: null, earned: new Set(), celebratedOnce: false, allNow: false, endChecked: false,
+    timer: null, fast: false, lastUlt: null, note: null, earned: new Set(), allNow: false, endChecked: false,
   };
   $('#watch-toggle').setAttribute('aria-pressed', String(watch));
   $('#watch-toggle').textContent = watch ? 'Play a table' : 'Watch the bots';
@@ -240,12 +202,6 @@ function seatPos(i, n = 6, r = 140) {
   return { x: 200 + r * Math.cos(a), y: 200 + r * Math.sin(a), a };
 }
 
-function el(tag, attrs = {}, text) {
-  const e = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
-  if (text !== undefined) e.textContent = text;
-  return e;
-}
 
 function renderTable() {
   const svg = $('#table');

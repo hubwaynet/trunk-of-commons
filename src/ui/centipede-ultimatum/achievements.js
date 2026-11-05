@@ -3,6 +3,9 @@
 // (tools/sim-centipede-achievements.mjs; see docs/design/centipede-ultimatum.md).
 // SPDX-License-Identifier: AGPL-3.0-only
 
+export const STORAGE_KEY = 'trunk.centipede.achievements';
+export const CELEBRATED_KEY = 'trunk.centipede.celebrated';
+
 export const ACHIEVEMENTS = [
   { id: 'no-one-short', name: 'Nobody short-changed', text: 'Your split passed and every other player got back at least what they put in.' },
   { id: 'steady-hand', name: 'Steady hand', text: 'Reached the end of a table without grabbing, still seated and ahead.' },

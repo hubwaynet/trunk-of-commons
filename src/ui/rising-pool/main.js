@@ -8,16 +8,17 @@ import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 import { fireworks as showFireworks } from '../fireworks.js';
 import { unlock, isUnlocked, resetControl } from '../progress-store.js';
 import { keepFocus } from '../focus.js';
+import {
+  NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, frag, signed, toast,
+  achievementStore, progressHtml, achievementsCardHtml, rememberToggle,
+} from '../common.js';
+import { ACHIEVEMENTS, STORAGE_KEY, CELEBRATED_KEY, MIN_READ_ROUNDS, roundAchievements, endAchievements } from './achievements.js';
 
 const START_BALANCE = 20;
 const COMMONS_RESERVE = 120;
-const NAMES = ['Wren', 'Quoll', 'Tern', 'Moss', 'Ember', 'Reed', 'Kestrel', 'Fig', 'Banksia', 'Curlew'];
-const HUES = ['#d1386f', '#d9741c', '#6fa52a', '#1f9c66', '#2f78cc', '#7650c8']; // rose, orange, chartreuse, spring, azure, violet
-const HUMAN_HUE = '#a06f17';
-const SVGNS = 'http://www.w3.org/2000/svg';
-const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-const ACH_KEY = 'trunk.risingPool.achievements';
 const WALLET_KEY = 'trunk.risingPool.wallet';
+const store = achievementStore({ key: STORAGE_KEY, celebratedKey: CELEBRATED_KEY, all: ACHIEVEMENTS });
+const UNLOCK = () => ({ unlocked: isUnlocked('centipede'), unlockLabel: 'Game 2 unlocked' });
 
 // Your points carry from table to table. A table needs START_BALANCE to join.
 let walletMemory = START_BALANCE;
@@ -29,17 +30,6 @@ function saveWallet(v) {
   walletMemory = v;
   try { localStorage.setItem(WALLET_KEY, String(v)); } catch { /* storage unavailable */ }
 }
-
-// Ordered easiest to hardest (estimated from simulated tables; see docs/design/rising-pool.md).
-const LONG_HAUL_ROUND = 8;
-const ACHIEVEMENTS = [
-  { id: 'held-line', name: 'Held the line', text: 'Gave high in a round the pool would have failed without you.' },
-  { id: 'timed-exit', name: 'Timed the exit', text: 'Left ahead, and the pool failed after you went. Was that fair?' },
-  { id: 'long-haul', name: 'Long haul', text: `Kept the pool alive through round ${LONG_HAUL_ROUND} while you stayed at the table.` },
-  { id: 'rising-tide', name: 'Rising tide', text: 'Three bonus rounds in a row while you were at the table.' },
-  { id: 'read-table', name: 'Read the table', text: 'Every guess fitted the evidence, at a table of four rounds or more.' },
-];
-const CELEBRATED_KEY = 'trunk.risingPool.celebrated';
 
 let G = null;
 
@@ -100,11 +90,10 @@ function reveal() {
   if (humanPlays && !G.choice) return;
   const choices = botChoices(G.game, humanPlays);
   if (humanPlays) choices.you = G.choice;
-  const before = G.game;
-  const { state, outcome } = resolveRound(before, choices);
+  const { state, outcome } = resolveRound(G.game, choices);
   G.game = state;
   G.outcome = outcome;
-  if (humanPlays) { checkRoundAchievements(before, outcome); saveWallet(playerOf(state, 'you').balance); }
+  if (humanPlays) { for (const id of roundAchievements(state, outcome)) earn(id); saveWallet(playerOf(state, 'you').balance); }
   G.phase = state.status === 'ended' ? 'ended' : 'revealed';
   if (G.phase === 'ended' && !G.watch) checkEndAchievements();
   render();
@@ -153,48 +142,16 @@ function scheduleAuto() {
   }, G.speed);
 }
 
-// ---------- achievements ----------
-function loadAch() {
-  try { return new Set(JSON.parse(localStorage.getItem(ACH_KEY) || '[]')); } catch { return achMemory ?? new Set(); }
-}
-let achMemory = null; // fallback when browser storage is unavailable
+// ---------- achievements (checks in ./achievements.js, stored in this browser) ----------
 function earn(id) {
-  const all = loadAch();
-  if (!all.has(id)) G.earned.add(id);
-  all.add(id);
-  achMemory = all;
-  try { localStorage.setItem(ACH_KEY, JSON.stringify([...all])); } catch { /* storage unavailable */ }
-  if (allEarned(all)) {
+  for (const x of store.add([id])) G.earned.add(x);
+  if (store.complete()) {
     unlock('centipede');
-    let done = false;
-    try { done = localStorage.getItem(CELEBRATED_KEY) === '1'; localStorage.setItem(CELEBRATED_KEY, '1'); } catch { done = !!G.celebratedOnce; }
-    G.celebratedOnce = true;
-    if (!done) G.celebrateNow = true;
+    if (store.firstCelebration()) G.celebrateNow = true;
   }
-}
-const allEarned = (have) => ACHIEVEMENTS.every((a) => have.has(a.id));
-function checkRoundAchievements(before, o) {
-  if (o.result !== 'fail' && o.levels.you === 'high') {
-    const withoutYou = (o.pool - o.contributions.you) / o.n;
-    if (withoutYou < o.stakes.medium) earn('held-line');
-  }
-  const mine = G.game.rounds.filter((r) => 'you' in r.levels).slice(-3);
-  if (mine.length === 3 && mine.every((r) => r.result === 'bonus')) earn('rising-tide');
-  if (o.result !== 'fail' && o.round >= LONG_HAUL_ROUND) earn('long-haul');
 }
 function checkEndAchievements() {
-  const s = G.game;
-  if (G.humanLeftAfter !== null && G.afterYouLeft?.reason === 'pool-failed'
-      && playerOf(s, 'you').balance > playerOf(s, 'you').start) earn('timed-exit');
-}
-
-function toast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.setAttribute('role', 'status');
-  t.textContent = msg;
-  document.body.append(t);
-  setTimeout(() => t.remove(), 6000);
+  for (const id of endAchievements(G.game, { leftAfter: G.humanLeftAfter, afterReason: G.afterYouLeft?.reason ?? null })) earn(id);
 }
 
 // ---------- reputation ----------
@@ -210,12 +167,6 @@ function reputation() {
 }
 
 // ---------- drawing ----------
-function el(tag, attrs = {}, text) {
-  const e = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
-  if (text !== undefined) e.textContent = text;
-  return e;
-}
 const C = 200, R_SEAT = 138, R_POOL = 58;
 const polar = (deg, r) => [C + r * Math.cos((deg * Math.PI) / 180), C + r * Math.sin((deg * Math.PI) / 180)];
 
@@ -307,9 +258,6 @@ function animatePool(target) {
 
 // ---------- panel ----------
 const fmt = (x) => (Number.isInteger(x) ? String(x) : x.toFixed(2));
-const signed = (x) => (x > 0 ? `+${x}` : String(x));
-function h(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content; }
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 const RESULT_TEXT = {
   fail: (o) => `The average gift was ${fmt(o.avg)}, short of ${o.stakes.medium}. The pool of ${o.pool} went to the Commons.`,
@@ -329,7 +277,7 @@ function renderPanel() {
   const o = G.outcome;
 
   if (G.watch) {
-    panel.append(h(`<div class="card"><div class="watch-bar">
+    panel.append(frag(`<div class="card"><div class="watch-bar">
       <span><b>Watching six bots.</b> The stand-in is playing ${esc(STRATEGIES[seatOf('you').strategy].label)}.</span>
       <label for="speed">Speed</label>
       <select id="speed"><option value="2200">Slow</option><option value="1400">Normal</option><option value="600">Fast</option></select>
@@ -344,7 +292,7 @@ function renderPanel() {
   } else if (G.phase !== 'ended') {
     const r = o ? o.round : G.game.round;
     const s = stakes(r);
-    const card = h(`<div class="card">
+    const card = frag(`<div class="card">
       <div class="status-row">
         <h2>Round ${r}</h2>
         <span class="muted small">${G.watch ? 'Stand-in' : 'Your'} points <span class="big">${you.balance}</span></span>
@@ -364,18 +312,18 @@ function renderPanel() {
     const actions = panel.querySelector('#actions');
     panel.querySelectorAll('.choice').forEach((b) => b.addEventListener('click', () => { G.choice = b.dataset.level; render(); }));
     if (!G.watch && G.phase === 'choose') {
-      actions.append(h(`<button class="btn" type="button" id="reveal" ${G.choice ? '' : 'disabled'}>Reveal round ${r}</button>
+      actions.append(frag(`<button class="btn" type="button" id="reveal" ${G.choice ? '' : 'disabled'}>Reveal round ${r}</button>
         <span class="muted small" style="align-self:center">${G.choice ? '' : 'Choose a gift first.'}</span>`));
       actions.querySelector('#reveal').addEventListener('click', reveal);
     }
     if (o) {
-      panel.querySelector('#outcome').append(h(`<div class="outcome ${o.result}">
+      panel.querySelector('#outcome').append(frag(`<div class="outcome ${o.result}">
         <p><span class="tag ${o.result}">${RESULT_TAG[o.result]}</span></p>
         <p>${RESULT_TEXT[o.result](o)}</p>
         ${'you' in o.levels && !G.watch ? `<p class="muted small">You gave ${o.contributions.you} and received ${o.payouts.you}: ${signed(o.payouts.you - o.contributions.you)} this round.</p>` : ''}
       </div>`));
       if (!G.watch && G.phase === 'revealed') {
-        actions.append(h(`<button class="btn" type="button" id="stay">Stay for round ${o.round + 1}</button>
+        actions.append(frag(`<button class="btn" type="button" id="stay">Stay for round ${o.round + 1}</button>
           <button class="btn ghost" type="button" id="leave">Leave with ${you.balance}</button>`));
         actions.querySelector('#stay').addEventListener('click', () => nextRound(true));
         actions.querySelector('#leave').addEventListener('click', () => nextRound(false));
@@ -423,7 +371,7 @@ function renderLog() {
     if (r.topUp < 0) return `<td class="pos" title="Odd remainder kept">+${-r.topUp}</td>`;
     return '<td>0</td>';
   };
-  box.replaceChildren(h(`<div class="card">
+  box.replaceChildren(frag(`<div class="card">
     <div class="status-row"><h3>Round log</h3>
       <span class="legend small"><span class="lv low"><span class="code">0</span></span> nothing
       <span class="lv medium"><span class="code">M</span></span> medium
@@ -465,17 +413,10 @@ function renderKey() {
         <span class="key-tell"><span class="eyebrow">In the log</span> ${esc(st.tell)}</span></div>`;
     }).join('')}</div>`;
   }).join('');
-  document.getElementById('key').replaceChildren(h(`<p class="muted small key-note">Each table seats 5 of these 10, under random names.${G.watch ? '' : ' Use the Guess menus in the round log to mark who you think is who.'} Every strategy must pay in full: when one chooses a level it can't afford, it gives the highest level it can, marked ↓ in the log.</p>
+  document.getElementById('key').replaceChildren(frag(`<p class="muted small key-note">Each table seats 5 of these 10, under random names.${G.watch ? '' : ' Use the Guess menus in the round log to mark who you think is who.'} Every strategy must pay in full: when one chooses a level it can't afford, it gives the highest level it can, marked ↓ in the log.</p>
     <div class="key-groups">${groups}</div>`));
 }
 
-// Collapsible sections remember open/closed per viewer.
-function rememberToggle(id) {
-  const d = document.getElementById(id);
-  const k = `trunk.risingPool.${id}`;
-  try { const v = localStorage.getItem(k); if (v !== null) d.open = v === '1'; } catch { /* storage unavailable */ }
-  d.addEventListener('toggle', () => { try { localStorage.setItem(k, d.open ? '1' : '0'); } catch { /* storage unavailable */ } });
-}
 
 const END_TEXT = {
   'pool-failed': (r) => `The pool fell short in round ${r}. Everything in it went to the Commons, and the table closed.`,
@@ -497,16 +438,16 @@ function startOver() {
 }
 
 function renderBroke() {
-  const frag = h(`<div class="card debrief">
+  const piece = frag(`<div class="card debrief">
     <h2>Not enough points to join</h2>
     <p>You have ${walletMemory} point${walletMemory === 1 ? '' : 's'}. A table needs ${START_BALANCE} to join.</p>
     <p class="muted">Your points carry from table to table, so what you keep, give and lose adds up. You can watch the bots play, or start over with ${START_BALANCE} points.</p>
     <div class="btn-row"><button class="btn" type="button" id="start-over">Start over with ${START_BALANCE}</button>
       <button class="btn ghost" type="button" id="go-watch">Watch the bots</button></div>
   </div>`);
-  frag.querySelector('#start-over').addEventListener('click', startOver);
-  frag.querySelector('#go-watch').addEventListener('click', () => newSession({ watch: true }));
-  return frag;
+  piece.querySelector('#start-over').addEventListener('click', startOver);
+  piece.querySelector('#go-watch').addEventListener('click', () => newSession({ watch: true }));
+  return piece;
 }
 
 function renderDebrief() {
@@ -522,7 +463,7 @@ function renderDebrief() {
   } else {
     lead = END_TEXT[s.endReason](last);
   }
-  const frag = h(`<div class="card debrief">
+  const piece = frag(`<div class="card debrief">
     <h2>Table closed</h2>
     <p>${esc(lead)}</p>
     <div class="log-wrap"><table><thead><tr><th>Player</th><th>Points</th><th>This table</th></tr></thead><tbody>
@@ -532,10 +473,10 @@ function renderDebrief() {
     <p>${commonsSummary(s)}</p>
     <p class="muted">Rising Pool is a threshold public good. In any single round, giving nothing pays you best, as long as enough others give. If too many reason that way, the pool fails and everyone loses what they put in. The stakes rise every round, so trust becomes worth more, and breaking it costs more.</p>
   </div>`);
-  const card = frag.firstElementChild;
+  const card = piece.firstElementChild;
 
   if (G.watch) {
-    card.append(h(`<div class="debrief"><h3>Who played what</h3>${G.seats.map((x) =>
+    card.append(frag(`<div class="debrief"><h3>Who played what</h3>${G.seats.map((x) =>
       `<p class="small"><span class="who" style="display:inline-flex"><span class="dot" style="background:${x.hue}"></span>${esc(x.name)}</span>
        <b>${esc(STRATEGIES[x.strategy].label)}</b>: <span class="muted">${esc(STRATEGIES[x.strategy].summary)}</span></p>`).join('')}</div>`));
   }
@@ -543,42 +484,35 @@ function renderDebrief() {
   const mine = playerOf(s, 'you').balance;
   if (!G.watch) {
     saveWallet(mine);
-    card.append(h(mine >= START_BALANCE
+    card.append(frag(mine >= START_BALANCE
       ? `<p><b>You take ${mine} points to your next table.</b></p>`
       : `<p><b>You have ${mine} point${mine === 1 ? '' : 's'} left.</b> A table needs ${START_BALANCE} to join, so this is as far as these points go.</p>`));
   }
   const canPlay = G.watch || mine >= START_BALANCE;
-  card.append(h(`<div class="btn-row">${canPlay
+  card.append(frag(`<div class="btn-row">${canPlay
     ? `<button class="btn" type="button" id="again">${G.watch ? 'Watch another table' : `Play another table with ${mine}`}</button>`
     : `<button class="btn" type="button" id="again">Start over with ${START_BALANCE}</button>`}
     ${!G.watch && canPlay ? `<button class="btn ghost" type="button" id="reset">Start over with ${START_BALANCE}</button>` : ''}</div>`));
   card.querySelector('#again').addEventListener('click', () => (canPlay ? newSession({ watch: G.watch }) : startOver()));
   card.querySelector('#reset')?.addEventListener('click', startOver);
-  return frag;
+  return piece;
 }
 
-function progressHtml(have) {
-  const n = ACHIEVEMENTS.filter((a) => have.has(a.id)).length;
-  return `<div class="progress" role="img" aria-label="${n} of ${ACHIEVEMENTS.length} achievements">
-    <div class="progress-segs">${ACHIEVEMENTS.map((a) => `<span class="seg ${have.has(a.id) ? 'on' : ''}" title="${esc(a.name)}${have.has(a.id) ? ' (done)' : ''}"></span>`).join('')}</div>
-    <span class="progress-label">${n} of ${ACHIEVEMENTS.length}${n === ACHIEVEMENTS.length || isUnlocked('centipede') ? ' · Game 2 unlocked' : ''}</span></div>`;
-}
 function renderProgress() {
-  const have = loadAch();
-  if (allEarned(have)) unlock('centipede'); // players who finished before unlocks were stored
-  const el = document.getElementById('ach-progress');
-  el.innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(have)}`;
-  el.append(resetControl({
-    game: 'risingPool', keys: [ACH_KEY, CELEBRATED_KEY], count: ACHIEVEMENTS.filter((a) => have.has(a.id)).length,
-    onChange: (reset) => { if (reset) { achMemory = new Set(); G.earned = new Set(); toast('Rising Pool achievements reset.'); } render(); },
+  const have = store.load();
+  if (store.complete(have)) unlock('centipede'); // players who finished before unlocks were stored
+  const box = document.getElementById('ach-progress');
+  box.innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(ACHIEVEMENTS, have, UNLOCK())}`;
+  box.append(resetControl({
+    game: 'risingPool', keys: store.keys, count: ACHIEVEMENTS.filter((a) => have.has(a.id)).length,
+    onChange: (reset) => { if (reset) { store.forget(); G.earned = new Set(); toast('Rising Pool achievements reset.', 6000); } render(); },
   }));
 }
 
-const fireworks = () => showFireworks({ colors: [...HUES, HUMAN_HUE, '#ffd166'] });
+const fireworks = () => showFireworks({ colors: CELEBRATION_COLOURS });
 
 const lbl = (k) => esc(STRATEGIES[k].label);
 const listOf = (keys) => keys.map(lbl).join(', ');
-const MIN_READ_ROUNDS = 4;
 
 // Read the table and Achievements sit in their own boxes below the game once a table closes.
 function renderExtras() {
@@ -588,7 +522,7 @@ function renderExtras() {
   G.evidence ??= strategyEvidence(G.game, bots.map((b) => b.id));
   const rounds = G.game.rounds.length;
 
-  const read = h(`<section class="card extra" aria-labelledby="read-h"><h3 id="read-h">Read the table</h3>
+  const read = frag(`<section class="card extra" aria-labelledby="read-h"><h3 id="read-h">Read the table</h3>
     <p class="muted small">Each bot played one strategy from the key. A guess counts if that strategy would have made exactly the same moves: lookalikes count, because nothing at this table could tell them apart. These are the same guesses as in the round log.</p>
     ${rounds < MIN_READ_ROUNDS ? `<p class="muted small">This table lasted ${rounds} round${rounds === 1 ? '' : 's'}. You can check your reading, but the achievement needs ${MIN_READ_ROUNDS} or more.</p>` : ''}
     <div class="guess-list" id="guesses"></div>
@@ -619,7 +553,7 @@ function renderExtras() {
         : '';
       verdict = `<div class="reveal">${head} ${body}${downNote}${others.length ? ` <span class="muted">Also fits: ${listOf(others)}.</span>` : ''}</div>`;
     }
-    const row = h(`<div class="guess-row">
+    const row = frag(`<div class="guess-row">
       <span class="who"><span class="dot" style="background:${b.hue}"></span>${esc(b.name)}</span>
       <select id="guess-${b.id}" ${G.checked ? 'disabled' : ''} aria-label="Your guess for ${esc(b.name)}"><option value="">Not sure</option>
         ${STRATEGY_ORDER.map((k) => `<option value="${k}" ${g === k ? 'selected' : ''}>${lbl(k)}</option>`).join('')}</select>
@@ -634,10 +568,10 @@ function renderExtras() {
     render();
   });
 
-  const have = loadAch();
+  const have = store.load();
   const extra = [];
-  if (allEarned(have)) {
-    const card = h(`<section class="card extra unlocked" aria-labelledby="unlock-h">
+  if (store.complete(have)) {
+    const card = frag(`<section class="card extra unlocked" aria-labelledby="unlock-h">
       <div class="eyebrow">All achievements</div>
       <h3 id="unlock-h">Game 2 unlocked</h3>
       <p>You've demonstrated skill and understanding in social dilemma strategies: holding a pool together, reading who is who, and seeing when leaving costs others.</p>
@@ -646,10 +580,7 @@ function renderExtras() {
     card.querySelector('#celebrate-again').addEventListener('click', () => fireworks());
     extra.push(card);
   }
-  const ach = h(`<section class="card extra" aria-labelledby="ach-h"><h3 id="ach-h">Achievements</h3>${progressHtml(have)}<p class="muted small">Easiest first.</p><ul class="achievements">
-    ${ACHIEVEMENTS.map((a) => `<li class="${have.has(a.id) ? '' : 'locked'}"><span class="badge">${have.has(a.id) ? (G.earned.has(a.id) ? 'NEW' : 'DONE') : '····'}</span>
-      <span><b>${esc(a.name)}</b> ${esc(a.text)}</span></li>`).join('')}
-  </ul></section>`);
+  const ach = frag(achievementsCardHtml(ACHIEVEMENTS, have, G.earned, { note: 'Easiest first.', ...UNLOCK() }));
   box.replaceChildren(...extra, read, ach);
 }
 
@@ -668,13 +599,13 @@ function render() {
   if (G.celebrateNow) {
     G.celebrateNow = false;
     fireworks();
-    if (G.phase !== 'ended') toast('All five achievements! Game 2 is unlocked. Finish this table to see your reward.');
+    if (G.phase !== 'ended') toast('All five achievements! Game 2 is unlocked. Finish this table to see your reward.', 6000);
     else document.getElementById('extras').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
   }
 }
 
 document.getElementById('new-game').addEventListener('click', () => newSession({ watch: G.watch }));
 document.getElementById('watch-toggle').addEventListener('click', () => newSession({ watch: !G.watch }));
-rememberToggle('how-it-works');
-rememberToggle('strategy-key');
+rememberToggle('how-it-works', 'trunk.risingPool');
+rememberToggle('strategy-key', 'trunk.risingPool');
 newSession();

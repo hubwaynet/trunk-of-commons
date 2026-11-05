@@ -4,7 +4,8 @@
   GAME PAGE TEMPLATE
   1. Copy this folder to games/<game-slug>/ and replace every TODO.
   2. Put rules in src/engine/<game-slug>.js (pure functions, no DOM), bots in src/bots/,
-     and the interface in src/ui/<game-slug>/main.js and style.css.
+     and the interface in src/ui/<game-slug>/main.js and style.css. Reuse src/ui/common.js and
+     src/ui/games.css; put achievement checks in a pure src/ui/<game-slug>/achievements.js.
   3. Keep the site bar and footer exactly as they are, apart from aria-current in the nav.
   4. Add the game to the nav in every page and to the list on the home page.
   5. Keep the BODY:START / BODY:END markers: tools/build-preview.mjs uses them.
@@ -19,6 +20,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="../../src/ui/site.css">
+<link rel="stylesheet" href="../../src/ui/games.css"> <!-- shared game styles: table, panel, log, debrief, achievements -->
 <!-- <link rel="stylesheet" href="../../src/ui/TODO-game-slug/style.css"> -->
 </head>
 <body>
