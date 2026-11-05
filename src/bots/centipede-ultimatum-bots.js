@@ -229,6 +229,26 @@ export const STRATEGIES = {
   },
 };
 
+/**
+ * A free 0: a 0 vote on a split that passed anyway and treated the voter fairly (at least what
+ * they put in, at least 80% of an equal share, and nobody else short-changed), so it wasn't a
+ * protest. Two make a free rider (Jason, 2026-11-05). Bots, the vote result and the debrief all
+ * use this one test.
+ */
+export function isFreeZero(split, voter) {
+  if (split.result === 'rejected' || split.votes[voter] !== 0 || voter === split.grabber) return false;
+  const ids = Object.keys(split.shares);
+  const sh = split.shares[voter] ?? 0;
+  const othersShort = ids.some((y) => y !== split.grabber && y !== voter && (split.stakes[y] ?? 0) > 0 && split.shares[y] < split.stakes[y]);
+  return sh >= (split.stakes[voter] ?? 0) && sh >= 0.8 * (split.pool / ids.length) && !othersShort;
+}
+/** Free 0s per player across judged splits. */
+export function freeZeroCounts(splits) {
+  const counts = {};
+  for (const x of splits) for (const y of Object.keys(x.votes)) if (isFreeZero(x, y)) counts[y] = (counts[y] ?? 0) + 1;
+  return counts;
+}
+
 /** What a bot can see: public information only. */
 export function botView(s, id) {
   const me = s.players.find((p) => p.id === id);
@@ -253,20 +273,7 @@ export function botView(s, id) {
   const shortChanged = u?.shares ? Object.keys(u.shares).filter((x) => x !== u.grabber && (stakes[x] ?? 0) > 0 && u.shares[x] < stakes[x]) : [];
   const repeatDivider = Boolean(u && lastRec && lastRec.grabber === u.grabber && lastRec.result !== 'rejected');
   const pastSplits = s.rounds.filter((r) => r.result === 'ultimatum').map((r) => r.ultimatum);
-  // Free riders: voted 0 at least twice on a split that passed and gave them at least what they
-  // put in and nearly an equal share, while nobody else was short-changed (a 0 that wasn't a protest).
-  const freeZeros = {};
-  for (const x of pastSplits) {
-    if (x.result === 'rejected') continue;
-    const n = Object.keys(x.shares).length;
-    const eqx = x.pool / n;
-    const others = Object.keys(x.shares).filter((y) => y !== x.grabber && (x.stakes[y] ?? 0) > 0 && x.shares[y] < x.stakes[y]);
-    for (const [y, vt] of Object.entries(x.votes)) {
-      if (vt !== 0 || y === x.grabber) continue;
-      const sh = x.shares[y] ?? 0;
-      if (sh >= (x.stakes[y] ?? 0) && sh >= 0.8 * eqx && !others.some((z) => z !== y)) freeZeros[y] = (freeZeros[y] ?? 0) + 1;
-    }
-  }
+  const freeZeros = freeZeroCounts(pastSplits);
   const freeRiders = Object.keys(freeZeros).filter((y) => freeZeros[y] >= 2 && ids.includes(y));
   const dominant = Boolean(u) && pastSplits.slice(-3).filter((x) => x.grabber === u.grabber).length >= 2;
   const wronged = u ? pastSplits.filter((x) => x.grabber === u.grabber && x.result !== 'rejected'

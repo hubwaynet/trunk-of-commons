@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { announce } from './announce.js';
+import { IDEAS } from './ideas.js';
 
 export const NAMES = ['Wren', 'Quoll', 'Tern', 'Moss', 'Ember', 'Reed', 'Kestrel', 'Fig', 'Banksia', 'Curlew'];
 // Seat colours from the 2017 RGB colour wheel: rose, orange, chartreuse, spring, azure, violet.
@@ -91,4 +92,16 @@ export function rememberToggle(id, prefix) {
   const k = `${prefix}.${id}`;
   try { const v = localStorage.getItem(k); if (v !== null) d.open = v === '1'; } catch { /* storage unavailable */ }
   d.addEventListener('toggle', () => { try { localStorage.setItem(k, d.open ? '1' : '0'); } catch { /* storage unavailable */ } });
+}
+
+/** "What this table showed": each moment's plain line, then the idea it shows, with its source. */
+export function momentsCardHtml(moments) {
+  if (!moments.length) return '';
+  return `<section class="card extra showed" aria-labelledby="showed-h"><h3 id="showed-h">What this table showed</h3>
+    ${moments.map((m) => {
+      const idea = IDEAS[m.idea];
+      const src = idea.source ? ` <a href="${esc(idea.source.url)}" target="_blank" rel="noopener">${esc(idea.source.label)}</a>` : '';
+      return `<div class="moment"><p>${esc(m.line)}</p><p class="idea"><b>${esc(idea.name)}.</b> ${esc(idea.text)}${src}</p></div>`;
+    }).join('')}
+  </section>`;
 }

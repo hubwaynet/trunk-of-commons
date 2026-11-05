@@ -4,7 +4,7 @@
 import {
   createGame, currentPlayer, act, divide, vote, stay, requirement, canGive, canGrab, activeIds, splitBy,
 } from '../../engine/centipede-ultimatum.js';
-import { STRATEGIES, FAMILIES, botView, selectRoster } from '../../bots/centipede-ultimatum-bots.js';
+import { STRATEGIES, FAMILIES, botView, selectRoster, isFreeZero } from '../../bots/centipede-ultimatum-bots.js';
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 import { ACHIEVEMENTS, STORAGE_KEY, CELEBRATED_KEY, splitAchievements, endAchievements } from './achievements.js';
 import * as Game1 from '../rising-pool/achievements.js';
@@ -14,8 +14,10 @@ import { keepFocus } from '../focus.js';
 import { announce, listNames } from '../announce.js';
 import {
   NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, h, signed, toast,
-  achievementStore, progressHtml, achievementsCardHtml,
+  achievementStore, progressHtml, achievementsCardHtml, momentsCardHtml,
 } from '../common.js';
+import { tableMoments } from './moments.js';
+import { pickMoments } from '../ideas.js';
 
 const START_BALANCE = 20;
 const COMMONS_RESERVE = 120;
@@ -79,6 +81,8 @@ function renderExtras() {
     card.querySelector('#celebrate-again').addEventListener('click', () => celebrate(5200));
     parts.push(card);
   }
+  G.moments ??= pickMoments(tableMoments(G.game, { names: Object.fromEntries(G.seats.map((x) => [x.id, x.human ? 'you' : x.name])), reasons: G.reasons }));
+  if (G.moments.length) parts.push(h(momentsCardHtml(G.moments)));
   parts.push(h(achievementsCardHtml(ACHIEVEMENTS, have, G.earned, { note: 'Easiest first, judged from simulated tables.', ...UNLOCK() })));
   box.replaceChildren(...parts);
 }
@@ -602,11 +606,7 @@ function tallyLine(u) {
   const total = ids.reduce((a, id) => a + u.votes[id], 0);
   const names = (v) => ids.filter((id) => u.votes[id] === v).map((id) => esc(seat(id).name));
   const list = (a) => (a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a.at(-1)}`);
-  const zeros = ids.filter((id) => u.votes[id] === 0).map((id) => {
-    const fair = u.result !== 'rejected' && id !== u.grabber && (u.shares[id] ?? 0) >= (u.stakes[id] ?? 0) && (u.shares[id] ?? 0) >= 0.8 * (u.pool / n)
-      && !ids.some((z) => z !== u.grabber && z !== id && (u.stakes[z] ?? 0) > 0 && u.shares[z] < u.stakes[z]);
-    return `${esc(seat(id).name)}${fair ? ' (a free 0: treated fairly)' : ''}`;
-  });
+  const zeros = ids.filter((id) => u.votes[id] === 0).map((id) => `${esc(seat(id).name)}${isFreeZero(u, id) ? ' (a free 0: treated fairly)' : ''}`);
   const twos = names(2);
   let why = '';
   if (u.result === 'rejected') {

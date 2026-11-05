@@ -11,8 +11,10 @@ import { keepFocus } from '../focus.js';
 import { announce } from '../announce.js';
 import {
   NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, frag, signed, toast,
-  achievementStore, progressHtml, achievementsCardHtml, rememberToggle,
+  achievementStore, progressHtml, achievementsCardHtml, rememberToggle, momentsCardHtml,
 } from '../common.js';
+import { tableMoments } from './moments.js';
+import { pickMoments } from '../ideas.js';
 import { ACHIEVEMENTS, STORAGE_KEY, CELEBRATED_KEY, MIN_READ_ROUNDS, roundAchievements, endAchievements } from './achievements.js';
 
 const START_BALANCE = 20;
@@ -620,7 +622,13 @@ function renderExtras() {
     extra.push(card);
   }
   const ach = frag(achievementsCardHtml(ACHIEVEMENTS, have, G.earned, { note: 'Easiest first.', ...UNLOCK() }));
-  box.replaceChildren(...extra, read, ach);
+  G.moments ??= pickMoments(tableMoments(G.game, {
+    names: Object.fromEntries(G.seats.map((x) => [x.id, x.human ? 'you' : x.name])),
+    strategies: Object.fromEntries(G.seats.filter((x) => !x.human).map((x) => [x.id, x.strategy])),
+    leftAfter: G.humanLeftAfter,
+  }));
+  const showed = G.moments.length ? frag(momentsCardHtml(G.moments)) : null;
+  box.replaceChildren(...extra, ...(showed ? [showed] : []), read, ach);
 }
 
 function render() {
