@@ -37,8 +37,14 @@ These are the key rules settled with Jason:
 - Simulators: `tools/sim-centipede.mjs` (bot tables) and `tools/sim-centipede-achievements.mjs` (learner styles for the human seat, including Jason's exploit patterns: coalition, dominator, skimmer).
 - Locked behind the five Rising Pool achievements; `?preview` opens it (Jason is fine with this). Six achievements; all six unlock Game 3. Unlocks are permanent and stored by `src/ui/progress-store.js`; each game's Reset clears only its achievements.
 - No rematch or choosing the bots, because either could be gamed (Jason, 2026-11-06).
-- Since 2026-11-05 changes have been pushed straight to `main` with Jason's agreement (the `game-2-centipede-sim` branch mirrors it).
+- Changes go straight to `main` with Jason's agreement (since 2026-11-05, confirmed 2026-11-06). Run `npm test` first. The `game-2-centipede-sim` branch mirrors main.
 
 ## Next
 
-Game 3 is the Wheel of Fortune, which needs headless simulation first. After that comes the larger framework (token economy, governance), followed by legal review and onboarding.
+First, the decisions from the 2026-11-06 review, logged in both design docs under "Review decisions". Build them in this order:
+
+1. An automatic play-through test of both games.
+2. Move the code both games share into one place.
+3. The decided features, built once for both games. Jason sees announcer wording and debrief drafts before they go live.
+
+Then Game 3, the Wheel of Fortune, which needs headless simulation first. After that comes the larger framework (token economy, governance), followed by legal review and onboarding.

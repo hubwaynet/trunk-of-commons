@@ -49,6 +49,6 @@ tests/        Engine tests.
 
 ## How this is made
 
-Jason Lee Lasky directs the design. Code is written with AI agents, and every commit says so: Jason is the author of record, and the agent that wrote the change is credited with a `Co-authored-by` line. Agents work on branches; changes reach `main` only after human review. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Jason Lee Lasky directs the design. Code is written with AI agents, and every commit says so: Jason is the author of record, and the agent that wrote the change is credited with a `Co-authored-by` line. With Jason's agreement, changes go straight to `main`, which is the live site, once the tests pass (2026-11-06). See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Made in the Northern Rivers, NSW. [hubway.net](https://hubway.net)

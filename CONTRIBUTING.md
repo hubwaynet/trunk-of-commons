@@ -6,7 +6,7 @@ This project is written with AI agents under human direction, and the history sa
 
 - **Author of record:** Jason Lee Lasky (`56460062+hubwaynet@users.noreply.github.com`).
 - **AI co-authors:** each commit an agent writes ends with a `Co-authored-by:` line naming that agent, for example `Co-authored-by: Claude <noreply@anthropic.com>`.
-- **Review:** agents (and other contributors) work on branches and open pull requests. Nothing reaches `main` without human review. The first scaffold commit is the one exception.
+- **Review:** Jason directs every change and plays it on the live site. Since 2026-11-05, with his agreement (confirmed 2026-11-06), agents push straight to `main` once `npm test` passes. Other contributors open pull requests.
 
 ## Bots
 

@@ -32,6 +32,8 @@ Two causes:
 
 Open question for design: is "escalation exhausts the commons" the lesson Game 1 should teach, or should bonus rounds (or the Commons) grow balances enough for a well-cooperating table to sustain itself? Options include a larger bonus, slower escalation, or stakes as a share of the average balance rather than a fixed step.
 
+**Settled (Jason, 2026-11-06):** escalation is part of the lesson. No rule change; the debrief says so. See "Review decisions" below.
+
 ## Educational layer
 
 - Reputation ring around each seat: green if a player's average choice meets the medium threshold, magenta if below (colours from the 2017 Wheel of Fortune indicator scheme). Prototype 0.2 compared players to the table average; Jason chose the fixed threshold for Game 1 (2026-11-04) and kept relative reputation as a possible dynamic for a later, more complex game.
@@ -77,3 +79,13 @@ A progress strip in the page header shows how many are earned. Earning all five 
 ## Reset achievements (Jason, 2026-11-05)
 
 A Reset link under the achievements strip clears the five achievements and the one-time celebration. The Game 2 unlock is stored separately (`trunk.unlocked.centipede`) and survives a reset. See `docs/design/centipede-ultimatum.md`.
+
+## Review decisions (Jason, 2026-11-06)
+
+From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai project). Decided, not yet built.
+
+- **The escalation lesson (settles the open question above).** The debrief says what failed this table ("Reed chose 0", or "Quoll couldn't afford medium ↓"). It also says that rising stakes outrun balances, so even a trusting table has limits. No rule change. In simulation, 84% of failing rounds include a ↓, and 12% fail on affordability alone.
+- **"What this table showed" card.** One or two things that happened at this table, each with one sentence naming the idea and its source, with a link (for example Axelrod's nice, retaliatory, forgiving and clear; noise; public goods). Jason picks from drafts. Same card as Game 2.
+- **Screen readers.** One quiet announcer per page gives each round's result. Jason sees the exact sentences before they go live.
+- **Reputation rings.** Explained on the page, with a legend and a text alternative. The threshold is unchanged.
+- **Order of work, and review flow.** See the same section in `centipede-ultimatum.md`.

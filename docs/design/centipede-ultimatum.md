@@ -304,7 +304,7 @@ In round 20 Jason gave himself less than he had put in, to keep another player a
 - The divide card now shows **1 free 0** for a player one step from the label. The vote result marks a 0 as "a free 0: treated fairly" when it counts. The rules on the page explain free 0s and free riders. Bots and the page use the same list, so no bot treats a player as a free rider before the label shows. A split by stake can still leave someone slightly under their stake, which can look like a sanction.
 - **No rematch and no choosing the bots** (Jason): either could be gamed by finding an easy table to farm achievements. Tables stay random. A practice mode without achievements remains possible later.
 
-## Review fixes (agent, 2026-11-06, for Jason to confirm)
+## Review fixes (agent, 2026-11-06; Jason approved and merged them)
 
 From the whole-system review. These implement rules already decided; nothing new.
 
@@ -312,3 +312,26 @@ From the whole-system review. These implement rules already decided; nothing new
 - **The table picture shows "TABLE OVER AFTER ROUND n"** once a table ends, instead of the round that never started (it read "ROUND 21 OF 20").
 - **The round log stays as the player left it:** collapsed stays collapsed, and its sideways scroll no longer jumps back to round 1 after every bot move. It follows the newest round, as Rising Pool's log does.
 - **Keyboard focus stays put** after a move, a stepper press or a preset (both games), and the round logs can be scrolled from the keyboard.
+
+## Review decisions (Jason, 2026-11-06)
+
+From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai project). Decided, not yet built.
+
+- **Screen readers.** One quiet announcer per page.
+  - When the player needs to act, it speaks a summary: "Moss, Tern and Fig gave 3; Reed passed. Pool 14. Your turn."
+  - It also speaks every split result.
+  - The panel stops being a live region. Jason sees the exact sentences before they go live.
+- **Why someone voted 0.** Each 0-voter's reason shows after every vote, for every split, on the result card and in the round log: protest, grudge, turn-taking, dominance or free 0. The divide card gives no warning: working out who would object stays the player's job.
+- **"What this table showed" card.** One or two things that happened at this table, each with one sentence naming the idea and its source, with a link. Sources include de Waal's reciprocity via Ostrom & Walker, Ostrom's sanctions, the ultimatum and centipede games, and equality vs equity. Jason picks from drafts.
+- **Being sent out, and carry-over: no change.** A rejected grabber still leaves everything in the pool, and points still don't carry between tables. Re-test once the 0-vote reasons show.
+- **The Commons stays at 120.**
+  - The page says this game's pressure is the rising amount (Game 1 teaches the finite Commons).
+  - The Commons bar gets an "of 120" label.
+  - The end card gets Game 1's Commons summary.
+- **Reputation.** A four-state ring on each seat, from the 2018 notes: exploitive, free loading, cooperative, generous. It has a text label as well as colour, and a legend. The thresholds are simulated before building.
+- **Your vote counted.** It counts only when the player's split was fair, meaning they kept no more than a fair share (the same test the bots use). Welcomed is unchanged. The achievement odds are re-run.
+- **Order of work.**
+  1. An automatic play-through test of both games.
+  2. Move the code both games share into one place.
+  3. Build the features above once, for both games.
+- **Review flow.** Changes go straight to `main`, which is the live site. The tests and the play-through test are the safety net.
