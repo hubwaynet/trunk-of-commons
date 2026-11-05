@@ -47,6 +47,25 @@ export const LEARNERS = {
       vote: (v) => (v.iDivided ? 2 : judgeFair(v)),
     };
   },
+  // Jason's second pattern (2026-11-05): keep control of the grab, alternating a split that
+  // punishes the last 0-voters (keeping their share) with a fair split by stake to appease.
+  'dominator': () => {
+    let foes = new Set();
+    let n = 0;
+    return {
+      turn: (v) => {
+        const u = v.lastUltimatum;
+        if (u && u.grabber === v.id) foes = new Set(Object.entries(u.votes).filter(([, x]) => x === 0).map(([id]) => id));
+        return v.pool > 0 ? 'grab' : 'give';
+      },
+      divide: (v) => {
+        const sh = splitBy(v.pool, stakeW(v));
+        if (n++ % 2 === 0) for (const id of foes) if (sh[id] !== undefined && id !== v.id) { sh[v.id] += sh[id]; sh[id] = 0; }
+        return sh;
+      },
+      vote: (v) => (v.iDivided ? 2 : judgeFair(v)),
+    };
+  },
 };
 
 export function playWithLearner(styleKey, seed, opts = {}) {

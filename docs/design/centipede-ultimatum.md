@@ -200,3 +200,22 @@ The coalition now pays only at tables without social voters (20% of tables still
 Bot tables (4,000): median 10 rounds, 21% reach round 20. 50% of bot splits are rejected and only 1% welcomed, because bot grabbers often short-change players who passed. Best strategies: Edge Watcher +11.5, Pool Watcher +9.7, Free Voter +7.5. Pushover is worst at −4.1.
 
 Achievement odds for a fair player: Nobody short-changed about 90%, Steady hand 90%, One clean grab 78%, Welcomed about 50% (was 64%), Full distance 12–19% (was 20–39%), Your vote counted 9–44%. The order is unchanged.
+
+## Dominance and grudges (Jason, 2026-11-05)
+
+Jason still reached Full distance and dominated a table by keeping control of the grab, alternating a split that punished the last 0-voter with a fair split to appease the table. His table had none of the turn-taking bots (Pushover, Bookkeeper, Free Voter, Greedy, Early Grabber). He asked for more punishment for a repetitive grabber. Added:
+
+- **Dominance:** a divider who also divided at least 2 of the last 3 splits. Spiteful, Mirror, Greedy, Early Grabber, Pool Watcher and Edge Watcher vote 0; the grabbers resent losing the grab. Patient won't welcome it.
+- **Grudges:** a divider who short-changed this bot in an earlier split at the table. Spiteful, Mirror, Bookkeeper and Edge Watcher vote 0; Patient won't welcome it.
+
+| Learner style (3,000 tables) | Mean net before | Mean net after | Sent out after |
+|---|---|---|---|
+| Dominator (Jason's alternating pattern) | +12.6 | +1.7 | 100% |
+| Coalition | +14.6 | +2.2 | 100% |
+| Grabs whenever the pool reaches a threshold, fair split, votes 2 | +6.3 | +3.5 | 48% |
+| Grabs once, fair split | +4.4 | +4.6 | 2% |
+| Steady giver | +4.5 | +4.5 | 0% |
+
+Even a fair player who grabs often is now sent out at about half of tables. Repeatedly holding the pool is resented whatever the split. If that feels too harsh, dominance could need 3 of the last 4 splits.
+
+Full distance became the hardest achievement (about 10–11% per table for a fair player), so it moved to last, after Your vote counted (about 22%).
