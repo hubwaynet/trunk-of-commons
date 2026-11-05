@@ -141,6 +141,23 @@ export const STRATEGIES = {
       vote: social(judge({ welcome: prop(1), accept: eq(0.6) }), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold', grudge: 'veto' }),
     }),
   },
+  skimmer: {
+    label: 'Skimmer', family: 'grabber',
+    summary: 'Gives until the pool reaches its mark (somewhere from 20 to 40), then grabs at its first chance. Pays everyone back exactly what they put in and keeps the Commons bonus for itself. Competes for the grab: votes 0 against a greedy player who keeps taking it, and won\'t welcome even a fair one.',
+    tell: 'Grabs a mid-sized pool. Its splits give everyone exactly what they put in, and it keeps the rest.',
+    create: (rng) => {
+      const mark = 20 + Math.floor(rng() * 21);
+      return {
+        turn: (v) => (v.pool >= mark ? 'grab' : 'give'),
+        divide: (v) => {
+          const sh = Object.fromEntries(v.ids.map((x) => [x, x === v.id ? 0 : (v.stakes[x] ?? 0)]));
+          sh[v.id] = v.pool - Object.values(sh).reduce((a, b) => a + b, 0);
+          return sh;
+        },
+        vote: social(judge({ welcome: prop(1), accept: (x) => x.myStake }), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold' }),
+      };
+    },
+  },
   spiteful: {
     label: 'Spiteful', family: 'judge',
     summary: 'Always gives and splits equally, but votes 0 against any split that gives it less than an equal share. Also votes 0 if anyone else is short-changed, if a greedy player divides twice running or keeps taking the grab, or if the divider short-changed it before. Never votes 2 for anyone else.',

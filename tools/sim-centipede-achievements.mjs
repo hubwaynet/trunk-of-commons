@@ -13,6 +13,12 @@ import { ACHIEVEMENTS, tableAchievements } from '../src/ui/centipede-ultimatum/a
 const judgeFair = (v) => (v.iDivided ? 2 : v.myShare >= v.equal ? 2 : v.myShare >= 0.5 * v.equal ? 1 : 0);
 const ones = (v) => Object.fromEntries(v.ids.map((x) => [x, 1]));
 const stakeW = (v) => Object.fromEntries(v.ids.map((x) => [x, v.stakes[x] ?? 0]));
+// Everyone gets exactly what they put in; the divider keeps the rest.
+export const skim = (v) => {
+  const sh = Object.fromEntries(v.ids.map((x) => [x, x === v.id ? 0 : (v.stakes[x] ?? 0)]));
+  sh[v.id] = v.pool - Object.values(sh).reduce((a, b) => a + b, 0);
+  return sh;
+};
 const learner = ({ grabAt, split, ownVote, once = false }) => (rng) => {
   const at = grabAt[Math.floor(rng() * grabAt.length)];
   let grabbed = 0;
@@ -47,6 +53,10 @@ export const LEARNERS = {
       vote: (v) => (v.iDivided ? 2 : judgeFair(v)),
     };
   },
+  // Jason's third pattern (2026-11-05): grab whenever allowed, pay everyone back exactly what
+  // they put in, keep the Commons bonus (the surplus) for yourself, vote 2.
+  'skimmer': learner({ grabAt: [1], split: (v) => skim(v), ownVote: 2 }),
+  'patient skimmer': learner({ grabAt: [25, 40], split: (v) => skim(v), ownVote: 2 }),
   // Jason's second pattern (2026-11-05): keep control of the grab, alternating a split that
   // punishes the last 0-voters (keeping their share) with a fair split by stake to appease.
   'dominator': () => {

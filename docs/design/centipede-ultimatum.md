@@ -238,3 +238,12 @@ Jason was rejected and sent out after three fair grabs, while a greedy bot kept 
 The greedy patterns are now gambles: their median is below fair play, and they are sent out at more than half of tables. The coalition still averages slightly more than fair play, from the roughly 13% of tables without enough social voters, where it wins big.
 
 Achievement odds for the style that suits each one: Nobody short-changed 91%, Steady hand 90%, One clean grab 84%, Welcomed 54%, Your vote counted 20–40%, Full distance 10–19%. The order is unchanged.
+
+## The skim and the Skimmer bot (Jason, 2026-11-05)
+
+Jason's third method: when the grab comes to him, pay everyone back exactly what they put in, keep the whole Commons bonus, and vote 2. Nobody is short-changed, so the solidarity voters stay quiet. He also saw a selection effect: the greedy grabber bots get voted out early, and the bots left behind are the passive ones. He reached round 20 easily and asked for a bot that competes with his method.
+
+- Learner `patient skimmer` (skims when the pool reaches 25–40): +14.8 mean, +13 median. That is about three times fair play. It is sent out at 57% of tables but has usually banked its gains by then, and it reaches round 20 at 31% of tables. Grabbing at every chance (`skimmer`) does badly: sent out at 77% of tables, median −1.
+- **New bot, Skimmer** (grabber family): gives until the pool reaches its mark (20–40, random per table), then grabs and skims. It competes for the grab by vetoing greedy repeat or dominant dividers and withholding its welcome from fair ones. It accepts a split that returns its stake and welcomes a proportional one.
+- With the Skimmer in the roster, the patient skimmer learner drops to +12.4 mean, +11 median. The Skimmer is the best bot (+16.4 per seat). Tables run longer (median 14 rounds, 29% reach round 20), so Full distance is easier for fair players (about 23% per table, was 10–19%).
+- The skim is still the strongest known style. One reason: a rejected grabber gets its own stake back and loses only its seat, so greedy grabs are cheap gambles.
