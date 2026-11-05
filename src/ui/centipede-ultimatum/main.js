@@ -100,6 +100,7 @@ function newSession({ watch = false } = {}) {
     seed, watch, seats, agents,
     game: createGame({ players: seats.map((s) => ({ id: s.id })), seed, startBalance: START_BALANCE, commonsReserve: COMMONS_RESERVE }),
     timer: null, fast: false, lastUlt: null, note: null, earned: new Set(), allNow: false, endChecked: false,
+    reasons: {}, // round -> { voter id: [reasons for a 0] }, from the bots' own judgement
   };
   $('#watch-toggle').setAttribute('aria-pressed', String(watch));
   $('#watch-toggle').textContent = watch ? 'Play a table' : 'Watch the bots';
@@ -170,7 +171,14 @@ function afterChange() {
 function applyVotes(mine) {
   const s = G.game;
   const votes = {};
-  for (const id of activeIds(s)) votes[id] = id === 'you' && mine !== null ? mine : G.agents[id].vote(botView(s, id));
+  const why = {};
+  for (const id of activeIds(s)) {
+    if (id === 'you' && mine !== null) { votes[id] = mine; continue; }
+    const r = G.agents[id].assess(botView(s, id));
+    votes[id] = r.vote;
+    if (r.vote === 0 && r.reasons.length) why[id] = r.reasons;
+  }
+  G.reasons[s.ultimatum.round] = why; // one split per round at most
   G.game = vote(s, votes);
 }
 
@@ -412,7 +420,7 @@ function splitTable(u, { votes = false } = {}) {
     const stake = u.stakes[id] ?? 0;
     const short = u.shares[id] < stake;
     return `<div class="split-row ${id === 'you' ? 'me' : ''}">
-      <span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}${id === u.grabber ? ' <span class="muted small">divider</span>' : ''}</span>
+      <span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}${id === u.grabber ? '<span class="muted divider-tag">divider</span>' : ''}</span>
       <span class="bar"><span style="width:${w}%"></span></span>
       <span class="num${short ? ' short' : ''}"${short ? ` title="Less than ${stake} put in"` : ''}>${u.shares[id]}</span>
       <span class="num muted">${stake}</span>
@@ -458,6 +466,38 @@ function needLine(n) {
   return `<p class="need">To pass, the ${n} votes must add up to at least <b>${n}</b> (an average of 1). Every vote counts, the divider's too, and each 0 needs a 2 somewhere to make up for it.</p>`;
 }
 
+// Why a bot voted 0, in plain words (Jason, 2026-11-06: shown after every vote).
+const portion = (basis, k) => (basis === 'stake' ? 'what they put in' : basis === 'proportional' ? 'their share by what each put in'
+  : k === 1 ? 'an equal share' : k === 0.5 ? 'half an equal share' : `${Math.round(k * 100)}% of an equal share`);
+function whyText(r, voter, u) {
+  const name = (id) => (id === 'you' ? 'you' : esc(seat(id).name));
+  const d = name(u.grabber);
+  switch (r.kind) {
+    case 'protest': return `protest: ${name(r.who)} got back ${r.got} of the ${r.put} ${r.who === 'you' ? 'you' : 'they'} put in`;
+    case 'grudge': return `grudge: ${d} short-changed ${name(voter)} in round ${r.round}`;
+    case 'turns': return `turn-taking: ${d} divided twice running and kept more than a fair share`;
+    case 'dominance': return `dominance: ${d} divided 2 of the last 3 splits and kept more than a fair share`;
+    case 'dominance-fair': return `dominance: ${d} divided 2 of the last 3 splits`;
+    case 'share': return `own share: offered ${r.offered}, wanted ${r.wanted} (${portion(r.basis, r.k)})`;
+    case 'turns+dominance': return `turn-taking: ${d} divided twice running, 2 of the last 3 splits, and kept more than a fair share`;
+    case 'never-pays': return 'never pays to vote';
+    default: return r.kind;
+  }
+}
+function whyAll(u, id) {
+  let rs = G.reasons[u.round]?.[id] ?? [];
+  if (rs.some((r) => r.kind === 'turns') && rs.some((r) => r.kind === 'dominance')) { // one greed, said once
+    rs = [{ kind: 'turns+dominance' }, ...rs.filter((r) => r.kind !== 'turns' && r.kind !== 'dominance')];
+  }
+  return rs.map((r) => whyText(r, id, u)).join('; ');
+}
+
+function whyList(u) {
+  const items = Object.keys(u.votes).filter((id) => u.votes[id] === 0 && whyAll(u, id))
+    .map((id) => `<li><b>${esc(seat(id).name)}</b>: ${whyAll(u, id)}.</li>`);
+  return items.length ? `<div class="why0"><span class="eyebrow">Why the 0 votes</span><ul>${items.join('')}</ul></div>` : '';
+}
+
 function tallyLine(u) {
   const ids = Object.keys(u.votes);
   const n = ids.length;
@@ -478,7 +518,7 @@ function tallyLine(u) {
   } else if (twos.length) {
     why = `Voted 2: ${list(twos)}.`;
   }
-  return `<p class="tally"><b>Votes totalled ${total}</b>, needed ${n}. ${why}</p>`;
+  return `<p class="tally"><b>Votes totalled ${total}</b>, needed ${n}. ${why}</p>${whyList(u)}`;
 }
 
 function stayCard() {
@@ -537,7 +577,8 @@ function renderLog() {
     if (m) html = m.move === 'give' ? `<span class="mv give">G${m.amount}</span>` : m.move === 'pass' ? '<span class="mv pass">·</span>' : '<span class="mv grab">GRAB</span>';
     if (r.ultimatum && r.ultimatum.shares[id] !== undefined) {
       const u = r.ultimatum;
-      html += `<span class="mv split" title="share offered, then vote">${u.shares[id]}<span class="v v${u.votes[id]}">${u.votes[id]}</span></span>`;
+      const why = u.votes[id] === 0 ? whyAll(u, id) : '';
+      html += `<span class="mv split" title="share offered, then vote">${u.shares[id]}<span class="v v${u.votes[id]}"${why ? ` title="Voted 0: ${why}"` : ''}>${u.votes[id]}</span></span>`;
     }
     return html || '<span class="gone">–</span>';
   };

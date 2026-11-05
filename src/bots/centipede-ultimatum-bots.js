@@ -2,7 +2,9 @@
 // how to divide it (each player's share set separately), how to judge someone else's split,
 // and whether to stay after a split.
 // Each strategy: create(rng) -> { turn(view) -> 'give'|'grab', divide(view) -> shares,
-//   vote(view) -> 0|1|2, stay?(view) -> boolean }
+//   vote(view) -> 0|1|2, assess(view) -> { vote, reasons }, stay?(view) -> boolean }
+// assess() gives the vote and, for a 0, the reasons behind it (shown to the player after the
+// vote; Jason, 2026-11-06). vote() is assess().vote, so the two can't disagree.
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { requirement, splitBy, activeIds } from '../engine/centipede-ultimatum.js';
@@ -49,14 +51,22 @@ const keepThenStakes = (keep) => (v) =>
 //   v.myStake      exactly what it put in
 // welcome: vote 2 at or above this; accept: vote 1 at or above this; otherwise 0.
 // Bots always vote 2 on their own split.
+// A threshold is a function of the view, tagged with what it measures so a 0 can be explained:
+// basis 'equal' (k times an equal share), 'proportional', or 'stake'.
+const tag = (fn, basis, k = 1) => Object.assign(fn, { basis, k });
+const eq = (k) => tag((v) => k * v.equal, 'equal', k);
+const prop = (k) => tag((v) => k * v.proportional, 'proportional', k);
+const stake = tag((v) => v.myStake, 'stake');
+const ok = (vote) => ({ vote, reasons: [] });
 const judge = ({ welcome = null, accept }) => (v) => {
-  if (v.iDivided) return 2;
-  if (welcome && v.myShare >= welcome(v)) return 2;
-  return v.myShare >= accept(v) ? 1 : 0;
+  if (v.iDivided) return ok(2);
+  if (welcome && v.myShare >= welcome(v)) return ok(2);
+  if (v.myShare >= accept(v)) return ok(1);
+  const wanted = Math.ceil(accept(v) - 1e-9); // shares are whole points
+  return { vote: 0, reasons: [{ kind: 'share', offered: v.myShare, wanted, basis: accept.basis, k: accept.k }] };
 };
-const eq = (k) => (v) => k * v.equal;
-const prop = (k) => (v) => k * v.proportional;
 const judgeBy = (ratio) => judge({ welcome: eq(1), accept: eq(ratio) });
+const voter = (assess) => ({ assess, vote: (v) => assess(v).vote });
 
 // Social judging (Jason, 2026-11-05): most people look past their own share.
 //   v.shortChanged    players who put something in but are offered less than they put in
@@ -76,23 +86,26 @@ const judgeBy = (ratio) => judge({ welcome: eq(1), accept: eq(ratio) });
 //   dominanceFair a fair divider who divided 2 of the last 3 splits (at most a lost welcome)
 // Each takes 'veto' (vote 0) or 'withhold' (vote at most 1).
 const social = (base, { solidarity = null, turns = null, dominance = null, dominanceFair = null, grudge = null } = {}) => (v) => {
-  if (v.iDivided) return 2;
-  let vote = base(v);
-  const othersShort = v.shortChanged.some((id) => id !== v.id && !v.freeRiders.includes(id));
+  if (v.iDivided) return ok(2);
+  const own = base(v);
+  let vote = own.vote;
+  const protested = v.shortChanged.find((id) => id !== v.id && !v.freeRiders.includes(id));
   const greedy = !v.dividerFair;
   const flags = [
-    [othersShort, solidarity],
-    [v.repeatDivider && greedy, turns],
-    [v.dominant && greedy, dominance],
-    [v.dominant && !greedy, dominanceFair],
-    [v.grudge, grudge],
+    [protested !== undefined, solidarity, () => ({ kind: 'protest', who: protested, got: v.shares[protested], put: v.stakes[protested] ?? 0 })],
+    [v.repeatDivider && greedy, turns, () => ({ kind: 'turns' })],
+    [v.dominant && greedy, dominance, () => ({ kind: 'dominance' })],
+    [v.dominant && !greedy, dominanceFair, () => ({ kind: 'dominance-fair' })],
+    [v.grudge, grudge, () => ({ kind: 'grudge', round: v.grudgeRound })],
   ];
-  for (const [hit, how] of flags) {
+  const vetoes = [];
+  for (const [hit, how, why] of flags) {
     if (!hit || !how) continue;
-    if (how === 'veto') return 0;
-    vote = Math.min(vote, 1);
+    if (how === 'veto') vetoes.push(why());
+    else vote = Math.min(vote, 1);
   }
-  return vote;
+  if (vetoes.length) return { vote: 0, reasons: [...vetoes, ...own.reasons] };
+  return { vote, reasons: vote === 0 ? own.reasons : [] };
 };
 
 export const STRATEGIES = {
@@ -100,20 +113,20 @@ export const STRATEGIES = {
     label: 'Patient', family: 'cooperator',
     summary: 'Always gives. If it divides, everyone gets an equal share. Welcomes a split that gives it at least an equal share, unless someone else is short-changed, a greedy divider keeps dividing, or that divider short-changed it before; accepts one that gives it at least half.',
     tell: 'G every turn. Votes 2 for an equal share or better, 0 when badly shortchanged.',
-    create: () => ({ turn: () => 'give', divide: equal, vote: social(judgeBy(0.5), { solidarity: 'withhold', turns: 'withhold', dominance: 'withhold', grudge: 'withhold' }) }),
+    create: () => ({ turn: () => 'give', divide: equal, ...voter(social(judgeBy(0.5), { solidarity: 'withhold', turns: 'withhold', dominance: 'withhold', grudge: 'withhold' })) }),
   },
   pushover: {
     label: 'Pushover', family: 'cooperator',
     summary: 'Always gives, splits equally, and welcomes every split with a 2.',
     tell: 'G every turn, 2 on every vote.',
-    create: () => ({ turn: () => 'give', divide: equal, vote: () => 2 }),
+    create: () => ({ turn: () => 'give', divide: equal, ...voter(() => ok(2)) }),
   },
   bookkeeper: {
     label: 'Bookkeeper', family: 'reciprocator',
     summary: 'Always gives. Divides in proportion to what each player put in, so players who passed get less or nothing. Accepts a split if it gets back at least what it put in; welcomes one that pays in proportion to what it put in. Votes 0 if anyone who put something in gets back less (free riders excepted), and holds a grudge against a divider who short-changed it.',
     tell: 'G every turn. Its splits pay givers and leave passers with 0. Votes 0 when anyone is short-changed.',
     create: () => ({
-      turn: () => 'give', divide: byStakes, vote: social(judge({ welcome: prop(1), accept: (v) => v.myStake }), { solidarity: 'veto', grudge: 'veto' }),
+      turn: () => 'give', divide: byStakes, ...voter(social(judge({ welcome: prop(1), accept: stake }), { solidarity: 'veto', grudge: 'veto' })),
       stay: (v) => !(v.lastUltimatum && v.lastUltimatum.result !== 'rejected' && v.lastUltimatum.myNet < 0 && v.lastUltimatum.round === v.round),
     }),
   },
@@ -121,7 +134,7 @@ export const STRATEGIES = {
     label: 'Early Grabber', family: 'grabber',
     summary: 'Grabs the pool at its first turn once grabbing is open and there is anything in it. Keeps 60%. Votes 0 against a greedy player who keeps taking the grab; won\'t welcome even a fair one.',
     tell: 'Grabs early. Keeps well over a fair share.',
-    create: () => ({ turn: (v) => (v.pool > 0 ? 'grab' : 'give'), divide: keepThenEqual(0.6), vote: social(judgeBy(0.5), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold' }) }),
+    create: () => ({ turn: (v) => (v.pool > 0 ? 'grab' : 'give'), divide: keepThenEqual(0.6), ...voter(social(judgeBy(0.5), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold' })) }),
   },
   poolWatcher: {
     label: 'Pool Watcher', family: 'grabber',
@@ -130,7 +143,7 @@ export const STRATEGIES = {
     create: () => ({
       turn: (v) => (v.pool >= 40 ? 'grab' : 'give'),
       divide: sanction(keepThenStakes((v) => Math.round(0.4 * v.pool))),
-      vote: social(judge({ welcome: prop(1), accept: eq(0.5) }), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold' }),
+      ...voter(social(judge({ welcome: prop(1), accept: eq(0.5) }), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold' })),
     }),
   },
   greedy: {
@@ -142,7 +155,7 @@ export const STRATEGIES = {
       return {
         turn: (v) => (v.pool >= 20 ? 'grab' : 'give'),
         divide: keepThenEqual(0.8),
-        vote: social(judge({ accept: eq(0.3) }), { dominance: 'veto' }),
+        ...voter(social(judge({ accept: eq(0.3) }), { dominance: 'veto' })),
         stay: (v) => {
           const u = v.lastUltimatum;
           if (u && u.grabber === v.id && u.result !== 'rejected') cashedIn = true;
@@ -158,7 +171,7 @@ export const STRATEGIES = {
     create: () => ({
       turn: (v) => (v.balance - v.req < requirement(v.round + 1) ? 'grab' : 'give'),
       divide: sanction(keepThenStakes((v) => Math.round(1.25 * v.equal))),
-      vote: social(judge({ welcome: prop(1), accept: eq(0.6) }), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold', grudge: 'veto' }),
+      ...voter(social(judge({ welcome: prop(1), accept: eq(0.6) }), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold', grudge: 'veto' })),
     }),
   },
   skimmer: {
@@ -174,7 +187,7 @@ export const STRATEGIES = {
           sh[v.id] = v.pool - Object.values(sh).reduce((a, b) => a + b, 0);
           return sh;
         }, { cut: 'half', to: 'me' }),
-        vote: social(judge({ welcome: prop(1), accept: (x) => x.myStake }), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold' }),
+        ...voter(social(judge({ welcome: prop(1), accept: stake }), { turns: 'veto', dominance: 'veto', dominanceFair: 'withhold' })),
       };
     },
   },
@@ -182,13 +195,13 @@ export const STRATEGIES = {
     label: 'Spiteful', family: 'judge',
     summary: 'Always gives and splits equally, but votes 0 against any split that gives it less than an equal share. Also votes 0 if anyone else is short-changed (free riders excepted), if a greedy player divides twice running or keeps taking the grab, or if the divider short-changed it before. Never votes 2 for anyone else.',
     tell: 'G every turn. Votes 0 whenever it, or anyone, is shortchanged, otherwise 1.',
-    create: () => ({ turn: () => 'give', divide: equal, vote: social(judge({ accept: (v) => Math.floor(v.equal) }), { solidarity: 'veto', turns: 'veto', dominance: 'veto', grudge: 'veto' }) }),
+    create: () => ({ turn: () => 'give', divide: equal, ...voter(social(judge({ accept: tag((v) => Math.floor(v.equal), 'equal', 1) }), { solidarity: 'veto', turns: 'veto', dominance: 'veto', grudge: 'veto' })) }),
   },
   freeVoter: {
     label: 'Free Voter', family: 'judge',
     summary: 'Always gives, but never pays to vote. Votes 0 and counts on the others to carry the split, then takes a share of their vote tokens. After two such votes the table treats it as a free rider: it can be cut without the solidarity voters defending it.',
     tell: 'G every turn. Votes 0 on every split but its own.',
-    create: () => ({ turn: () => 'give', divide: equal, vote: (v) => (v.iDivided ? 2 : 0) }),
+    create: () => ({ turn: () => 'give', divide: equal, ...voter((v) => (v.iDivided ? ok(2) : { vote: 0, reasons: [{ kind: 'never-pays' }] })) }),
   },
   mirror: {
     label: 'Mirror', family: 'reciprocator',
@@ -210,7 +223,7 @@ export const STRATEGIES = {
           target = null;
           return splitBy(v.pool, w);
         },
-        vote: social(judgeBy(0.7), { solidarity: 'withhold', turns: 'veto', dominance: 'veto', grudge: 'veto' }),
+        ...voter(social(judgeBy(0.7), { solidarity: 'withhold', turns: 'veto', dominance: 'veto', grudge: 'veto' })),
       };
     },
   },
@@ -256,8 +269,9 @@ export function botView(s, id) {
   }
   const freeRiders = Object.keys(freeZeros).filter((y) => freeZeros[y] >= 2 && ids.includes(y));
   const dominant = Boolean(u) && pastSplits.slice(-3).filter((x) => x.grabber === u.grabber).length >= 2;
-  const grudge = Boolean(u) && pastSplits.some((x) => x.grabber === u.grabber && x.result !== 'rejected'
-    && (x.stakes[id] ?? 0) > 0 && (x.shares[id] ?? 0) < x.stakes[id]);
+  const wronged = u ? pastSplits.filter((x) => x.grabber === u.grabber && x.result !== 'rejected'
+    && (x.stakes[id] ?? 0) > 0 && (x.shares[id] ?? 0) < x.stakes[id]) : [];
+  const grudge = wronged.length > 0;
   const totalStakes = ids.reduce((a, x) => a + (stakes[x] ?? 0), 0);
   const myStake = stakes[id] ?? 0;
   return {
@@ -283,6 +297,8 @@ export function botView(s, id) {
     repeatDivider,
     dominant,
     grudge,
+    grudgeRound: wronged.at(-1)?.round ?? null, // the latest split in which this divider short-changed me
+    shares: u?.shares ?? null, // the split being judged (public)
     dividerKeeps: u?.shares ? u.shares[u.grabber] / (s.pool / ids.length || 1) : 0,
     dividerFair: u?.shares ? u.shares[u.grabber] <= Math.ceil(Math.max(s.pool / ids.length,
       totalStakes ? (s.pool * (stakes[u.grabber] ?? 0)) / totalStakes : 0)) : true,

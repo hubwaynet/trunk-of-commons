@@ -322,6 +322,14 @@ From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai pro
   - It also speaks every split result.
   - The panel stops being a live region. Jason sees the exact sentences before they go live.
 - **Why someone voted 0.** Each 0-voter's reason shows after every vote, for every split, on the result card and in the round log: protest, grudge, turn-taking, dominance or free 0. The divide card gives no warning: working out who would object stays the player's job.
+  - *Built 2026-11-06.* Each bot's vote and its reasons come from one function (`assess`), so they can't disagree. Both simulators give identical output before and after.
+  - The result card lists "Why the 0 votes", one line per bot. For example:
+    - "Tern: protest: Ember got back 1 of the 9 they put in; own share: offered 1, wanted 4 (what they put in)."
+    - "Fig: grudge: you short-changed Fig in round 4."
+    - "Ember: never pays to vote."
+  - When both apply, turn-taking and dominance are said once.
+  - The round log shows the same text on hover over a 0. On phones there's no hover, so the result card is the place to read it.
+  - Also fixed: on the split table, a long divider name pushed "divider" into the bar. It now sits under the name.
 - **"What this table showed" card.** One or two things that happened at this table, each with one sentence naming the idea and its source, with a link. Sources include de Waal's reciprocity via Ostrom & Walker, Ostrom's sanctions, the ultimatum and centipede games, and equality vs equity. Jason picks from drafts.
 - **Being sent out, and carry-over: no change.** A rejected grabber still leaves everything in the pool, and points still don't carry between tables. Re-test once the 0-vote reasons show.
 - **The Commons stays at 120.**

@@ -145,7 +145,7 @@ async function playCentipede(page, { grabAt = 25, label }) {
   await page.clock.install();
   await page.goto(page.url()); // reload so the page's timers run on the test clock
   await page.waitForSelector('#panel .card');
-  const seen = { grabbed: false, keyedTurn: false, keyedDivide: false, logChecked: false, round21: false, steps: 0 };
+  const seen = { grabbed: false, keyedTurn: false, keyedDivide: false, logChecked: false, round21: false, steps: 0, botZeros: 0, skipped: false };
   while (seen.steps++ < 4000) {
     if (await page.$('#again')) break;
     const headings = await page.$$eval('#panel h2', (hs) => hs.map((h) => h.textContent).join(' | '));
@@ -159,7 +159,7 @@ async function playCentipede(page, { grabAt = 25, label }) {
       seen.logChecked = true;
       continue;
     }
-    if (await page.$('#skip')) { await page.click('#skip'); continue; }
+    if (!seen.skipped && await page.$('#skip')) { seen.skipped = true; await page.click('#skip'); continue; } // once you're out
     if (await page.$('#give')) {
       const open = await page.$eval('#grab', (b) => !b.disabled);
       const pool = Number(await page.$eval('#grab .amt', (e) => e.textContent));
@@ -188,7 +188,15 @@ async function playCentipede(page, { grabAt = 25, label }) {
       continue;
     }
     if (await page.$('#vote-2')) { await page.click('#vote-2'); continue; }
-    if (await page.$('#stay')) { await page.click('#stay'); continue; }
+    if (await page.$('#stay')) {
+      // every 0 from a bot on the result card comes with its reason
+      const zeros = await page.$$eval('.outcome .split-row:not(.head):not(.me) .vote.v0', (z) => z.length);
+      const reasons = await page.$$eval('.outcome .why0 li', (li) => li.length);
+      assert.equal(reasons, zeros, `${label}: ${zeros} bot 0 votes but ${reasons} reasons`);
+      seen.botZeros += zeros;
+      await page.click('#stay');
+      continue;
+    }
     await page.clock.runFor(700); // let the bots move
   }
   return seen;

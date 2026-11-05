@@ -12,7 +12,9 @@ Educational social dilemma games. Jason Lee Lasky directs the design and does no
 ## Architecture
 
 - `src/engine/` holds pure rules with no DOM and no randomness. The same code is meant to run as a server referee for multiplayer later.
-- `src/bots/` holds strategy bots. Each one has `label`, `family`, `summary`, `tell` (how it looks in the round log) and `create(rng)` returning `choose(view)`, plus optional `stay(view)` and `possible(view)` for random strategies. Bots see only `botView`. Use the supplied rng, never Math.random.
+- `src/bots/` holds strategy bots. Each one has `label`, `family`, `summary`, `tell` (how it looks in the round log) and `create(rng)`. Bots see only `botView`. Use the supplied rng, never Math.random.
+  - In Rising Pool, `create` returns `choose(view)`, plus optional `stay(view)`, and `possible(view)` for random strategies.
+  - In Centipede & Ultimatum, it returns `turn`, `divide`, `assess` and `vote`, plus optional `stay`. `assess(view)` returns the vote and, for a 0, the reasons (shown to the player); `vote` is `assess(view).vote`, so build new judging habits inside `assess`.
 - `src/bots/evidence.js` replays a finished table to find every strategy consistent with each bot's moves. "Read the table" scores guesses by evidence, not by exact match.
 - `src/ui/site.css` holds the shared tokens, site bar and footer. `src/ui/games.css` and `src/ui/common.js` hold what every game page shares: the table, panel, log and debrief styles; markup helpers; seat names and colours; toasts; the achievements strip, card and store. `focus.js`, `fireworks.js` and `progress-store.js` are shared too. Each game adds its own `src/ui/<game>/style.css` and `main.js`, plus a pure `achievements.js` (no DOM) that tests and simulators can use. Build shared features once, in the shared files.
 - `games/_template/` is the starting page for a new game. `games/index.html` redirects home until a games list page exists.

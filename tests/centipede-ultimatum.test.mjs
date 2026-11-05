@@ -227,3 +227,50 @@ test('a divider who gives themselves less than they put in is not "short-changed
   const bk = STRATEGIES.bookkeeper.create(() => 0.5);
   assert.equal(bk.vote(botView(s, 'b')), 1); // gets back exactly its stake: accepts
 });
+
+test('every bot 0 vote comes with reasons that are true, and other votes have none', () => {
+  const kinds = new Set(['share', 'protest', 'turns', 'dominance', 'dominance-fair', 'grudge', 'never-pays']);
+  let zeros = 0;
+  for (let t = 0; t < 300; t++) {
+    const rng = mulberry32(8000 + t);
+    const keys = selectRoster(rng, 6);
+    const pids = keys.map((k, i) => `${k}#${i}`);
+    const inst = Object.fromEntries(pids.map((id, i) => [id, STRATEGIES[keys[i]].create(rng)]));
+    let s = createGame({ players: pids.map((id) => ({ id })) });
+    const act_ = () => s.players.filter((p) => p.active);
+    while (s.status === 'playing') {
+      if (s.phase === 'turn') { const id = currentPlayer(s); s = act(s, id, inst[id].turn(botView(s, id))); }
+      else if (s.phase === 'divide') { const g = s.ultimatum.grabber; s = divide(s, inst[g].divide(botView(s, g))); }
+      else if (s.phase === 'vote') {
+        const votes = {};
+        for (const p of act_()) {
+          const v = botView(s, p.id);
+          const { vote: n, reasons } = inst[p.id].assess(v);
+          assert.equal(n, inst[p.id].vote(v));
+          votes[p.id] = n;
+          if (n > 0) { assert.deepEqual(reasons, []); continue; }
+          zeros++;
+          assert.ok(reasons.length > 0, `${p.id} voted 0 with no reason`);
+          for (const r of reasons) {
+            assert.ok(kinds.has(r.kind), r.kind);
+            if (r.kind === 'protest') { assert.notEqual(r.who, p.id); assert.ok(v.shares[r.who] < (v.stakes[r.who] ?? 0)); assert.equal(r.got, v.shares[r.who]); }
+            if (r.kind === 'grudge') assert.ok(r.round < s.round);
+            if (r.kind === 'share') assert.ok(r.offered < r.wanted);
+          }
+        }
+        s = vote(s, votes);
+      } else s = stay(s, Object.fromEntries(act_().map((p) => [p.id, inst[p.id].stay ? inst[p.id].stay(botView(s, p.id)) : true])));
+    }
+  }
+  assert.ok(zeros > 500, `only ${zeros} zero votes checked`);
+});
+
+test('Bookkeeper protests when someone else gets back less than they put in', () => {
+  let s = giveAll(giveAll(fresh())); // stakes 3 each, pool 20
+  s = act(s, 'a', 'grab');
+  s = divide(s, { a: 9, b: 6, c: 4, d: 1 }); // d gets 1 of the 3 it put in
+  const bk = STRATEGIES.bookkeeper.create(() => 0.5);
+  const r = bk.assess(botView(s, 'b'));
+  assert.equal(r.vote, 0);
+  assert.deepEqual(r.reasons[0], { kind: 'protest', who: 'd', got: 1, put: 3 });
+});
