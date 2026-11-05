@@ -2,7 +2,7 @@
 
 Educational, entertaining, iterated social dilemma games about trust, cooperation, reputation and the commons.
 
-**Play it:** [hubwaynet.github.io/trunk-of-commons](https://hubwaynet.github.io/trunk-of-commons/) · Game 1: [Rising Pool](https://hubwaynet.github.io/trunk-of-commons/games/rising-pool/)
+**Play it:** [hubwaynet.github.io/trunk-of-commons](https://hubwaynet.github.io/trunk-of-commons/) · Game 1: [Rising Pool](https://hubwaynet.github.io/trunk-of-commons/games/rising-pool/) · Game 2: [Centipede & Ultimatum](https://hubwaynet.github.io/trunk-of-commons/games/centipede-ultimatum/)
 
 Visitors learn by playing against strategy bots in the browser, then progress to harder games. Multiplayer comes later as a progressive web app. The games began as design notes by Jason Lee Lasky in 2017–18 (*TrunK of Commons* and the *Wheel of Fortune Sharing Game*) and are being rebuilt from 2026.
 
@@ -10,8 +10,8 @@ Visitors learn by playing against strategy bots in the browser, then progress to
 
 | # | Game | Dilemma | Status |
 |---|------|---------|--------|
-| 1 | **Rising Pool** (working title) | Threshold public good with rising stakes | Playable prototype |
-| 2 | Centipede & Ultimatum | Take the pool or keep building; divide it and face judgement | Planned |
+| 1 | **Rising Pool** (working title) | Threshold public good with rising stakes | Playable |
+| 2 | **Centipede & Ultimatum** | Take the pool or keep building; divide it and face judgement | Playable (unlocked by Game 1) |
 | 3 | Wheel of Fortune (placeholder name) | Real-time redistribution, sharing incentives, privilege as latency | Design & simulation |
 
 Games 1 and 2 are the learning levels. Game 3 is unlocked by achievements and is designed with bot simulation first.
