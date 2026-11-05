@@ -22,7 +22,7 @@
       <svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="11" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.35"/><circle cx="17" cy="17" r="4.2" fill="#a06f17"/><circle cx="17" cy="4" r="3.2" fill="#6fa52a"/><circle cx="28.3" cy="10.5" r="3.2" fill="#1f9c66"/><circle cx="28.3" cy="23.5" r="3.2" fill="#2f78cc"/><circle cx="17" cy="30" r="3.2" fill="#7650c8"/><circle cx="5.7" cy="23.5" r="3.2" fill="#d1386f"/><circle cx="5.7" cy="10.5" r="3.2" fill="#d9741c"/></svg>
       <span class="wm-text"><span class="wm-main">TRUN<span class="k">K</span></span><span class="wm-sub">of Commons</span></span>
     </a>
-    <nav class="site-nav" aria-label="Site"><a href="./" aria-current="page">Home</a><a href="./games/rising-pool/">Rising Pool</a><a href="https://github.com/hubwaynet/trunk-of-commons">Source</a></nav>
+    <nav class="site-nav" aria-label="Site"><a href="./" aria-current="page">Home</a><a href="./games/rising-pool/">Rising Pool</a><a href="./games/centipede-ultimatum/">Centipede &amp; Ultimatum</a><a href="https://github.com/hubwaynet/trunk-of-commons">Source</a></nav>
   </header>
 
   <header class="top"><div>
@@ -37,8 +37,8 @@
       <p class="muted">Give to a shared pool as the stakes rise each round. Fall short together and everyone loses.</p>
     </div>
     <div class="card level">
-      <span class="eyebrow" id="level2-status">Level 2 · Planned</span>
-      <h2>Centipede &amp; Ultimatum</h2>
+      <span class="eyebrow" id="level2-status">Level 2 · Locked until all five Rising Pool achievements</span>
+      <h2><a href="games/centipede-ultimatum/">Centipede &amp; Ultimatum</a></h2>
       <p class="muted">Keep building the pool, or grab it and decide how to divide it, then face the table's judgement.</p>
     </div>
     <div class="card level">
@@ -65,7 +65,7 @@
   try {
     const need = ['held-line', 'timed-exit', 'long-haul', 'rising-tide', 'read-table'];
     const have = new Set(JSON.parse(localStorage.getItem('trunk.risingPool.achievements') || '[]'));
-    if (need.every((id) => have.has(id))) document.getElementById('level2-status').textContent = 'Level 2 · Unlocked · Coming soon';
+    if (need.every((id) => have.has(id))) document.getElementById('level2-status').textContent = 'Level 2 · Unlocked';
   } catch { /* storage unavailable */ }
 </script>
 </body>

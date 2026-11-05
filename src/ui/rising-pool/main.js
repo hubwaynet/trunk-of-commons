@@ -683,8 +683,7 @@ function renderExtras() {
       <div class="eyebrow">All achievements</div>
       <h3 id="unlock-h">Game 2 unlocked</h3>
       <p>You've demonstrated skill and understanding in social dilemma strategies: holding a pool together, reading who is who, and seeing when leaving costs others.</p>
-      <p class="muted small">Game 2, Centipede &amp; Ultimatum, opens to you when it's ready.</p>
-      <div class="btn-row"><button class="btn ghost" type="button" id="celebrate-again">Celebrate again</button></div>
+      <div class="btn-row"><a class="btn" href="../centipede-ultimatum/">Play Centipede &amp; Ultimatum</a><button class="btn ghost" type="button" id="celebrate-again">Celebrate again</button></div>
     </section>`);
     card.querySelector('#celebrate-again').addEventListener('click', () => fireworks());
     extra.push(card);
