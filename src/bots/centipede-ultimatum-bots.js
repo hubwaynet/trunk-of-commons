@@ -242,6 +242,16 @@ export function isFreeZero(split, voter) {
   const othersShort = ids.some((y) => y !== split.grabber && y !== voter && (split.stakes[y] ?? 0) > 0 && split.shares[y] < split.stakes[y]);
   return sh >= (split.stakes[voter] ?? 0) && sh >= 0.8 * (split.pool / ids.length) && !othersShort;
 }
+/**
+ * A fair divider keeps no more than the larger of an equal share and their share by what each
+ * put in, rounded up (Jason, 2026-11-05). Bots judge greed by this, and "Your vote counted" needs it.
+ */
+export function dividerKeptFair(split) {
+  const ids = Object.keys(split.shares);
+  const total = ids.reduce((a, x) => a + (split.stakes[x] ?? 0), 0);
+  const byStake = total ? (split.pool * (split.stakes[split.grabber] ?? 0)) / total : 0;
+  return split.shares[split.grabber] <= Math.ceil(Math.max(split.pool / ids.length, byStake));
+}
 /** Free 0s per player across judged splits. */
 export function freeZeroCounts(splits) {
   const counts = {};
@@ -307,8 +317,7 @@ export function botView(s, id) {
     grudgeRound: wronged.at(-1)?.round ?? null, // the latest split in which this divider short-changed me
     shares: u?.shares ?? null, // the split being judged (public)
     dividerKeeps: u?.shares ? u.shares[u.grabber] / (s.pool / ids.length || 1) : 0,
-    dividerFair: u?.shares ? u.shares[u.grabber] <= Math.ceil(Math.max(s.pool / ids.length,
-      totalStakes ? (s.pool * (stakes[u.grabber] ?? 0)) / totalStakes : 0)) : true,
+    dividerFair: u?.shares ? dividerKeptFair({ ...u, pool: s.pool, stakes }) : true,
   };
 }
 

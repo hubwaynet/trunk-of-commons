@@ -343,12 +343,24 @@ From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai pro
   - Share of 1,500 simulated tables showing each idea: selective protest 66%, rewarding fair dealing 30%, equality or equity 28%, the ultimatum game 27%, monitoring and graduated sanctions 24%, partner specificity 8%, turn-taking 7%, free rider 6%, the rising amount 3%, the centipede game 2%.
   - Jason saw and kept three known quirks: the centipede game rarely shows; Ostrom's sanctions are graduated, while this game's are one step; and Game 1's "out of step with the table" hints at the noisy bot.
 - **Being sent out, and carry-over: no change.** A rejected grabber still leaves everything in the pool, and points still don't carry between tables. Re-test once the 0-vote reasons show.
-- **The Commons stays at 120.**
+- **The Commons stays at 120.** *Built 2026-11-06.*
   - The page says this game's pressure is the rising amount (Game 1 teaches the finite Commons).
   - The Commons bar gets an "of 120" label.
   - The end card gets Game 1's Commons summary.
+  - As built:
+    - The bar is full at 120 and reads "37 / 120". It can hold more than 120 ("135 / 120").
+    - The rules say "The rising amount is this game's real pressure: every round costs one more."
+    - The end card says where the table's points came from, and that the Commons rarely runs out here.
 - **Reputation.** A four-state ring on each seat, from the 2018 notes: exploitive, free loading, cooperative, generous. It has a text label as well as colour, and a legend. The thresholds are simulated before building.
 - **Your vote counted.** It counts only when the player's split was fair, meaning they kept no more than a fair share (the same test the bots use). Welcomed is unchanged. The achievement odds are re-run.
+  - *Built 2026-11-06.*
+  - Odds per table (2,000 tables per style):
+    - keeping 1.5 equal shares: 55% → 2%
+    - the skim: 23% → 2%
+    - the coalition: 18% → 4%
+    - the dominator: 29% → 21%
+    - fair play unchanged: 24% by stake, 46% equal, 22% with sanctions
+  - It stays the last achievement. Bot-only tables are unchanged.
 - **Order of work.**
   1. An automatic play-through test of both games.
   2. Move the code both games share into one place.

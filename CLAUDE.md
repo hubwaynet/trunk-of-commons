@@ -43,10 +43,6 @@ These are the key rules settled with Jason:
 
 ## Next
 
-First, the decisions from the 2026-11-06 review, logged in both design docs under "Review decisions". Build them in this order:
-
-1. An automatic play-through test of both games.
-2. Move the code both games share into one place.
-3. The decided features, built once for both games. Jason sees announcer wording and debrief drafts before they go live.
+The decisions from the 2026-11-06 review are logged in both design docs under "Review decisions". All are built except the four-state reputation ring for Game 2 and the legend for Game 1's rings: simulate the thresholds and show Jason before building.
 
 Then Game 3, the Wheel of Fortune, which needs headless simulation first. After that comes the larger framework (token economy, governance), followed by legal review and onboarding.

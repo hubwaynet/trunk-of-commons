@@ -363,12 +363,15 @@ function renderTable() {
   });
 
   // the Commons
-  const w = 120;
-  const frac = Math.max(0, Math.min(1, s.commons.reserve / (COMMONS_RESERVE * 1.5)));
+  // The bar is full at the starting reserve; it can hold more, as "135 / 120" shows (Jason, 2026-11-06).
+  const w = 80;
+  const frac = Math.max(0, Math.min(1, s.commons.reserve / s.commons.start));
   svg.append(el('text', { x: 16, y: 428, class: 'pool-sub' }, 'COMMONS'));
   svg.append(el('rect', { x: 76, y: 421, width: w, height: 8, rx: 4, class: 'commons-track' }));
-  svg.append(el('rect', { x: 76, y: 421, width: w * frac, height: 8, rx: 4, class: 'commons-fill' }));
-  svg.append(el('text', { x: 204, y: 429, class: 'commons-val' }, String(s.commons.reserve)));
+  svg.append(el('rect', { x: 76, y: 421, width: Math.max(0.01, w * frac), height: 8, rx: 4, class: 'commons-fill' }));
+  const val = el('text', { x: 162, y: 429, class: 'commons-val' }, String(s.commons.reserve));
+  val.append(el('tspan', { class: 'pool-sub', dx: 3 }, `/ ${s.commons.start}`));
+  svg.append(val);
   const roundLabel = s.status === 'playing'
     ? `ROUND ${s.round} OF ${s.maxRound} · AMOUNT ${requirement(s.round)}`
     : `TABLE OVER AFTER ROUND ${s.rounds.at(-1)?.round ?? s.round}`; // not the round that never started
@@ -639,6 +642,15 @@ const END_TEXT = {
   rejected: 'A split was rejected and the table ended.',
 };
 
+// Where the table's points came from (as in Rising Pool's debrief).
+function commonsSummary(s) {
+  const c = s.commons;
+  const net = s.players.reduce((a, p) => a + p.balance - p.start, 0);
+  return `The Commons started with ${c.start}, paid ${c.paidOut} in round and welcome bonuses, took back ${c.received} in vote tokens, and finished with ${c.reserve}. `
+    + `Together the players finished ${signed(net)} on where they started: every point the table gained came out of the Commons. `
+    + (s.endReason === 'commons-exhausted' ? 'This time it ran out, which is rare here: usually the pressure is the rising amount.' : 'It rarely runs out here; this game\'s pressure is the rising amount.');
+}
+
 function endCard() {
   const s = G.game;
   const rows = G.seats.map((st) => {
@@ -652,6 +664,7 @@ function endCard() {
     ${rows.map(({ st, net, bal }) => `<tr${st.id === 'you' ? ' class="me"' : ''}><td><span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}</span></td>
       <td>${st.strategy ? esc(STRATEGIES[st.strategy].label) : '<span class="muted">you</span>'}</td><td>${bal}</td><td class="${net > 0 ? 'pos' : net < 0 ? 'neg' : ''}">${signed(net)}</td></tr>`).join('')}
     </tbody></table>
+    <p class="muted small">${esc(commonsSummary(s))}</p>
     <p class="muted small">Ahead this table: ${esc(best.st.name)}${best.st.strategy ? ` (${esc(STRATEGIES[best.st.strategy].label)})` : ''}. What did they do differently?</p>
     <div class="btn-row"><button class="btn" type="button" id="again">New table</button></div></div>`);
   card.querySelector('#again').addEventListener('click', () => newSession({ watch: G.watch }));

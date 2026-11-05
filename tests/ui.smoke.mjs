@@ -224,6 +224,13 @@ for (const setup of [DESKTOP, PHONE]) {
     const roundLabel = await page.$$eval('#table text', (ts) => ts.map((x) => x.textContent).find((x) => /ROUND|TABLE OVER/.test(x)));
     assert.match(roundLabel, /^TABLE OVER AFTER ROUND \d+$/);
     await showedCard(page, label);
+    // the Commons row: "COMMONS [bar] 37 / 120" never runs into the round label
+    const clash = await page.$$eval('#table text', (ts) => {
+      const row = ts.filter((x) => Number(x.getAttribute('y')) > 415).map((x) => x.getBBox());
+      return row.some((a, i) => row.slice(i + 1).some((c) => a.x < c.x + c.width && c.x < a.x + a.width));
+    });
+    assert.equal(clash, false, `${label}: labels overlap in the Commons row`);
+    assert.match(await page.textContent('.debrief'), /The Commons started with 120/);
     await noSidewaysScroll(page, label);
     if (setup === DESKTOP) await axeCheck(page, label);
     await finish(t, run, label);
@@ -293,7 +300,7 @@ test('Centipede & Ultimatum: the announcer speaks at your turn, not on every bot
   const said = await page.evaluate(() => window.__said);
   const splits = await page.$$eval('#log tfoot .tag', (tags) => tags.length);
   assert.ok(said.length <= splits + 2, `${said.length} announcements for ${splits} splits`);
-  assert.match(said.at(-1), /^Table over after round/);
+  assert.match(said.at(-1), /Table over after round/); // may follow the last split's result
   await finish(t, run, 'centipede-announcer');
 });
 

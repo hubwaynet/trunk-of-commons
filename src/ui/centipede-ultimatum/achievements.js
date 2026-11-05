@@ -3,6 +3,8 @@
 // (tools/sim-centipede-achievements.mjs; see docs/design/centipede-ultimatum.md).
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import { dividerKeptFair } from '../../bots/centipede-ultimatum-bots.js';
+
 export const STORAGE_KEY = 'trunk.centipede.achievements';
 export const CELEBRATED_KEY = 'trunk.centipede.celebrated';
 
@@ -12,7 +14,7 @@ export const ACHIEVEMENTS = [
   { id: 'one-clean-grab', name: 'One clean grab', text: 'Grabbed exactly once at a table, the split passed, and you finished ahead.' },
   { id: 'full-distance', name: 'Full distance', text: 'Still at the table when round 20, the last round, ended.' },
   { id: 'welcomed', name: 'Welcomed', text: 'The table welcomed your split: an average vote of 1.5 or more.' },
-  { id: 'your-vote-counted', name: 'Your vote counted', text: 'Someone voted 0 on your split, and your own 2 is what carried it.' },
+  { id: 'your-vote-counted', name: 'Your vote counted', text: 'Someone voted 0 on your fair split, and your own 2 is what carried it.' },
 ];
 
 const splitsBy = (s, id) => s.rounds.filter((r) => r.result === 'ultimatum' && r.ultimatum.grabber === id).map((r) => r.ultimatum);
@@ -26,7 +28,8 @@ export function splitAchievements(s, id = 'you') {
     const ids = Object.keys(u.shares);
     if (ids.every((x) => x === id || u.shares[x] >= (u.stakes[x] ?? 0))) got.add('no-one-short');
     const total = ids.reduce((a, x) => a + u.votes[x], 0);
-    if (u.votes[id] === 2 && ids.some((x) => u.votes[x] === 0) && total - 1 < ids.length) got.add('your-vote-counted');
+    // a fair split only (Jason, 2026-11-06): otherwise a greedy keep earns it by provoking the 0s
+    if (u.votes[id] === 2 && ids.some((x) => u.votes[x] === 0) && total - 1 < ids.length && dividerKeptFair(u)) got.add('your-vote-counted');
     if (u.result === 'welcomed') got.add('welcomed');
   }
   return got;

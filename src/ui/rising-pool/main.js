@@ -148,7 +148,7 @@ function sayEnd({ resultSaid = false } = {}) {
   const s = G.game;
   if (G.watch) return `Table closed. ${closingLead(s)}`;
   const p = playerOf(s, 'you');
-  return `Table closed.${resultSaid ? '' : ` ${closingLead(s)}`} You finished with ${p.balance} points, ${signed(p.balance - p.start)} at this table.`
+  return `Table closed.${resultSaid ? failCause() : ` ${closingLead(s)}`} You finished with ${p.balance} points, ${signed(p.balance - p.start)} at this table.`
     + (p.balance < START_BALANCE ? ` A table needs ${START_BALANCE} to join, so you can watch or start over.` : '');
 }
 const sayBroke = () => `Not enough points to join: you have ${walletMemory}. A table needs ${START_BALANCE}. You can start over with ${START_BALANCE}, or watch the bots.`;
@@ -458,7 +458,7 @@ function renderKey() {
 
 
 const END_TEXT = {
-  'pool-failed': (r) => `The pool fell short in round ${r}. Everything in it went to the Commons, and the table closed.`,
+  'pool-failed': (r) => `The pool fell short in round ${r}.${failCause()} Everything in the pool went to the Commons, and the table closed.`,
   'commons-exhausted': (r) => `The Commons ran dry in round ${r}. It paid out what it had left, and the season closed with the pool still alive.`,
   'season-end': (r) => `The season closed after round ${r}, with the pool still alive.`,
   'too-few': (r) => `Too few players stayed after round ${r} to keep the table going.`,
@@ -469,6 +469,24 @@ function commonsSummary(s) {
   const players = s.players.reduce((acc, p) => acc + p.balance - s.startBalance, 0);
   return `The Commons started with ${c.start}, paid ${c.paidOut} in top-ups, took back ${c.received}, and finished with ${c.reserve}. `
     + `Together the players finished ${signed(players)} on where they started. Every point the table gained came out of the Commons, and every point it lost went into it.`;
+}
+
+// What failed the pool in its last round: who chose nothing, and who couldn't afford what they
+// chose (↓) (Jason, 2026-11-06, decision 7: name the cause, and that escalation is part of the lesson).
+function failCause() {
+  const r = G.game.rounds.at(-1);
+  if (r?.result !== 'fail') return '';
+  const who = (id) => (id === 'you' && !G.watch ? 'you' : seatOf(id).name);
+  const list = (ids) => (ids.length <= 1 ? ids.join('') : `${ids.slice(0, -1).join(', ')} and ${ids.at(-1)}`);
+  const ids = Object.keys(r.levels);
+  const zeros = ids.filter((id) => r.levels[id] === 'low' && !r.downgraded?.[id]).map(who);
+  const drops = ids.filter((id) => r.downgraded?.[id]).map(who);
+  const parts = [];
+  if (zeros.length) parts.push(`${list(zeros)} chose to give nothing`);
+  if (drops.length) parts.push(`${list(drops)} couldn't afford what ${drops.length === 1 && drops[0] === 'you' ? 'you' : 'they'} chose (↓)`);
+  if (!parts.length) return '';
+  const said = parts.join(', and ');
+  return ` ${said.charAt(0).toUpperCase()}${said.slice(1)}.`;
 }
 
 function closingLead(s) {
@@ -510,7 +528,7 @@ function renderDebrief() {
         <td>${bal}</td>${(() => { const d = bal - playerOf(s, seat.id).start; return `<td class="${d > 0 ? 'pos' : d < 0 ? 'neg' : ''}">${signed(d)}</td>`; })()}</tr>`).join('')}
     </tbody></table></div>
     <p>${commonsSummary(s)}</p>
-    <p class="muted">Rising Pool is a threshold public good. In any single round, giving nothing pays you best, as long as enough others give. If too many reason that way, the pool fails and everyone loses what they put in. The stakes rise every round, so trust becomes worth more, and breaking it costs more.</p>
+    <p class="muted">Rising Pool is a threshold public good. In any single round, giving nothing pays you best, as long as enough others give. If too many reason that way, the pool fails and everyone loses what they put in. The stakes rise every round, so trust becomes worth more, and breaking it costs more. They also outrun what players hold: even a table that trusts completely runs out of points to give.</p>
   </div>`);
   const card = piece.firstElementChild;
 
