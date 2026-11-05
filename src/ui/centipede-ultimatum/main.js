@@ -92,7 +92,7 @@ function renderExtras() {
   if (ACHIEVEMENTS.every((a) => have.has(a.id))) {
     const card = h(`<section class="card extra unlocked" aria-labelledby="all-h"><div class="eyebrow">All achievements</div>
       <h3 id="all-h">Centipede &amp; Ultimatum mastered</h3>
-      <p>You've shown you can share fairly, hold back, grab well, win a table's welcome, and make your own vote count.</p>
+      <p>You've shown you can share fairly, hold back, grab well, win a table's welcome, go the full distance, and make your own vote count.</p>
       <p class="muted small">Game 3, the Wheel, is in design.</p>
       <div class="btn-row"><button class="btn ghost" type="button" id="celebrate-again">Celebrate again</button></div></section>`);
     card.querySelector('#celebrate-again').addEventListener('click', () => celebrate(5200));
@@ -177,7 +177,7 @@ function afterChange() {
     if (!G.watch && last.ultimatum.grabber === 'you') {
       if (last.ultimatum.result === 'welcomed') {
         celebrate(2600);
-        toast(`Welcomed! The table averaged ${last.ultimatum.voteAvg.toFixed(2)}.`);
+        toast(`Welcomed! The table averaged ${last.ultimatum.voteAvg.toFixed(2)}, and everyone gets a bonus point.`);
       }
       earn(splitAchievements(G.game));
     }
@@ -296,7 +296,7 @@ function renderTable() {
   svg.append(el('rect', { x: 76, y: 421, width: w, height: 8, rx: 4, class: 'commons-track' }));
   svg.append(el('rect', { x: 76, y: 421, width: w * frac, height: 8, rx: 4, class: 'commons-fill' }));
   svg.append(el('text', { x: 204, y: 429, class: 'commons-val' }, String(s.commons.reserve)));
-  svg.append(el('text', { x: 384, y: 429, 'text-anchor': 'end', class: 'pool-sub' }, `ROUND ${s.round} · AMOUNT ${requirement(s.round)}`));
+  svg.append(el('text', { x: 384, y: 429, 'text-anchor': 'end', class: 'pool-sub' }, `ROUND ${s.round} OF ${s.maxRound} · AMOUNT ${requirement(s.round)}`));
 }
 
 // ---------- the panel ----------
@@ -450,7 +450,7 @@ function voteCard() {
     <div class="choices three">
       <button class="choice" type="button" data-v="0"><span class="lbl">Reject</span><span class="amt">0</span><span class="sub">Free.</span></button>
       <button class="choice" type="button" data-v="1"><span class="lbl">Accept</span><span class="amt">1</span><span class="sub">Costs 1 from your share.</span></button>
-      <button class="choice" type="button" data-v="2"><span class="lbl">Welcome</span><span class="amt">2</span><span class="sub">Costs 2. Pushes the average up.</span></button>
+      <button class="choice" type="button" data-v="2"><span class="lbl">Welcome</span><span class="amt">2</span><span class="sub">Costs 2. An average of 1.5 or more welcomes the split: everyone gets 1 bonus.</span></button>
     </div>
     ${needLine(Object.keys(u.shares).length)}
     <p class="muted small">If rejected, the divider leaves and the pool goes back by what each put in. Vote tokens are shared back out, unless the split is rejected.</p></div>`);
@@ -466,7 +466,9 @@ function outcomeCard(u) {
   if (u.result === 'rejected') {
     text = `${whose} split was rejected (average ${u.voteAvg.toFixed(2)}). ${u.grabber === 'you' ? 'You leave' : esc(g) + ' leaves'} the table, and the pool of ${u.pool} went back by what each put in.`;
   } else {
-    text = `${whose} split was ${u.result} (average ${u.voteAvg.toFixed(2)}). The shares were paid${u.voteEach ? `, and everyone got ${u.voteEach} back from the vote pool` : ''}.`;
+    const back = u.voteEach + (u.bonusEach ?? 0);
+    const bonus = u.bonusEach ? ` (including a ${u.bonusEach}-point welcome bonus from the Commons)` : '';
+    text = `${whose} split was ${u.result} (average ${u.voteAvg.toFixed(2)}). The shares were paid${back ? `, and everyone got ${back} back from the vote pool${bonus}` : ''}.`;
   }
   return h(`<div class="card outcome ${tag}"><div><span class="tag ${tag}">${u.result}</span></div><p>${text}</p>${tallyLine(u)}${splitTable(u, { votes: true })}</div>`);
 }
@@ -510,7 +512,7 @@ const END_TEXT = {
   'all-broke': 'Nobody could afford the amount any more. What was in the pool was shared equally.',
   'too-few': 'Fewer than three players remained.',
   'commons-exhausted': 'The Commons ran out and could not pay the round bonus. The pool was shared equally.',
-  'round-cap': 'The table reached its round limit. The pool was shared equally.',
+  'round-cap': 'The table reached round 20, the last round. What was in the pool was shared equally.',
   rejected: 'A split was rejected and the table ended.',
 };
 
@@ -580,7 +582,7 @@ function render() {
   if (G.allNow) {
     G.allNow = false;
     setTimeout(() => celebrate(5200), 400);
-    toast('All five achievements! Finish the table to see your card.');
+    toast('All six achievements! Finish the table to see your card.');
   }
 }
 

@@ -11,20 +11,22 @@ export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptabl
  * Default (Jason, 2026-11-04): a rejected grabber leaves the table and the pool is refunded.
  * rejectedPool: where a rejected pool goes. 'refund' (default: back to each player in proportion
  *   to what they put in; the votes still go to the Commons) or 'commons' (2018 rule).
- * welcomeAt: 'above' (default; an average of exactly 1.5 counts as accepted, Jason 2026-11-04)
- *   or 'atLeast' (1.5 counts as welcomed).
+ * welcomeAt: 'atLeast' (default; an average of 1.5 or more is welcomed, Jason 2026-11-05)
+ *   or 'above' (1.5 counts as accepted, the earlier rule).
+ * welcomeBonus: points the Commons adds per player when a split is welcomed (Jason, 2026-11-05).
+ * maxRound: the table ends after this round and any pool is shared equally (20, Jason 2026-11-05).
  * onReject: what else a rejected split does.
  *   'end'        the table ends (2018 rule)
  *   'continue'   play carries on
  *   'grabberOut' the grabber leaves the table and play carries on (default)
  */
 export function createGame({
-  players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = 60,
-  onReject = 'grabberOut', firstGrabRound = 1, rejectedPool = 'refund', welcomeAt = 'above',
+  players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = 20,
+  onReject = 'grabberOut', firstGrabRound = 1, rejectedPool = 'refund', welcomeAt = 'atLeast', welcomeBonus = 1,
 }) {
   if (!players || players.length < minPlayers) throw new Error(`Need at least ${minPlayers} players`);
   return {
-    seed, startBalance, minPlayers, maxRound, onReject, firstGrabRound, rejectedPool, welcomeAt,
+    seed, startBalance, minPlayers, maxRound, onReject, firstGrabRound, rejectedPool, welcomeAt, welcomeBonus,
     round: 1,
     phase: 'turn',
     order: players.map((p) => p.id), // turn order this round (join order to begin with)
@@ -195,7 +197,7 @@ export function vote(s, votes) {
     vpool += p;
     players = setBal(players, id, -p);
   }
-  let result, voteEach = 0, topUp = 0, toCommons = 0;
+  let result, voteEach = 0, topUp = 0, toCommons = 0, bonusEach = 0;
   let refunds = null;
   if (!accepted) {
     result = 'rejected';
@@ -214,8 +216,10 @@ export function vote(s, votes) {
       topUp = Math.min(Math.ceil(vpool / n) * n - vpool, s.commons.reserve);
       voteEach = Math.floor((vpool + topUp) / n);
       toCommons = vpool + topUp - voteEach * n;
+      bonusEach = Math.min(s.welcomeBonus, Math.floor((s.commons.reserve - topUp) / n));
+      topUp += bonusEach * n;
     }
-    for (const id of ids) players = setBal(players, id, voteEach);
+    for (const id of ids) players = setBal(players, id, voteEach + bonusEach);
   }
   const commons = {
     ...s.commons,
@@ -223,7 +227,7 @@ export function vote(s, votes) {
     paidOut: s.commons.paidOut + topUp,
     received: s.commons.received + toCommons,
   };
-  const record = { ...u, votes: { ...votes }, paid, voteAvg: avg, result, voteEach, topUp, toCommons, refunds };
+  const record = { ...u, votes: { ...votes }, paid, voteAvg: avg, result, voteEach, bonusEach, topUp, toCommons, refunds };
   const next = {
     ...s, players, commons, pool: 0, stakes: {}, ultimatum: null, current: null,
     rounds: [...s.rounds, { ...s.current, result: 'ultimatum', ultimatum: record }],

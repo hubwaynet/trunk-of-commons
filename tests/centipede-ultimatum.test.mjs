@@ -58,14 +58,30 @@ test('a broke voter can still vote: the vote is paid from their share', () => {
   assert.ok(bal(s, 'd') >= 0);
 });
 
-test('1.5 counts as closer to 1; above 1.5 the Commons rounds the vote pool up', () => {
-  let s = act(giveAll(fresh()), 'a', 'grab');
+test('old rule: 1.5 counts as closer to 1; above 1.5 the Commons rounds the vote pool up and adds 1 each', () => {
+  let s = act(giveAll(fresh({ welcomeAt: 'above' })), 'a', 'grab');
   s = divide(s, splitBy(s.pool, { a: 1, b: 1, c: 1, d: 1 }));
   assert.equal(vote(s, { a: 2, b: 2, c: 1, d: 1 }).rounds.at(-1).ultimatum.result, 'accepted');
   const u = vote(s, { a: 2, b: 2, c: 2, d: 1 }).rounds.at(-1).ultimatum; // 7 -> 8, 2 each
   assert.equal(u.result, 'welcomed');
-  assert.equal(u.topUp, 1);
   assert.equal(u.voteEach, 2);
+  assert.equal(u.bonusEach, 1);
+  assert.equal(u.topUp, 1 + 4);
+});
+
+test('default: an average of 1.5 is welcomed and pays 1 bonus each; the table stops after round 20', () => {
+  let s = act(giveAll(fresh()), 'a', 'grab');
+  s = divide(s, splitBy(s.pool, { a: 1, b: 1, c: 1, d: 1 }));
+  const before = total(s);
+  const w = vote(s, { a: 2, b: 2, c: 1, d: 1 });
+  const u = w.rounds.at(-1).ultimatum;
+  assert.equal(u.result, 'welcomed');
+  assert.equal(u.bonusEach, 1);
+  assert.equal(total(w), before); // points only move between players and the Commons
+  let t = createGame({ players: ['a', 'b', 'c'].map((id) => ({ id, balance: 500 })), commonsReserve: 500 });
+  while (t.status === 'playing') t = act(t, currentPlayer(t), 'give');
+  assert.equal(t.endReason, 'round-cap');
+  assert.equal(t.rounds.length, 20);
 });
 
 test('2018 rule: rejection forfeits both pools and ends the table; rejecting is free', () => {
@@ -121,14 +137,12 @@ test('achievements: covered by your own 2, nobody short-changed, welcomed', () =
   assert.deepEqual([...splitAchievements(carried, 'a')].sort(), ['no-one-short', 'your-vote-counted']);
   const welcomed = vote(s, { a: 2, b: 2, c: 2, d: 1 });
   assert.ok(splitAchievements(welcomed, 'a').has('welcomed'));
-  const atHalf = vote(s, { a: 2, b: 2, c: 1, d: 1 }); // exactly 1.5: accepted, not welcomed
-  assert.ok(!splitAchievements(atHalf, 'a').has('welcomed'));
-  const atHalfRule = vote(divide(act(giveAll(giveAll(fresh({ welcomeAt: 'atLeast' }))), 'a', 'grab'), splitBy(20, { a: 1, b: 1, c: 1, d: 1 })), { a: 2, b: 2, c: 1, d: 1 });
+    const atHalfRule = vote(divide(act(giveAll(giveAll(fresh({ welcomeAt: 'atLeast' }))), 'a', 'grab'), splitBy(20, { a: 1, b: 1, c: 1, d: 1 })), { a: 2, b: 2, c: 1, d: 1 });
   assert.ok(splitAchievements(atHalfRule, 'a').has('welcomed'));
 });
 
 test('achievements: end-of-table checks need a finished table', () => {
   const s = giveAll(fresh());
   assert.equal(endAchievements(s, 'a').size, 0);
-  assert.equal(ACHIEVEMENTS.length, 5);
+  assert.equal(ACHIEVEMENTS.length, 6);
 });

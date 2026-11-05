@@ -129,3 +129,25 @@ Jason chose the challenges; the order (easiest first) comes from `tools/sim-cent
 - **The welcome bonus is small.** When a split is welcomed, the Commons only rounds the vote pool up to a whole number per player. If the votes already divide evenly, the top-up is 0.
 - **1.5 at some tables.** A table with a Free Voter (always 0) and a Spiteful (never 2) can reach at most 9 votes out of 12 at six seats, which is exactly 1.5. Under the current rule that table can never welcome a split.
 - **Long tables.** Median 11 rounds, but 29% of tables pass 20 rounds and 8% pass 30, with a maximum of 59. Late rounds drag on with one or two players able to afford the rising amount while everyone else passes.
+
+## Welcome bonus, round limit, sixth achievement (Jason, 2026-11-05)
+
+- **An average of 1.5 or more welcomes a split** (`welcomeAt: 'atLeast'`, now the default). This replaces the 2026-11-04 rule that 1.5 counts as accepted.
+- **A welcomed split pays a bonus.** The Commons rounds the vote pool up as before and then adds 1 point for every player (`welcomeBonus: 1`), as far as its reserve allows.
+- **Round limit 20** (`maxRound: 20`). The table ends after round 20, and any pool is shared equally.
+- **New achievement, Full distance:** still at the table when round 20 ends.
+
+New achievement order (odds per table for the style that suits each one): Nobody short-changed (about 85%), Steady hand (86%), One clean grab (74%), Welcomed (63%), Full distance (30–53%, depends on the table more than on you), Your vote counted (10–40%).
+
+Simulation (4,000 tables, 6 seats): median 11 rounds; 34% reach round 20; 26% of splits rejected, 50% accepted, 24% welcomed. The welcome bonus helps free riders: Free Voter rose to second best (+8.0 per seat), behind Edge Watcher (+9.8).
+
+### Table size (simulation, 2,000 tables each, for Jason's question)
+
+| Seats | Median rounds | Reach round 20 | Splits per table | First grab | Rejected | Welcomed | Seats ahead |
+|---|---|---|---|---|---|---|---|
+| 4 | 8 | 19% | 4.5 | round 3 | 24% | 15% | 72% |
+| 6 (current) | 11 | 33% | 6.8 | round 2 | 27% | 25% | 67% |
+| 8 | 20 | 57% | 10.0 | round 1 | 24% | 28% | 60% |
+| 10 | 20 | 90% | 14.7 | round 1 | 20% | 38% | 57% |
+
+The Commons never ran out at any size, so scaling its reserve made no difference.
