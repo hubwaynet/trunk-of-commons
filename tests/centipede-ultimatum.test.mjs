@@ -2,7 +2,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, currentPlayer, act, divide, vote, stay, splitBy } from '../src/engine/centipede-ultimatum.js';
-import { simulate } from '../tools/sim-centipede.mjs';
+import { simulate, playTable } from '../tools/sim-centipede.mjs';
+import { selectRoster } from '../src/bots/centipede-ultimatum-bots.js';
+import { mulberry32 } from '../src/engine/rng.js';
 
 const ids = ['a', 'b', 'c', 'd'];
 const fresh = (opts = {}, balances = {}) =>
@@ -123,6 +125,14 @@ test('simulated tables conserve points and finish', () => {
   for (const opts of [{}, { onReject: 'end', rejectedPool: 'commons' }]) {
     const st = simulate(200, 'random', opts);
     assert.equal(Object.values(st.ends).reduce((a, b) => a + b, 0), 200);
+  }
+  // Points only move between players, the pool and the Commons, and nobody goes below 0.
+  for (let t = 0; t < 300; t++) {
+    const keys = selectRoster(mulberry32(3000 + t), 6);
+    const s = playTable(keys, 3000 + t);
+    assert.equal(s.status, 'ended');
+    assert.equal(total(s), 6 * 20 + 120, `table ${t}`);
+    assert.ok(s.players.every((p) => p.balance >= 0), `table ${t}`);
   }
 });
 
