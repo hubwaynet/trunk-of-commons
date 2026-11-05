@@ -230,13 +230,16 @@ export const STRATEGIES = {
 };
 
 /**
- * A free 0: a 0 vote on a split that passed anyway and treated the voter fairly (at least what
- * they put in, at least 80% of an equal share, and nobody else short-changed), so it wasn't a
- * protest. Two make a free rider (Jason, 2026-11-05). Bots, the vote result and the debrief all
- * use this one test.
+ * A free 0: a 0 vote on a split that passed anyway and was fair, so it wasn't a protest. Fair
+ * means the voter got at least what they put in and at least 80% of an equal share, nobody else
+ * was short-changed, and the divider kept no more than a fair share. Two make a free rider
+ * (Jason, 2026-11-05). "A protest of an unfair split should be different from free rider": a 0
+ * against a greedy divider is a protest, not a free 0 (Jason, 2026-11-06). Bots, the vote result,
+ * the debrief and the reputation ring all use this one test.
  */
 export function isFreeZero(split, voter) {
   if (split.result === 'rejected' || split.votes[voter] !== 0 || voter === split.grabber) return false;
+  if (!dividerKeptFair(split)) return false; // protesting a greedy split
   const ids = Object.keys(split.shares);
   const sh = split.shares[voter] ?? 0;
   const othersShort = ids.some((y) => y !== split.grabber && y !== voter && (split.stakes[y] ?? 0) > 0 && split.shares[y] < split.stakes[y]);

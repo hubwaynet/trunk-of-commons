@@ -217,7 +217,7 @@ test('a split judged in the last round ends the table there (no stay step for a 
   assert.equal(total(rejected), before);
 });
 
-import { STRATEGIES, botView } from '../src/bots/centipede-ultimatum-bots.js';
+import { STRATEGIES, botView, isFreeZero } from '../src/bots/centipede-ultimatum-bots.js';
 
 test('a divider who gives themselves less than they put in is not "short-changed"', () => {
   let s = giveAll(giveAll(fresh())); // stakes 3 each, pool 20
@@ -273,4 +273,13 @@ test('Bookkeeper protests when someone else gets back less than they put in', ()
   const r = bk.assess(botView(s, 'b'));
   assert.equal(r.vote, 0);
   assert.deepEqual(r.reasons[0], { kind: 'protest', who: 'd', got: 1, put: 3 });
+});
+
+test('a 0 against a greedy divider is a protest, not a free 0 (Jason, 2026-11-06)', () => {
+  let s = giveAll(giveAll(fresh())); // stakes 3 each, pool 20
+  s = act(s, 'a', 'grab');
+  const greedy = vote(divide(s, { a: 8, b: 4, c: 4, d: 4 }), { a: 2, b: 2, c: 1, d: 0 }); // passes; a keeps 8 > fair 5
+  const fair = vote(divide(s, { a: 5, b: 5, c: 5, d: 5 }), { a: 2, b: 2, c: 1, d: 0 });
+  assert.equal(isFreeZero(greedy.rounds.at(-1).ultimatum, 'd'), false);
+  assert.equal(isFreeZero(fair.rounds.at(-1).ultimatum, 'd'), true);
 });

@@ -18,7 +18,7 @@ This section describes the game as it stands. Everything below it is the dated l
 - **Rejection:** the pool goes back by what each put in, the grabber leaves the table, and everything the grabber holds stays in the pool for the others.
 - **After a split:** each player stays or sits out for good. The next round runs in reverse order, starting with the player after the divider, so the divider goes last.
 - **End of the table:** after round 20, when nobody can give, when fewer than three remain, or when the Commons can't pay the round bonus. Any pool left goes back by what each put in (leftover points go to the largest fractions).
-- **Free riders:** two free 0s, meaning 0 votes on a split that passed and treated the voter fairly. Free riders can be cut without the solidarity voters defending them.
+- **Free riders:** two free 0s. A free 0 is a 0 vote on a fair split that passed anyway: the voter got at least what they put in and close to an equal share, nobody else was short-changed, and the divider kept no more than a fair share. A 0 against an unfair split is a protest, not a free 0 (Jason, 2026-11-06). Free riders can be cut without the solidarity voters defending them.
 - **Access:** locked behind all five Rising Pool achievements (`?preview` opens it). Six achievements, ordered easiest first. All six unlock Game 3. Unlocks are permanent, and Reset clears only that game's achievements.
 - **Bots (11 strategies):** Patient and Pushover (cooperators); Bookkeeper and Mirror (reciprocators); Early Grabber, Pool Watcher, Greedy, Edge Watcher and Skimmer (grabbers); Spiteful and Free Voter (judges). Social habits: solidarity, turn-taking against greedy repeat dividers, dominance, grudges, and sanctions on free riders.
 
@@ -366,3 +366,15 @@ From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai pro
   2. Move the code both games share into one place.
   3. Build the features above once, for both games.
 - **Review flow.** Changes go straight to `main`, which is the live site. The tests and the play-through test are the safety net.
+
+## Protests aren't free 0s (Jason, 2026-11-06)
+
+"A protest of an unfair split should be different from free rider." A 0 against a divider who kept more than a fair share no longer counts as a free 0. Before this, Spiteful, which only votes 0 to protest greed, was labelled a free rider at 17% of tables. The change applies everywhere the free-0 test is used: bots' sanctions, the free-rider chips, the vote result, the debrief card and the reputation ring.
+
+Results (before → after):
+
+- **Free-rider label:** Spiteful 17% → 2% of tables; Free Voter 72% → 64%.
+- **Bot tables** (4,000): Spiteful +15.3 → +20.9 per seat, Free Voter +13.0 → +19.8, Edge Watcher +17.4 → +3.6. Edge Watcher had been gaining by cutting players it wrongly took for free riders. Welcomed splits 5% → 3%; tables reaching round 20 43% → 37%.
+- **For the player, almost no change:** a fair grabber still averages +17.9 (was +18.2) and fair play with sanctions +16.7 (was +17.0).
+- **Achievement odds:** within a point or two, except Full distance for a steady giver, 30% → 21%. The order is unchanged.
+- Free Voter now does better when nobody cuts it. That's the free-rider lesson, and the "What this table showed" card names it when it happens.
