@@ -11,6 +11,8 @@ export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptabl
  * Default (Jason, 2026-11-04): a rejected grabber leaves the table and the pool is refunded.
  * rejectedPool: where a rejected pool goes. 'refund' (default: back to each player in proportion
  *   to what they put in; the votes still go to the Commons) or 'commons' (2018 rule).
+ * welcomeAt: 'above' (default; an average of exactly 1.5 counts as accepted, Jason 2026-11-04)
+ *   or 'atLeast' (1.5 counts as welcomed).
  * onReject: what else a rejected split does.
  *   'end'        the table ends (2018 rule)
  *   'continue'   play carries on
@@ -18,11 +20,11 @@ export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptabl
  */
 export function createGame({
   players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = 60,
-  onReject = 'grabberOut', firstGrabRound = 1, rejectedPool = 'refund',
+  onReject = 'grabberOut', firstGrabRound = 1, rejectedPool = 'refund', welcomeAt = 'above',
 }) {
   if (!players || players.length < minPlayers) throw new Error(`Need at least ${minPlayers} players`);
   return {
-    seed, startBalance, minPlayers, maxRound, onReject, firstGrabRound, rejectedPool,
+    seed, startBalance, minPlayers, maxRound, onReject, firstGrabRound, rejectedPool, welcomeAt,
     round: 1,
     phase: 'turn',
     order: players.map((p) => p.id), // turn order this round (join order to begin with)
@@ -203,7 +205,7 @@ export function vote(s, votes) {
       toCommons = vpool;
     } else toCommons = u.pool + vpool;
   } else {
-    if (avg <= 1.5) {
+    if (s.welcomeAt === 'atLeast' ? avg < 1.5 : avg <= 1.5) {
       result = 'accepted';
       voteEach = Math.floor(vpool / n);
       toCommons = vpool - voteEach * n;

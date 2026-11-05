@@ -105,3 +105,27 @@ So there is no single fair split at the table. Equality protects players who cou
 ### Simulation with draft 3 bots (4,000 tables)
 
 Median 11 rounds, 82% reach round 8. 20% of splits rejected, 53% accepted, 27% welcomed. 63% of seats finish ahead. Edge Watcher is still best (+10.6 per seat), and Greedy and Early Grabber are still the only strategies behind on average.
+
+## Achievements (2026-11-05)
+
+Jason chose the challenges; the order (easiest first) comes from `tools/sim-centipede-achievements.mjs`, which plays the human seat with six learner styles against five bots (2,000 tables each). Odds per table are for the style that suits each one.
+
+| # | Achievement | What it asks | Odds per table |
+|---|---|---|---|
+| 1 | Nobody short-changed | Your split passes and every player gets back at least what they put in | 81–89% when splitting by stake |
+| 2 | Steady hand | Reach the end of a table without grabbing, still seated and ahead | 85% for a steady giver |
+| 3 | One clean grab | Grab exactly once, the split passes, finish ahead | 76% if you grab once at a pool of 25–60 and split by stake |
+| 4 | Welcomed | Your split's average vote is above 1.5 | 45% (63% if 1.5 counted as welcomed) |
+| 5 | Your vote counted | Someone voted 0 on your split and your own 2 carried it | 10–39% (needs a 0-voter and a close count) |
+
+- "Steady hand" includes "and ahead", because otherwise giving every turn earns it automatically.
+- "Nobody short-changed" is nearly automatic when the split by stake (the starting split) passes, so it works as the first lesson about that preset.
+- A welcomed split of yours plays a short fireworks burst and a toast every time; all five play the full show once (stored in `trunk.centipede.celebrated`). Achievements are stored in `trunk.centipede.achievements`.
+- Fireworks moved to `src/ui/fireworks.js`, shared by both games.
+- An engine switch `welcomeAt: 'atLeast'` makes 1.5 count as welcomed. It is off pending Jason's decision.
+
+### Open questions for Jason
+
+- **The welcome bonus is small.** When a split is welcomed, the Commons only rounds the vote pool up to a whole number per player. If the votes already divide evenly, the top-up is 0.
+- **1.5 at some tables.** A table with a Free Voter (always 0) and a Spiteful (never 2) can reach at most 9 votes out of 12 at six seats, which is exactly 1.5. Under the current rule that table can never welcome a split.
+- **Long tables.** Median 11 rounds, but 29% of tables pass 20 rounds and 8% pass 30, with a maximum of 59. Late rounds drag on with one or two players able to afford the rising amount while everyone else passes.

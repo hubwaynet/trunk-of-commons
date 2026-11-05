@@ -109,3 +109,26 @@ test('simulated tables conserve points and finish', () => {
     assert.equal(Object.values(st.ends).reduce((a, b) => a + b, 0), 200);
   }
 });
+
+import { splitAchievements, endAchievements, ACHIEVEMENTS } from '../src/ui/centipede-ultimatum/achievements.js';
+
+test('achievements: covered by your own 2, nobody short-changed, welcomed', () => {
+  // a, b, c, d each put in 1 + 2; a grabs in round 3 before giving: pool 20 (stakes 3 each)
+  let s = giveAll(giveAll(fresh()));
+  s = act(s, 'a', 'grab');
+  s = divide(s, splitBy(s.pool, { a: 1, b: 1, c: 1, d: 1 })); // 5 each, more than the 3 each put in
+  const carried = vote(s, { a: 2, b: 0, c: 1, d: 1 }); // total 4 = needed 4; a's 2 carried it
+  assert.deepEqual([...splitAchievements(carried, 'a')].sort(), ['no-one-short', 'your-vote-counted']);
+  const welcomed = vote(s, { a: 2, b: 2, c: 2, d: 1 });
+  assert.ok(splitAchievements(welcomed, 'a').has('welcomed'));
+  const atHalf = vote(s, { a: 2, b: 2, c: 1, d: 1 }); // exactly 1.5: accepted, not welcomed
+  assert.ok(!splitAchievements(atHalf, 'a').has('welcomed'));
+  const atHalfRule = vote(divide(act(giveAll(giveAll(fresh({ welcomeAt: 'atLeast' }))), 'a', 'grab'), splitBy(20, { a: 1, b: 1, c: 1, d: 1 })), { a: 2, b: 2, c: 1, d: 1 });
+  assert.ok(splitAchievements(atHalfRule, 'a').has('welcomed'));
+});
+
+test('achievements: end-of-table checks need a finished table', () => {
+  const s = giveAll(fresh());
+  assert.equal(endAchievements(s, 'a').size, 0);
+  assert.equal(ACHIEVEMENTS.length, 5);
+});

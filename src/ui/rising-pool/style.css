@@ -132,4 +132,3 @@ th { font-family: var(--font-data); font-weight: 500; font-size: 11px; letter-sp
 .extra .progress { margin-bottom: 2px; }
 .extra.unlocked { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
 .extra.unlocked h3 { font-size: 22px; color: var(--brass); }
-.fireworks { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }

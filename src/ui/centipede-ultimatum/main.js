@@ -6,6 +6,8 @@ import {
 } from '../../engine/centipede-ultimatum.js';
 import { STRATEGIES, FAMILIES, botView, selectRoster } from '../../bots/centipede-ultimatum-bots.js';
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
+import { ACHIEVEMENTS, splitAchievements, endAchievements } from './achievements.js';
+import { fireworks } from '../fireworks.js';
 
 const START_BALANCE = 20;
 const COMMONS_RESERVE = 120;
@@ -34,6 +36,75 @@ const previewMode = () => Boolean(globalThis.TRUNK_PREVIEW) || /[?&]preview\b/.t
 
 let G = null;
 
+// ---------- achievements (stored in this browser) ----------
+const ACH_KEY = 'trunk.centipede.achievements';
+const CELEBRATED_KEY = 'trunk.centipede.celebrated';
+let achMemory = new Set(); // fallback when browser storage is unavailable
+function loadAch() {
+  try { return new Set(JSON.parse(localStorage.getItem(ACH_KEY) || '[]')); } catch { return new Set(achMemory); }
+}
+function earn(ids) {
+  const all = loadAch();
+  const fresh = [...ids].filter((id) => !all.has(id));
+  if (!fresh.length) return;
+  for (const id of fresh) { all.add(id); G.earned.add(id); }
+  achMemory = all;
+  try { localStorage.setItem(ACH_KEY, JSON.stringify([...all])); } catch { /* storage unavailable */ }
+  const names = fresh.map((id) => ACHIEVEMENTS.find((a) => a.id === id).name);
+  toast(`Achievement: ${names.join(' · ')}`);
+  if (ACHIEVEMENTS.every((a) => all.has(a.id))) {
+    let done = false;
+    try { done = localStorage.getItem(CELEBRATED_KEY) === '1'; localStorage.setItem(CELEBRATED_KEY, '1'); } catch { done = Boolean(G.celebratedOnce); }
+    G.celebratedOnce = true;
+    if (!done) G.allNow = true;
+  }
+}
+const celebrate = (duration) => fireworks({ colors: [...HUES, HUMAN_HUE, '#ffd166'], duration });
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.setAttribute('role', 'status');
+  t.textContent = msg;
+  const stacked = document.querySelectorAll('.toast').length;
+  if (stacked) t.style.bottom = `calc(${20 + stacked * 56}px + env(safe-area-inset-bottom, 0px))`;
+  document.body.append(t);
+  setTimeout(() => t.remove(), 5000);
+}
+
+function progressHtml(have) {
+  const n = ACHIEVEMENTS.filter((a) => have.has(a.id)).length;
+  return `<div class="progress" role="img" aria-label="${n} of ${ACHIEVEMENTS.length} achievements">
+    <div class="progress-segs">${ACHIEVEMENTS.map((a) => `<span class="seg ${have.has(a.id) ? 'on' : ''}" title="${esc(a.name)}${have.has(a.id) ? ' (done)' : ''}"></span>`).join('')}</div>
+    <span class="progress-label">${n} of ${ACHIEVEMENTS.length}</span></div>`;
+}
+function renderProgress() {
+  const el = document.getElementById('ach-progress');
+  if (el) el.innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(loadAch())}`;
+}
+
+function renderExtras() {
+  const box = $('#extras');
+  if (!box) return;
+  if (G.watch || G.game.status === 'playing') { box.replaceChildren(); return; }
+  const have = loadAch();
+  const parts = [];
+  if (ACHIEVEMENTS.every((a) => have.has(a.id))) {
+    const card = h(`<section class="card extra unlocked" aria-labelledby="all-h"><div class="eyebrow">All achievements</div>
+      <h3 id="all-h">Centipede &amp; Ultimatum mastered</h3>
+      <p>You've shown you can share fairly, hold back, grab well, win a table's welcome, and make your own vote count.</p>
+      <p class="muted small">Game 3, the Wheel, is in design.</p>
+      <div class="btn-row"><button class="btn ghost" type="button" id="celebrate-again">Celebrate again</button></div></section>`);
+    card.querySelector('#celebrate-again').addEventListener('click', () => celebrate(5200));
+    parts.push(card);
+  }
+  parts.push(h(`<section class="card extra" aria-labelledby="ach-h"><h3 id="ach-h">Achievements</h3>${progressHtml(have)}<p class="muted small">Easiest first, judged from simulated tables.</p><ul class="achievements">
+    ${ACHIEVEMENTS.map((a) => `<li class="${have.has(a.id) ? '' : 'locked'}"><span class="badge">${have.has(a.id) ? (G.earned.has(a.id) ? 'NEW' : 'DONE') : '····'}</span>
+      <span><b>${esc(a.name)}</b> ${esc(a.text)}</span></li>`).join('')}
+  </ul></section>`));
+  box.replaceChildren(...parts);
+}
+
 // ---------- session ----------
 function newSession({ watch = false } = {}) {
   clearTimeout(G?.timer);
@@ -51,7 +122,7 @@ function newSession({ watch = false } = {}) {
   G = {
     seed, watch, seats, agents,
     game: createGame({ players: seats.map((s) => ({ id: s.id })), seed, startBalance: START_BALANCE, commonsReserve: COMMONS_RESERVE }),
-    timer: null, fast: false, lastUlt: null, note: null,
+    timer: null, fast: false, lastUlt: null, note: null, earned: new Set(), celebratedOnce: false, allNow: false, endChecked: false,
   };
   $('#watch-toggle').setAttribute('aria-pressed', String(watch));
   $('#watch-toggle').textContent = watch ? 'Play a table' : 'Watch the bots';
@@ -101,7 +172,20 @@ function botStep() {
 
 function afterChange() {
   const last = G.game.rounds.at(-1);
-  if (last?.result === 'ultimatum' && last.ultimatum !== G.lastUlt?.u) G.lastUlt = { u: last.ultimatum, round: last.round };
+  if (last?.result === 'ultimatum' && last.ultimatum !== G.lastUlt?.u) {
+    G.lastUlt = { u: last.ultimatum, round: last.round };
+    if (!G.watch && last.ultimatum.grabber === 'you') {
+      if (last.ultimatum.result === 'welcomed') {
+        celebrate(2600);
+        toast(`Welcomed! The table averaged ${last.ultimatum.voteAvg.toFixed(2)}.`);
+      }
+      earn(splitAchievements(G.game));
+    }
+  }
+  if (!G.watch && G.game.status === 'ended' && !G.endChecked) {
+    G.endChecked = true;
+    earn(endAchievements(G.game));
+  }
   render();
   schedule();
 }
@@ -488,9 +572,16 @@ function renderKey() {
 }
 
 function render() {
+  renderProgress();
   renderTable();
   renderPanel();
+  renderExtras();
   renderLog();
+  if (G.allNow) {
+    G.allNow = false;
+    setTimeout(() => celebrate(5200), 400);
+    toast('All five achievements! Finish the table to see your card.');
+  }
 }
 
 // ---------- start ----------
