@@ -86,6 +86,16 @@ export function achievementsCardHtml(all, have, newNow, { note, unlocked, unlock
 }
 
 /**
+ * Scroll the play area (table and panel) to the top of the screen. With ifHidden, only when the
+ * table's top has scrolled off the screen, as on a phone after reading a split's results.
+ */
+export function showTable({ ifHidden = false } = {}) {
+  const game = document.querySelector('.game');
+  if (!game || (ifHidden && game.getBoundingClientRect().top >= 0)) return;
+  game.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
+
+/**
  * "Collapse and play" at the end of How it works (Jason, 2026-11-08): closes the section, brings
  * the table and panel into view, and puts keyboard focus in the panel. The section remembers
  * being closed (rememberToggle), so returning players go straight to the table.
@@ -95,8 +105,7 @@ export function wireCollapse() {
     btn.addEventListener('click', () => {
       const d = document.getElementById(btn.dataset.collapse);
       if (d) d.open = false;
-      const game = document.querySelector('.game');
-      game?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      showTable();
       const panel = document.getElementById('panel');
       if (panel) { if (!panel.hasAttribute('tabindex')) panel.setAttribute('tabindex', '-1'); panel.focus({ preventScroll: true }); }
     });

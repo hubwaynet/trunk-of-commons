@@ -14,7 +14,7 @@ import { keepFocus } from '../focus.js';
 import { announce, listNames } from '../announce.js';
 import {
   NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, h, signed, toast,
-  achievementStore, progressHtml, achievementsCardHtml, momentsCardHtml, rememberToggle, wireCollapse,
+  achievementStore, progressHtml, achievementsCardHtml, momentsCardHtml, rememberToggle, wireCollapse, showTable,
 } from '../common.js';
 import { tableMoments } from './moments.js';
 import { pickMoments } from '../ideas.js';
@@ -641,8 +641,9 @@ function stayCard() {
   const me = player('you');
   const c = h(`<div class="card"><h2>Stay for round ${s.round + 1}?</h2>
     <p class="muted small">The pool starts again from 0. Next round's amount is ${next}${me.balance < next ? `, more than your ${me.balance}: you'd pass each turn, but keep your vote` : ''}. If you sit out, you're out for the rest of this table.</p>
-    <div class="btn-row"><button class="btn" type="button" id="stay">Stay</button><button class="btn ghost" type="button" id="leave">Sit out the rest</button></div></div>`);
-  c.querySelector('#stay').addEventListener('click', () => humanStay(true));
+    <div class="btn-row"><button class="btn" type="button" id="stay">Stay &amp; play</button><button class="btn ghost" type="button" id="leave">Sit out the rest</button></div></div>`);
+  // "Stay & play" takes a phone back up to the table for the next round (Jason, 2026-11-08)
+  c.querySelector('#stay').addEventListener('click', () => { humanStay(true); showTable({ ifHidden: true }); });
   c.querySelector('#leave').addEventListener('click', () => humanStay(false));
   return c;
 }

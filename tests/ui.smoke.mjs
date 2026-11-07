@@ -229,6 +229,19 @@ async function playCentipede(page, { grabAt = 25, label }) {
       const reasons = await page.$$eval('.outcome .why0 li', (li) => li.length);
       assert.equal(reasons, zeros, `${label}: ${zeros} bot 0 votes but ${reasons} reasons`);
       seen.botZeros += zeros;
+      if (!seen.stayChecked) {
+        // "Stay & play" brings the table back to the top of the screen when it had scrolled off
+        seen.stayChecked = true;
+        await page.locator('#stay').scrollIntoViewIfNeeded();
+        const gameTop = () => page.$eval('.game', (e) => Math.round(e.getBoundingClientRect().top));
+        const before = await gameTop();
+        await page.click('#stay');
+        let after = await gameTop();
+        for (let i = 0; i < 30 && before < 0 && (after < 0 || after >= 40); i++) { await page.waitForTimeout(50); after = await gameTop(); } // smooth scroll on desktop
+        if (before < 0) assert.ok(after >= 0 && after < 40, `${label}: after Stay & play the table is at ${after}px, not the top of the screen`);
+        else assert.equal(after, before, `${label}: the page jumped after Stay & play though the table was in view`);
+        continue;
+      }
       await page.click('#stay');
       continue;
     }
