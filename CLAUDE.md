@@ -45,4 +45,4 @@ These are the key rules settled with Jason:
 
 The decisions from the 2026-11-06 review are logged in both design docs under "Review decisions", and all are built. Colour must never be the only cue on either table (Jason, 2026-11-06): use shape or line style and a word as well (rings, chips, tags), and check new visuals in greyscale.
 
-Then Game 3, the Wheel of Fortune, which needs headless simulation first. After that comes the larger framework (token economy, governance), followed by legal review and onboarding.
+Then Game 3, the Wheel of Fortune (working title), which needs headless simulation first. Start from `docs/design/wheel-of-fortune.md`: the 2017 rules in brief and the questions to settle with Jason (nothing decided yet). After that comes the larger framework (token economy, governance), followed by legal review and onboarding.
