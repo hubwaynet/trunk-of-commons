@@ -35,6 +35,8 @@
 .short { color: var(--low); font-weight: 700; }
 .need, .tally { margin: 0; font-size: 14px; }
 .need { padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--flow) 10%, var(--surface)); }
+/* The last split (Jason, 2026-11-08): a heavy rule as well as the words, so colour isn't the only cue */
+.last-note { margin: 0; font-size: 14px; padding: 8px 10px; border-left: 5px solid var(--brass); border-radius: 4px; background: color-mix(in srgb, var(--brass) 10%, var(--surface)); }
 .split-row.me { font-weight: 700; }
 .split-row .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
 .split-row .bar span { display: block; height: 100%; background: var(--brass); }

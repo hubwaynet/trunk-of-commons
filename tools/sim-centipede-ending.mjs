@@ -8,11 +8,13 @@ import { LEARNERS, playWithLearner } from './sim-centipede-achievements.mjs';
 import { selectRoster, STRATEGIES } from '../src/bots/centipede-ultimatum-bots.js';
 import { mulberry32 } from '../src/engine/rng.js';
 
+// The rules before 2026-11-08 and the variants Jason chose between. The last is now the default.
+const OLD = { maxRound: 20, minGivers: 1, lastPool: 'refund' };
 const VARIANTS = {
-  'round limit 20 (now)': {},
-  'no limit': { maxRound: Infinity },
-  'no limit, ends when fewer than 3 can give': { maxRound: Infinity, minGivers: 3 },
-  'fewer than 3 can give, then a last split': { maxRound: Infinity, minGivers: 3, lastPool: 'grab' },
+  'round limit 20 (until 2026-11-08)': OLD,
+  'no limit': { ...OLD, maxRound: Infinity },
+  'no limit, ends when fewer than 3 can give': { ...OLD, maxRound: Infinity, minGivers: 3 },
+  'fewer than 3 can give, then a last split (default since 2026-11-08)': {},
 };
 const LEARNER_KEYS = ['giver', 'stake, votes 2 on own', 'fair + sanctions', 'patient skimmer', 'coalition'];
 

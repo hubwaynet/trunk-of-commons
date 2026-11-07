@@ -71,7 +71,7 @@ test('old rule: 1.5 counts as closer to 1; above 1.5 the Commons rounds the vote
   assert.equal(u.topUp, 1 + 4);
 });
 
-test('default: an average of 1.5 is welcomed and pays 1 bonus each; the table stops after round 20', () => {
+test('default: an average of 1.5 is welcomed and pays 1 bonus each; with maxRound 20 the table stops after round 20', () => {
   let s = act(giveAll(fresh()), 'a', 'grab');
   s = divide(s, splitBy(s.pool, { a: 1, b: 1, c: 1, d: 1 }));
   const before = total(s);
@@ -80,7 +80,7 @@ test('default: an average of 1.5 is welcomed and pays 1 bonus each; the table st
   assert.equal(u.result, 'welcomed');
   assert.equal(u.bonusEach, 1);
   assert.equal(total(w), before); // points only move between players and the Commons
-  let t = createGame({ players: ['a', 'b', 'c'].map((id) => ({ id, balance: 500 })), commonsReserve: 500 });
+  let t = createGame({ players: ['a', 'b', 'c'].map((id) => ({ id, balance: 500 })), commonsReserve: 500, maxRound: 20, lastPool: 'refund' });
   while (t.status === 'playing') t = act(t, currentPlayer(t), 'give');
   assert.equal(t.endReason, 'round-cap');
   assert.equal(t.rounds.length, 20);
@@ -108,8 +108,8 @@ test('default: rejected grabber leaves, the pool is refunded by stake, play cont
   assert.equal(s.status, 'playing');
 });
 
-test('the table ends, pool shared, when nobody can afford to give', () => {
-  let s = createGame({ players: ['a', 'b', 'c'].map((id) => ({ id, balance: 1 })) });
+test('earlier rule: the table ends, pool shared, when nobody can afford to give', () => {
+  let s = createGame({ players: ['a', 'b', 'c'].map((id) => ({ id, balance: 1 })), minGivers: 1, lastPool: 'refund' });
   for (const id of ['a', 'b', 'c']) s = act(s, id, 'give'); // round 2 needs 2, everyone has 0
   assert.equal(s.endReason, 'all-broke');
   assert.equal(s.players.reduce((a, p) => a + p.balance, 0), 6);
@@ -158,8 +158,8 @@ test('achievements: end-of-table checks need a finished table', () => {
   assert.equal(ACHIEVEMENTS.length, 6);
 });
 
-test('a pool left at the end goes back by what each put in', () => {
-  let s = createGame({ players: [{ id: 'a', balance: 1 }, { id: 'b', balance: 3 }, { id: 'c', balance: 3 }] });
+test('earlier rule: a pool left at the end goes back by what each put in', () => {
+  let s = createGame({ players: [{ id: 'a', balance: 1 }, { id: 'b', balance: 3 }, { id: 'c', balance: 3 }], minGivers: 1, lastPool: 'refund' });
   for (const id of ['a', 'b', 'c']) s = act(s, id, 'give'); // round 1: pool 3 + 3 bonus
   s = act(s, 'a', 'give'); // a is broke: passes
   s = act(act(s, 'b', 'give'), 'c', 'give'); // round 2: b, c give 2 each, +2 bonus -> pool 12; round 3 needs 3, nobody can
@@ -217,8 +217,39 @@ test('when a rejection leaves too few players, what the grabber left is shared b
   assert.equal(s.players.reduce((a, p) => a + p.balance, 0) + s.commons.reserve, 3 * 20 + 120);
 });
 
+test('default (Jason, 2026-11-08): when fewer than three can afford the amount, the next player divides one last split', () => {
+  let s = fresh({}, { a: 1, b: 1, c: 5, d: 5 });
+  s = giveAll(s); // round 1: pool 4 + 4. Round 2 needs 2: only c and d can afford it
+  assert.equal(s.phase, 'divide');
+  assert.equal(s.finalSplit, 'few-can-give');
+  assert.equal(s.ultimatum.grabber, 'a'); // next in turn, though a can't afford the amount
+  assert.equal(s.ultimatum.final, true);
+  assert.equal(s.ultimatum.pool, 8);
+  const before = total(s);
+  s = divide(s, splitBy(s.pool, { a: 1, b: 1, c: 1, d: 1 }));
+  const passed = vote(s, { a: 1, b: 1, c: 1, d: 1 });
+  assert.equal(passed.status, 'ended');
+  assert.equal(passed.endReason, 'few-can-give');
+  assert.equal(passed.pool, 0);
+  assert.equal(total(passed), before);
+  const last = passed.rounds.at(-1);
+  assert.equal(last.round, 1); // it closes the last round played
+  assert.equal(last.ultimatum.final, true);
+  // rejected: the divider leaves, and everything they hold is shared equally by the others
+  const rejected = vote(s, { a: 2, b: 0, c: 0, d: 0 });
+  assert.equal(rejected.endReason, 'few-can-give');
+  assert.equal(rejected.pool, 0);
+  assert.equal(bal(rejected, 'a'), 0);
+  assert.equal(rejected.players.find((p) => p.id === 'a').active, false);
+  assert.equal(total(rejected), before);
+  // the earlier rule hands the pool back instead
+  const old = giveAll(fresh({ lastPool: 'refund' }, { a: 1, b: 1, c: 5, d: 5 }));
+  assert.equal(old.status, 'ended');
+  assert.deepEqual(old.finalShares, { a: 2, b: 2, c: 2, d: 2 });
+});
+
 test('a split judged in the last round ends the table there (no stay step for a round 21)', () => {
-  const rich = () => createGame({ players: ids.map((id) => ({ id, balance: 400 })), commonsReserve: 500 });
+  const rich = () => createGame({ players: ids.map((id) => ({ id, balance: 400 })), commonsReserve: 500, maxRound: 20 });
   let s = rich();
   while (s.round < 20) s = act(s, currentPlayer(s), 'give');
   s = act(act(act(s, 'a', 'give'), 'b', 'give'), 'c', 'grab');

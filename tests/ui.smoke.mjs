@@ -197,11 +197,11 @@ async function playCentipede(page, { grabAt = 25, label }) {
   await page.clock.install();
   await page.goto(page.url()); // reload so the page's timers run on the test clock
   await page.waitForSelector('#panel .card');
-  const seen = { grabbed: false, keyedTurn: false, keyedDivide: false, logChecked: false, round21: false, steps: 0, botZeros: 0, skipped: false };
+  const seen = { grabbed: false, keyedTurn: false, keyedDivide: false, logChecked: false, lastSplit: false, steps: 0, botZeros: 0, skipped: false };
   while (seen.steps++ < 4000) {
     if (await page.$('#again')) break;
     const headings = await page.$$eval('#panel h2', (hs) => hs.map((h) => h.textContent).join(' | '));
-    if (/round 21/i.test(headings)) seen.round21 = true;
+    if (/last (split|pool)/i.test(headings)) seen.lastSplit = true;
     if (!seen.logChecked && await page.$('#log details[open]')) {
       // the round log stays collapsed after the next bot move
       await page.click('#log summary');
@@ -262,7 +262,11 @@ for (const setup of [DESKTOP, PHONE]) {
     const { page } = run;
     const seen = await playCentipede(page, { label });
     assert.ok(await page.$('#again'), `${label}: the table ends with the end card`);
-    assert.equal(seen.round21, false, `${label}: asked to stay for a round 21`);
+    // No last round since 2026-11-08: a table ending with a pool on it finishes with one last split
+    const endText = await page.textContent('.debrief');
+    // (when you were still at the table: once you're out, the panel only shows that you're watching)
+    if (/one last split/.test(endText) && !seen.skipped) assert.ok(seen.lastSplit, `${label}: the end card names a last split the panel never showed`);
+    assert.doesNotMatch(endText, /undefined|NaN/, `${label}: end card text`);
     const roundLabel = await page.$$eval('#table text', (ts) => ts.map((x) => x.textContent).find((x) => /ROUND|TABLE OVER/.test(x)));
     assert.match(roundLabel, /^TABLE OVER AFTER ROUND \d+$/);
     await showedCard(page, label);

@@ -2,7 +2,7 @@
 
 Source: *Game 2 - multiplayer iterated - centipede with ultimatum (MI-CU)*, TrunK of Commons, 2018-08-07.
 
-## Current rules (summary, 2026-11-06)
+## Current rules (summary, 2026-11-08)
 
 This section describes the game as it stands. Everything below it is the dated log of how each rule was reached; where the log and this summary differ, this summary is current.
 
@@ -17,7 +17,9 @@ This section describes the game as it stands. Everything below it is the dated l
   - 1.5 or more: **welcomed**. The Commons rounds the vote pool up and adds 1 point per player.
 - **Rejection:** the pool goes back by what each put in, the grabber leaves the table, and everything the grabber holds stays in the pool for the others.
 - **After a split:** each player stays or sits out for good. The next round runs in reverse order, starting with the player after the divider, so the divider goes last.
-- **End of the table:** after round 20, when nobody can give, when fewer than three remain, or when the Commons can't pay the round bonus. Any pool left goes back by what each put in (leftover points go to the largest fractions).
+- **End of the table:** there's no last round (Jason, 2026-11-08). The table ends when fewer than three players can afford the round's amount, when fewer than three remain, or when the Commons can't pay the round bonus.
+  - **The last split:** a pool still on the table then goes to one last split. The next player in turn divides it, even if they can't afford the amount, and everyone votes as usual. A rejected divider leaves, and their points are shared equally by the others.
+  - With fewer than three players there's no last split. A sent-out grabber's points left in the pool are shared equally by those who remain.
 - **Free riders:** two free 0s. A free 0 is a 0 vote on a fair split that passed anyway: the voter got at least what they put in and close to an equal share, nobody else was short-changed, and the divider kept no more than a fair share. A 0 against an unfair split is a protest, not a free 0 (Jason, 2026-11-06). Free riders can be cut without the solidarity voters defending them.
 - **Access:** locked behind all five Rising Pool achievements (`?preview` opens it). Six achievements, ordered easiest first. All six unlock Game 3. Unlocks are permanent, and Reset clears only that game's achievements.
 - **Bots (11 strategies):** Patient and Pushover (cooperators); Bookkeeper and Mirror (reciprocators); Early Grabber, Pool Watcher, Greedy, Edge Watcher and Skimmer (grabbers); Spiteful and Free Voter (judges). Social habits: solidarity, turn-taking against greedy repeat dividers, dominance, grudges, and sanctions on free riders.
@@ -432,7 +434,7 @@ Jason: "the game should not simply end with a single 20th round but play out to 
 
 ### Decided, and a last split simulated (Jason, 2026-11-08)
 
-- **Jason chose:** no round limit. The table ends when fewer than three players can afford the round's amount, when fewer than three remain, or when the Commons runs out. *Not built yet:* Full distance needs a new wording first.
+- **Jason chose:** no round limit. The table ends when fewer than three players can afford the round's amount, when fewer than three remain, or when the Commons runs out. *Built 2026-11-08* as the engine defaults `maxRound: Infinity` and `minGivers: 3`. The old rules stay available as `maxRound: 20, minGivers: 1, lastPool: 'refund'`.
 - **Bug fixed (agent):** when a rejection left fewer than three players, the points the sent-out grabber left in the pool vanished. This happened at 10% of bot tables, every time the table ended as "too few". Those points are now shared equally between the players who remain. The conservation test now also checks that the pool is empty when a table ends.
 - **A last split, simulated for Jason** (engine option `lastPool: 'grab'`). When the table ends with a pool on it and three or more players, the next player in turn divides it, even if they can't afford the amount, and everyone votes as usual. With the new ending:
   - It happens at 88–100% of tables. The final pool's median is about 85–110 points.
@@ -444,3 +446,20 @@ Jason: "the game should not simply end with a single 20th round but play out to 
   - "…in round 15 or later": 77–88% / 11–17% / 36%
   - "…in round 20 or later": 35–47% / 0–1% / 13–17%
   - Before, it was 30–53% for the style that suits it.
+- **Built (Jason, 2026-11-08): the last split** is the default (`lastPool: 'grab'`). The page marks it "Last split" on the table, the status card and the divide and vote cards, and says why the table is ending. In the round log it's the "Last" column, with LAST against the divider. The end card names who divided it and how the vote went. Rules text updated.
+- **Full distance** now reads "Still at the table when it ended, in round 20 or later", and moves to the end of the list as the hardest (Jason, 2026-11-08).
+  - Correction: the agent first put its odds beside the 2026-11-05 figure (30–53%). Under the rules just before this change, it was 51–71% for fair styles.
+  - Jason kept round 20 and moved it last. Round 16 would have kept the old odds.
+- **The last split counts as your split, not a grab.** It counts for Nobody short-changed, Welcomed and Your vote counted. It doesn't count against Steady hand ("without grabbing") or towards One clean grab. The "first grab" moment ignores it too.
+- **Achievement odds, new rules** (2,000 tables per learner style; the style that suits each one, then the chance across 5 tables at the mean):
+
+| Achievement | Best style | Before (best style) | In 5 tables |
+|---|---|---|---|
+| Nobody short-changed | 100% | 100% | 100% |
+| Steady hand | 96% (giver) | 93% | 48% |
+| Welcomed | 91% | 91% | 94% |
+| One clean grab | 78% (grabs once) | 76% | 41% |
+| Your vote counted | 45% (equal split, votes 2) | 47% | 46% |
+| Full distance | 37% (fair + sanctions) | 71% | 47% |
+
+The giver now gets a split to make at about a quarter of tables (the last split), so it can earn Nobody short-changed (24%) and Welcomed (12%), which it never could before.

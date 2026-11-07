@@ -111,8 +111,9 @@ export function tableMoments(game, { names, reasons = {} }) {
   }
 
   // 6. The first grab came at the first chance, while later pools grew much bigger
-  if (splits.length >= 2) {
-    const [first, ...rest] = splits;
+  const grabs = splits.filter((u) => !u.final); // the last split is handed out, not grabbed
+  if (grabs.length >= 2) {
+    const [first, ...rest] = grabs;
     const later = Math.round(rest.reduce((a, u) => a + u.pool, 0) / rest.length);
     if (first.round <= 2 && later >= 2 * first.pool) {
       out.push({ idea: 'centipede', priority: 5, you: first.grabber === 'you',
@@ -129,9 +130,9 @@ export function tableMoments(game, { names, reasons = {} }) {
 
   // 8. The rising amount ended the table
   const lastRound = game.rounds.at(-1)?.round ?? 0;
-  if (game.endReason === 'all-broke') {
+  if (game.endReason === 'all-broke' || game.endReason === 'few-can-give') {
     out.push({ idea: 'risingAmount', priority: 7, you: false,
-      line: `The table ended in round ${lastRound}: nobody could afford the amount of ${lastRound + 1}.` });
+      line: `The table ended in round ${lastRound}: ${game.endReason === 'all-broke' ? 'nobody' : 'fewer than three players'} could afford the amount of ${lastRound + 1}.` });
   }
   return out;
 }

@@ -12,13 +12,16 @@ export const ACHIEVEMENTS = [
   { id: 'no-one-short', name: 'Nobody short-changed', text: 'Your split passed and every other player got back at least what they put in.' },
   { id: 'steady-hand', name: 'Steady hand', text: 'Reached the end of a table without grabbing, still seated and ahead.' },
   { id: 'one-clean-grab', name: 'One clean grab', text: 'Grabbed exactly once at a table, the split passed, and you finished ahead.' },
-  { id: 'full-distance', name: 'Full distance', text: 'Still at the table when round 20, the last round, ended.' },
   { id: 'welcomed', name: 'Welcomed', text: 'The table welcomed your split: an average vote of 1.5 or more.' },
   { id: 'your-vote-counted', name: 'Your vote counted', text: 'Someone voted 0 on your fair split, and your own 2 is what carried it.' },
+  // Last, as the hardest since the table has no last round (Jason, 2026-11-08)
+  { id: 'full-distance', name: 'Full distance', text: 'Still at the table when it ended, in round 20 or later.' },
 ];
 
 const splitsBy = (s, id) => s.rounds.filter((r) => r.result === 'ultimatum' && r.ultimatum.grabber === id).map((r) => r.ultimatum);
 const passed = (u) => u.result !== 'rejected';
+// The last split is handed to the next player in turn: it counts as your split, not as a grab.
+const grabsBy = (s, id) => splitsBy(s, id).filter((u) => !u.final);
 
 /** Achievements earned by a split just judged (or any judged so far). */
 export function splitAchievements(s, id = 'you') {
@@ -41,10 +44,11 @@ export function endAchievements(s, id = 'you') {
   if (s.status !== 'ended') return got;
   const p = s.players.find((x) => x.id === id);
   const net = p.balance - p.start;
-  const mine = splitsBy(s, id);
-  if (mine.length === 0 && p.active && net > 0) got.add('steady-hand');
-  if (mine.length === 1 && passed(mine[0]) && net > 0) got.add('one-clean-grab');
-  if (s.endReason === 'round-cap' && p.active) got.add('full-distance');
+  const grabs = grabsBy(s, id);
+  if (grabs.length === 0 && p.active && net > 0) got.add('steady-hand');
+  if (grabs.length === 1 && passed(grabs[0]) && net > 0) got.add('one-clean-grab');
+  // Full distance (Jason, 2026-11-08): the table has no last round now, so "the distance" is 20
+  if (p.active && (s.rounds.at(-1)?.round ?? 0) >= 20) got.add('full-distance');
   return got;
 }
 

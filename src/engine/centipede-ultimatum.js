@@ -20,21 +20,22 @@ export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptabl
  * rejectedGrabberPoints: 'pool' (default) — a grabber sent out by a rejection leaves all their
  *   points, refund included, in the pool for the players who remain (Jason, 2026-11-05);
  *   'keep' — they leave with their points (the earlier rule).
- * maxRound: the table ends after this round (20, Jason 2026-11-05). Any pool left goes back by
- *   what each put in. A split judged in the last round ends the table there.
- * minGivers: the table ends before a round when fewer than this many players can afford to give
- *   (1, the rule so far: nobody can give). Kept as an option to simulate other endings.
+ * The table plays out to a natural end (Jason, 2026-11-08):
+ * maxRound: no last round by default (Infinity). 20 was the limit from 2026-11-05 to 2026-11-08:
+ *   the table ended after round 20, and a split judged in that round ended it there.
+ * minGivers: the table ends before a round when fewer than this many players can afford the
+ *   amount (default 3, Jason 2026-11-08). 1 was the earlier rule: only when nobody can give.
  * lastPool: what happens to a pool still on the table when it ends with three or more players.
- *   'refund' (default): it goes back by what each put in. 'grab': one last split instead. The next
- *   player in turn divides it, even if they can't afford the amount, and everyone votes as usual
- *   (simulated for Jason, 2026-11-08).
+ *   'grab' (default, Jason 2026-11-08): one last split. The next player in turn divides it, even
+ *   if they can't afford the amount, and everyone votes as usual; then the table ends.
+ *   'refund': it goes back by what each put in (the earlier rule).
  * onReject: what else a rejected split does.
  *   'end'        the table ends (2018 rule)
  *   'continue'   play carries on
  *   'grabberOut' the grabber leaves the table and play carries on (default)
  */
 export function createGame({
-  players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = 20, minGivers = 1, lastPool = 'refund',
+  players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = Infinity, minGivers = 3, lastPool = 'grab',
   onReject = 'grabberOut', firstGrabRound = 1, rejectedPool = 'refund', welcomeAt = 'atLeast', welcomeBonus = 1, grabOpens = 'afterLap', rejectedGrabberPoints = 'pool',
 }) {
   if (!players || players.length < minPlayers) throw new Error(`Need at least ${minPlayers} players`);
@@ -160,12 +161,13 @@ function finish(s, reason) {
   const ids = activeIds(s);
   if (s.lastPool !== 'grab' || s.pool <= 0 || ids.length < s.minPlayers) return endSeason(s, reason);
   const g = ids[0]; // the next player in turn
+  const round = s.rounds.at(-1)?.round ?? s.round; // it closes the last round played
   return {
     ...s,
     phase: 'divide',
     finalSplit: reason,
-    current: { round: s.round, moves: [{ id: g, move: 'grab', amount: 0, final: true }] },
-    ultimatum: { round: s.round, grabber: g, pool: s.pool, stakes: { ...s.stakes }, shares: null, votes: null, final: true },
+    current: { round, moves: [{ id: g, move: 'grab', amount: 0, final: true }] },
+    ultimatum: { round, grabber: g, pool: s.pool, stakes: { ...s.stakes }, shares: null, votes: null, final: true },
   };
 }
 

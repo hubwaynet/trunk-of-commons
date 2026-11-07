@@ -229,16 +229,20 @@ function sayPrompt() {
   }
   const u = s.ultimatum;
   const n = activeIds(s).length;
-  if (s.phase === 'divide') return `You grabbed the pool of ${u.pool}. Set each player's share; it starts split by what each put in. To pass, the ${n} votes must add up to ${n}.`;
-  if (u.grabber === 'you') return `Your split is on the table, keeping ${u.shares.you} for you. Now everyone votes, you included: 0 rejects, 1 accepts, 2 welcomes.`;
-  return `${seat(u.grabber).name} grabbed the pool of ${u.pool}. You're offered ${u.shares.you}; you put in ${u.stakes.you ?? 0}. Vote 0 to reject, 1 to accept, 2 to welcome.`;
+  if (s.phase === 'divide') {
+    const lead = u.final ? `The table is ending: ${endingWhy(s)}. You're next in turn, so you divide the last pool of ${u.pool}.` : `You grabbed the pool of ${u.pool}.`;
+    return `${lead} Set each player's share; it starts split by what each put in. To pass, the ${n} votes must add up to ${n}.`;
+  }
+  if (u.grabber === 'you') return `Your ${u.final ? 'last ' : ''}split is on the table, keeping ${u.shares.you} for you. Now everyone votes, you included: 0 rejects, 1 accepts, 2 welcomes.`;
+  const lead = u.final ? `Last split: the table is ending, and ${seat(u.grabber).name} divides the last pool of ${u.pool}.` : `${seat(u.grabber).name} grabbed the pool of ${u.pool}.`;
+  return `${lead} You're offered ${u.shares.you}; you put in ${u.stakes.you ?? 0}. Vote 0 to reject, 1 to accept, 2 to welcome.`;
 }
 function sayResult(u) {
   const ids = Object.keys(u.votes);
   const total = ids.reduce((a, id) => a + u.votes[id], 0);
   const mine = u.grabber === 'you';
   const g = seat(u.grabber).name;
-  let msg = `${mine ? 'Your' : `${g}'s`} split was ${u.result}: votes totalled ${total}, ${ids.length} needed.`;
+  let msg = `${mine ? 'Your' : `${g}'s`}${u.final ? ' last' : ''} split was ${u.result}: votes totalled ${total}, ${ids.length} needed.`;
   const zeros = ids.filter((id) => u.votes[id] === 0 && id !== 'you');
   // On your own split, say why each 0 came; on others' splits, say who.
   if (zeros.length) msg += mine ? zeros.map((id) => ` ${seat(id).name} voted 0 (${whySaid(u, id) || 'no reason given'}).`).join('') : ` Voted 0: ${listNames(zeros.map(nameOf))}.`;
@@ -254,10 +258,10 @@ function sayEnd() {
   const s = G.game;
   const last = s.rounds.at(-1)?.round ?? 0;
   const ranked = G.seats.map((st) => ({ st, net: player(st.id).balance - player(st.id).start })).sort((a, b) => b.net - a.net);
-  if (G.watch) return `Table over after round ${last}. ${END_TEXT[s.endReason] ?? ''} ${ranked[0].st.name} finished furthest ahead, ${signed(ranked[0].net)}.`;
+  if (G.watch) return `Table over after round ${last}. ${endText(s)} ${ranked[0].st.name} finished furthest ahead, ${signed(ranked[0].net)}.`;
   const me = player('you');
   const place = ranked.findIndex((x) => x.st.id === 'you') + 1;
-  return `Table over after round ${last}. ${END_TEXT[s.endReason] ?? ''} You finished with ${me.balance}, ${signed(me.balance - me.start)}, ${ORDINAL[place]} of ${ranked.length}. Each bot's strategy is on the end card.`;
+  return `Table over after round ${last}. ${endText(s)} You finished with ${me.balance}, ${signed(me.balance - me.start)}, ${ORDINAL[place]} of ${ranked.length}. Each bot's strategy is on the end card.`;
 }
 const ORDINAL = ['', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth'];
 
@@ -386,8 +390,10 @@ function renderTable() {
   const val = el('text', { x: 162, y: 429, class: 'commons-val' }, String(s.commons.reserve));
   val.append(el('tspan', { class: 'pool-sub', dx: 3 }, `/ ${s.commons.start}`));
   svg.append(val);
+  const capped = Number.isFinite(s.maxRound) ? ` OF ${s.maxRound}` : ''; // no last round since 2026-11-08
+  const lastSplit = Boolean(s.ultimatum?.final);
   const roundLabel = s.status === 'playing'
-    ? `ROUND ${s.round} OF ${s.maxRound} · AMOUNT ${requirement(s.round)}`
+    ? (lastSplit ? 'LAST SPLIT · THE TABLE IS ENDING' : `ROUND ${s.round}${capped} · AMOUNT ${requirement(s.round)}`)
     : `TABLE OVER AFTER ROUND ${s.rounds.at(-1)?.round ?? s.round}`; // not the round that never started
   svg.append(el('text', { x: 384, y: 429, 'text-anchor': 'end', class: 'pool-sub' }, roundLabel));
   // What a screen reader hears for the picture: the same facts, in words.
@@ -396,7 +402,7 @@ function renderTable() {
     return `${st.name} ${p.active ? p.balance : p.leftBecause === 'rejected' ? 'sent out' : 'sat out'}${rep[st.id] ? `, ${rep[st.id]}` : ''}`;
   }).join(', ');
   svg.setAttribute('aria-label', s.status === 'playing'
-    ? `The table, round ${s.round} of ${s.maxRound}, amount ${requirement(s.round)}. Pool ${u ? u.pool : s.pool}${u ? `, held by ${nameOf(u.grabber)}` : ''}. ${seatsSaid}. Commons ${s.commons.reserve}.`
+    ? `The table, ${lastSplit ? 'last split' : `round ${s.round}${capped.toLowerCase()}, amount ${requirement(s.round)}`}. Pool ${u ? u.pool : s.pool}${u ? `, held by ${nameOf(u.grabber)}` : ''}. ${seatsSaid}. Commons ${s.commons.reserve}.`
     : `The table, over after round ${s.rounds.at(-1)?.round ?? s.round}. ${seatsSaid}. Commons ${s.commons.reserve}.`);
 }
 
@@ -435,7 +441,8 @@ function statusCard() {
     <div class="status-row">
       <div><div class="eyebrow">${G.watch ? 'Stand-in balance' : 'Your balance'}</div><div class="big">${me.balance}</div></div>
       <div><div class="eyebrow">Pool</div><div class="big">${s.ultimatum ? s.ultimatum.pool : s.pool}</div></div>
-      <div><div class="eyebrow">Round ${s.round} amount</div><div class="big">${requirement(s.round)}</div></div>
+      ${s.ultimatum?.final ? '<div><div class="eyebrow">Round</div><div class="big">Last split</div></div>'
+        : `<div><div class="eyebrow">Round ${s.round} amount</div><div class="big">${requirement(s.round)}</div></div>`}
     </div>
     ${stake ? `<p class="muted small">You have put ${stake} into this pool.</p>` : ''}
   </div>`);
@@ -444,8 +451,9 @@ function statusCard() {
 function waitCard() {
   const s = G.game;
   const who = s.phase === 'divide' ? seat(s.ultimatum.grabber).name : seat(currentPlayer(s)).name;
-  const what = s.phase === 'divide' ? 'is dividing the pool…' : 'is deciding…';
-  return h(`<div class="card"><p class="muted">${esc(who)} ${what}</p></div>`);
+  const last = s.phase === 'divide' && s.ultimatum.final;
+  const what = s.phase === 'divide' ? `is dividing the ${last ? 'last ' : ''}pool…` : 'is deciding…';
+  return h(`<div class="card"><p class="muted">${esc(who)} ${what}</p>${last ? lastNote(s, false) : ''}</div>`);
 }
 
 function turnCard() {
@@ -483,7 +491,8 @@ function divideCard() {
   const { freeRiders: riders, freeZeros } = botView(s, 'you');
   const anyStake = ids.some((id) => (s.stakes[id] ?? 0) > 0);
   let shares = anyStake ? splitBy(pool, stakeW) : splitBy(pool, ones);
-  const c = h(`<div class="card divide"><h2>Divide the pool of ${pool}</h2>
+  const c = h(`<div class="card divide"><h2>Divide the ${s.ultimatum.final ? 'last ' : ''}pool of ${pool}</h2>
+    ${s.ultimatum.final ? lastNote(s, true) : ''}
     <p class="muted small">Set each share. It starts split by what each player put in; an equal share would be about ${(pool / ids.length).toFixed(1)}.${riders.some((x) => x !== 'you') ? ' A <b>free rider</b> has voted 0 at least twice on fair splits that passed anyway: you can cut their share and the others won\'t defend them.' : ''}</p>
     ${needLine(ids.length)}
     <div class="btn-row presets">
@@ -551,7 +560,9 @@ function splitTable(u, { votes = false } = {}) {
 function voteCard() {
   const u = G.game.ultimatum;
   const mine = u.shares.you;
-  const c = h(`<div class="card"><h2>${u.grabber === 'you' ? 'Your split' : `${esc(seat(u.grabber).name)} grabbed ${u.pool}`}</h2>
+  const head = u.grabber === 'you' ? `Your ${u.final ? 'last ' : ''}split` : u.final ? `Last split: ${esc(seat(u.grabber).name)} divides ${u.pool}` : `${esc(seat(u.grabber).name)} grabbed ${u.pool}`;
+  const why = u.final && u.grabber !== 'you' ? `<p class="last-note"><b>Last split.</b> The table is ending: ${esc(endingWhy(G.game))}. ${esc(seat(u.grabber).name)} was next in turn. Everyone votes as usual, then the table is over.</p>` : '';
+  const c = h(`<div class="card"><h2>${head}</h2>${why}
     ${splitTable(u)}
     <p>${u.grabber === 'you' ? 'Now everyone votes, you included.' : `You're offered <b>${mine}</b>. How do you judge it?`}</p>
     <div class="choices three">
@@ -560,7 +571,7 @@ function voteCard() {
       <button class="choice" type="button" id="vote-2" data-v="2"><span class="lbl">Welcome</span><span class="amt">2</span><span class="sub">Costs 2. An average of 1.5 or more welcomes the split: everyone gets 1 bonus.</span></button>
     </div>
     ${needLine(Object.keys(u.shares).length)}
-    <p class="muted small">If rejected, the divider leaves the table, the pool goes back by what each put in, and everything the divider holds stays in the pool for the others. Vote tokens are shared back out, unless the split is rejected.</p></div>`);
+    <p class="muted small">If rejected, the divider leaves the table, the pool goes back by what each put in, and everything the divider holds ${u.final ? 'is shared equally by the others' : 'stays in the pool for the others'}. Vote tokens are shared back out, unless the split is rejected.${u.final && u.grabber === 'you' ? ' After this vote the table is over.' : ''}</p></div>`);
   c.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => humanVote(Number(b.dataset.v))));
   return c;
 }
@@ -568,10 +579,10 @@ function voteCard() {
 function outcomeCard(u) {
   const tag = u.result === 'rejected' ? 'fail' : u.result === 'welcomed' ? 'bonus' : 'base';
   const g = seat(u.grabber).name;
-  const whose = u.grabber === 'you' ? 'Your' : `${esc(g)}'s`;
+  const whose = (u.grabber === 'you' ? 'Your' : `${esc(g)}'s`) + (u.final ? ' last' : '');
   let text;
   if (u.result === 'rejected') {
-    const left = u.forfeit ? ` ${u.grabber === 'you' ? 'Your' : 'Their'} remaining ${u.forfeit} points stay in the pool for the next round.` : '';
+    const left = u.forfeit ? ` ${u.grabber === 'you' ? 'Your' : 'Their'} remaining ${u.forfeit} points ${u.final ? 'were shared equally by the others' : 'stay in the pool for the next round'}.` : '';
     text = `${whose} split was rejected (average ${u.voteAvg.toFixed(2)}). ${u.grabber === 'you' ? 'You leave' : esc(g) + ' leaves'} the table, and the pool of ${u.pool} went back by what each put in.${left}`;
   } else {
     const back = u.voteEach + (u.bonusEach ?? 0);
@@ -649,14 +660,34 @@ function stayCard() {
   return c;
 }
 
-const END_TEXT = {
-  'all-broke': 'Nobody could afford the amount any more. What was in the pool went back by what each player put in.',
-  'too-few': 'Fewer than three players remained.',
-  'too-few-pool': 'Fewer than three players remained. What the sent-out grabber left in the pool was shared equally between them.',
-  'commons-exhausted': 'The Commons ran out and could not pay the round bonus. The pool went back by what each player put in.',
-  'round-cap': 'The table reached round 20, the last round. What was in the pool went back by what each player put in.',
-  rejected: 'A split was rejected and the table ended.',
-};
+// Why the table is ending, for the last split (Jason, 2026-11-08). s.round is the round that can't be played.
+function endingWhy(s, reason = s.finalSplit ?? s.endReason) {
+  const amt = requirement(s.round);
+  return {
+    'few-can-give': `fewer than three players can afford the amount of ${amt}`,
+    'all-broke': `nobody can afford the amount of ${amt}`,
+    'commons-exhausted': "the Commons can't pay the round bonus",
+    'round-cap': 'the last round is over',
+  }[reason] ?? '';
+}
+function lastNote(s, mine) {
+  return `<p class="last-note"><b>Last split.</b> The table is ending: ${esc(endingWhy(s))}. ${mine ? "You're" : `${esc(seat(s.ultimatum.grabber).name)} is`} next in turn, so ${mine ? 'you divide' : 'they divide'} what's left${mine ? ", even though you can't play the next round" : ''}. Everyone votes as usual, then the table is over.</p>`;
+}
+
+function endText(s) {
+  const lastU = s.rounds.at(-1)?.ultimatum;
+  const why = {
+    'few-can-give': `Fewer than three players could afford the amount of ${requirement(s.round)}.`,
+    'all-broke': `Nobody could afford the amount of ${requirement(s.round)}.`,
+    'commons-exhausted': 'The Commons ran out and could not pay the round bonus.',
+    'round-cap': 'The table reached its last round.',
+    'too-few': 'Fewer than three players remained.',
+    rejected: 'A split was rejected and the table ended.',
+  }[s.endReason] ?? '';
+  if (lastU?.final) return `${why} The pool of ${lastU.pool} went to one last split, divided by ${nameOf(lastU.grabber)}: ${lastU.result}.`;
+  if (!Object.values(s.finalShares ?? {}).some((x) => x > 0)) return why;
+  return `${why} ${s.endReason === 'too-few' ? 'What the sent-out grabber left in the pool was shared equally between them.' : 'What was in the pool went back by what each player put in.'}`;
+}
 
 // Where the table's points came from (as in Rising Pool's debrief).
 function commonsSummary(s) {
@@ -675,7 +706,7 @@ function endCard() {
   }).sort((a, b) => b.net - a.net);
   const best = rows[0];
   const card = h(`<div class="card debrief"><h2>Table over</h2>
-    <p>${END_TEXT[s.endReason === 'too-few' && Object.values(s.finalShares ?? {}).some((x) => x > 0) ? 'too-few-pool' : s.endReason] ?? ''} ${s.rounds.at(-1)?.round ?? 0} rounds.</p>
+    <p>${esc(endText(s))} ${s.rounds.at(-1)?.round ?? 0} rounds.</p>
     <table class="nets"><thead><tr><th>Player</th><th>Strategy</th><th>Ended</th><th>Net</th></tr></thead><tbody>
     ${rows.map(({ st, net, bal }) => `<tr${st.id === 'you' ? ' class="me"' : ''}><td><span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}</span></td>
       <td>${st.strategy ? esc(STRATEGIES[st.strategy].label) : '<span class="muted">you</span>'}</td><td>${bal}</td><td class="${net > 0 ? 'pos' : net < 0 ? 'neg' : ''}">${signed(net)}</td></tr>`).join('')}
@@ -701,7 +732,7 @@ function renderLog() {
   const cell = (r, id) => {
     const m = r.moves.find((x) => x.id === id);
     let html = '';
-    if (m) html = m.move === 'give' ? `<span class="mv give">G${m.amount}</span>` : m.move === 'pass' ? '<span class="mv pass">·</span>' : '<span class="mv grab">GRAB</span>';
+    if (m) html = m.move === 'give' ? `<span class="mv give">G${m.amount}</span>` : m.move === 'pass' ? '<span class="mv pass">·</span>' : `<span class="mv grab">${m.final ? 'LAST' : 'GRAB'}</span>`;
     if (r.ultimatum && r.ultimatum.shares[id] !== undefined) {
       const u = r.ultimatum;
       const why = u.votes[id] === 0 ? whyAll(u, id) : '';
@@ -713,9 +744,9 @@ function renderLog() {
   const resLabel = (r) => r.result === 'live' ? '…' : r.result === 'complete' ? `+${r.topUp}` : r.result === 'stalled' ? 'stalled' : r.ultimatum.result;
   const resCls = (r) => r.result === 'ultimatum' ? (r.ultimatum.result === 'rejected' ? 'fail' : r.ultimatum.result === 'welcomed' ? 'bonus' : 'base') : '';
   $('#log').replaceChildren(h(`<details class="fold" ${G.logOpen === false ? '' : 'open'}><summary><h2>Round log</h2></summary>
-    <p class="muted small legend-line">G = gave · <b>·</b> = passed (couldn't afford) · GRAB, then each player's offered share with their vote</p>
+    <p class="muted small legend-line">G = gave · <b>·</b> = passed (couldn't afford) · GRAB, then each player's offered share with their vote · LAST = divided the last split</p>
     <div class="log-wrap" id="log-scroll" tabindex="0" role="region" aria-label="Round log, scrolls sideways"><table class="grid">
-      <thead><tr><th>Player</th>${rounds.map((r) => `<th>R${r.round}</th>`).join('')}<th>Now</th></tr></thead>
+      <thead><tr><th>Player</th>${rounds.map((r) => `<th>${r.moves.some((m) => m.final) ? 'Last' : `R${r.round}`}</th>`).join('')}<th>Now</th></tr></thead>
       <tbody>${G.seats.map((st) => `<tr><th scope="row"><span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}</span>${logRep[st.id] ? `<span class="muted small rep-word">${logRep[st.id]}</span>` : ''}</th>
         ${rounds.map((r) => `<td>${cell(r, st.id)}</td>`).join('')}<td class="sum strong">${player(st.id).balance}</td></tr>`).join('')}</tbody>
       <tfoot><tr><th scope="row">Result</th>${rounds.map((r) => `<td><span class="${resCls(r) ? `tag ${resCls(r)}` : ''}">${resLabel(r)}</span></td>`).join('')}<td></td></tr>
