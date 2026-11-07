@@ -463,3 +463,15 @@ Jason: "the game should not simply end with a single 20th round but play out to 
 | Full distance | 37% (fair + sanctions) | 71% | 47% |
 
 The giver now gets a split to make at about a quarter of tables (the last split), so it can earn Nobody short-changed (24%) and Welcomed (12%), which it never could before.
+
+## Finding: carrying on after a welcomed last split (agent, 2026-11-08; for Jason to decide)
+
+Jason asked whether a welcomed last split should let the table carry on, since the survivors get their shares plus a bonus. Engine option `continueAfterLast` ('never' is the default; 'welcomed'; 'passed'). Simulated over 3,000 tables per style, then 2,000 per variant.
+
+- **After any last split that passes, three or more players can afford the next round at 95–100% of tables.** The bonus never made the difference. The reason is that the pool held their own money: the table ends for "fewer than three can afford" while much of everyone's points sit in the pool, and the split hands them back.
+- **Carry on if welcomed:**
+  - It carries on at 43–52% of tables, and twice or more at 13–23%.
+  - A fair player's table goes from a median of 17–18 rounds to 19 (90th percentile 25 → 28, longest 38 either way).
+  - Rounds where fewer than three can act rise from 22% to 25%.
+  - Fair players gain about 3 points. Full distance rises from 34–37% to 47–48% for fair styles, and from 0% to 16% for the giver.
+- **Carry on if passed:** almost every table carries on, again and again. Medians are 24–26 rounds, the longest 56, and thin rounds reach 32–36%: much of the old drag returns.

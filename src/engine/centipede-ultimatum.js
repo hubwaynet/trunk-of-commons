@@ -29,18 +29,22 @@ export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptabl
  *   'grab' (default, Jason 2026-11-08): one last split. The next player in turn divides it, even
  *   if they can't afford the amount, and everyone votes as usual; then the table ends.
  *   'refund': it goes back by what each put in (the earlier rule).
+ * continueAfterLast: 'never' (default) — the last split ends the table. 'welcomed' or 'passed':
+ *   if the last split is welcomed (or passes at all) and at least minGivers players can then afford
+ *   the next round's amount, play carries on after the usual stay step (simulated for Jason,
+ *   2026-11-08). Not after the Commons has run out.
  * onReject: what else a rejected split does.
  *   'end'        the table ends (2018 rule)
  *   'continue'   play carries on
  *   'grabberOut' the grabber leaves the table and play carries on (default)
  */
 export function createGame({
-  players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = Infinity, minGivers = 3, lastPool = 'grab',
+  players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = Infinity, minGivers = 3, lastPool = 'grab', continueAfterLast = 'never',
   onReject = 'grabberOut', firstGrabRound = 1, rejectedPool = 'refund', welcomeAt = 'atLeast', welcomeBonus = 1, grabOpens = 'afterLap', rejectedGrabberPoints = 'pool',
 }) {
   if (!players || players.length < minPlayers) throw new Error(`Need at least ${minPlayers} players`);
   return {
-    seed, startBalance, minPlayers, maxRound, minGivers, lastPool, onReject, firstGrabRound, rejectedPool, welcomeAt, welcomeBonus, grabOpens, rejectedGrabberPoints,
+    seed, startBalance, minPlayers, maxRound, minGivers, lastPool, continueAfterLast, onReject, firstGrabRound, rejectedPool, welcomeAt, welcomeBonus, grabOpens, rejectedGrabberPoints,
     turnsSinceSplit: 0, // gives and passes since the last split (or the start)
     round: 1,
     phase: 'turn',
@@ -282,7 +286,15 @@ export function vote(s, votes) {
       next.rounds = [...next.rounds.slice(0, -1), { ...next.rounds.at(-1), ultimatum: { ...record, forfeit: left } }];
     }
   }
-  if (s.finalSplit) return endSeason(next, s.finalSplit); // the last split: the table ends as it was going to
+  if (s.finalSplit) {
+    const nextRound = u.round + 1;
+    const able = activeIds(next).filter((id) => bal(next, id) >= requirement(nextRound)).length;
+    const goOn = s.finalSplit !== 'commons-exhausted' && able >= s.minGivers
+      && (s.continueAfterLast === 'passed' ? result !== 'rejected' : s.continueAfterLast === 'welcomed' && result === 'welcomed');
+    // the split closed round u.round; carrying on, the stay step starts the round after it
+    if (goOn) return { ...next, finalSplit: null, round: u.round, phase: 'stay', continued: (s.continued ?? 0) + 1 };
+    return endSeason(next, s.finalSplit); // the last split: the table ends as it was going to
+  }
   // The last round is over: end here rather than ask everyone to stay for a round that won't come.
   if (s.round >= s.maxRound) return endSeason(next, 'round-cap');
   return { ...next, phase: 'stay' };
