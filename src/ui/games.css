@@ -6,7 +6,11 @@
 .rules b { color: var(--ink); }
 /* The ring legend and "Collapse and play" close How it works, across its full width (Jason, 2026-11-08). */
 .rules .ring-legend, .rules .fold-end { grid-column: 1 / -1; }
-.rules .ring-legend { padding: 0; }
+.rules .ring-legend { padding: 12px 0 0; border-top: 1px solid var(--line); } /* a rule between the instructions and the rings (Jason, 2026-11-08) */
+/* Game 2: the first three instructions in one column, then the rest, one column each (Jason, 2026-11-08) */
+.rules.three-cols { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 760px) { .rules.three-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.rules-col { display: grid; gap: 12px; align-content: start; }
 .fold-end { margin: 0; }
 .game { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 @media (max-width: 820px) { .game { grid-template-columns: minmax(0, 1fr); } }

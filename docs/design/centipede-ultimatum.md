@@ -486,3 +486,7 @@ Jason asked whether a welcomed last split should let the table carry on, since t
   - The result card and the spoken result say which happened. A welcomed closing split that carries on goes to the usual Stay & play step.
   - In the round log it's a "Close" column, with CLOSE against the divider. The end card says how the closing split went ("accepted but not welcomed", for example).
 - Achievement odds with the closing split (style that suits each one): Nobody short-changed 100%, Steady hand 95%, Welcomed 91%, One clean grab 78%, Full distance 48% (was 37% without carrying on), Your vote counted 46%. Full distance and Your vote counted are now about equally hard; Full distance stays last.
+
+### How it works in three columns (Jason, 2026-11-08)
+
+On wider screens, How it works now has three columns: the first three instructions (take turns, the grabber divides, rejection) stacked in the first, "Can't afford the amount" in the second, and "Free riders" in the third. A horizontal rule separates them from the ring legend below. Phones show one column in the same order. The rule above the ring legend is shared, so Rising Pool has it too.
