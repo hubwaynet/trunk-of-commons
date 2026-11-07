@@ -14,7 +14,7 @@ import { keepFocus } from '../focus.js';
 import { announce, listNames } from '../announce.js';
 import {
   NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, h, signed, toast,
-  achievementStore, progressHtml, achievementsCardHtml, momentsCardHtml,
+  achievementStore, progressHtml, achievementsCardHtml, momentsCardHtml, rememberToggle, wireCollapse,
 } from '../common.js';
 import { tableMoments } from './moments.js';
 import { pickMoments } from '../ideas.js';
@@ -758,6 +758,8 @@ function showLock() {
 }
 
 renderKey();
+rememberToggle('how-it-works', 'trunk.centipede');
+wireCollapse();
 if (game1Done() || previewMode()) {
   if (previewMode() && !game1Done()) document.querySelector('.eyebrow').textContent = 'Game 2 · Level 2 · Preview';
   $('#new-game').addEventListener('click', () => newSession({ watch: G?.watch ?? false }));

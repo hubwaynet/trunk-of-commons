@@ -360,7 +360,7 @@ From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai pro
     - **Cooperative:** everyone else.
     - No ring before the first split.
   - Shapes, so colour is never the only cue: exploitive is a heavy solid magenta ring, generous a green double ring, free loading a thick dashed brass ring, and cooperative a thin grey ring. Checked in greyscale and in simulated deuteranopia and protanopia.
-  - The state also shows under each name in the round log and in the table's spoken label, and a legend sits under the table.
+  - The state also shows under each name in the round log and in the table's spoken label, and a legend sits under the table (moved into How it works on 2026-11-08).
   - Whose turn it is is now a filled order badge instead of a blue ring, so the rings mean only reputation.
   - Where players end (share of tables):
     - Early Grabber, Greedy, Pool Watcher and Skimmer: exploitive, 90–100%.
@@ -397,3 +397,12 @@ Results (before → after):
 - **For the player, almost no change:** a fair grabber still averages +17.9 (was +18.2) and fair play with sanctions +16.7 (was +17.0).
 - **Achievement odds:** within a point or two, except Full distance for a steady giver, 30% → 21%. The order is unchanged.
 - Free Voter now does better when nobody cuts it. That's the free-rider lesson, and the "What this table showed" card names it when it happens.
+
+## Ring legend in How it works; Collapse and play (Jason, 2026-11-08)
+
+"Game 2 play area on iPhone doesn't fit. Place the rings info in how it works. Add a collapse method at end of how it works section."
+
+- The ring legend and its explanation moved from under the table to the end of How it works.
+- A **Collapse and play** button ends the section. It closes How it works, scrolls the table to the top of the screen and puts keyboard focus on the panel. The page remembers the section was closed, so returning players go straight to the table. Clicking the heading opens it again.
+- Rising Pool got the same change, since its legend sat in the same place. It's one shared helper (`wireCollapse` in `src/ui/common.js`).
+- On a 390 × 664 phone screen (an iPhone 13 in Safari), the table now fills the top of the screen after collapsing, and the top of the Give and Grab buttons shows below the status card. The whole turn card is 115 px taller than the screen, so a short scroll is still needed to read the buttons' notes. Rising Pool fits entirely.

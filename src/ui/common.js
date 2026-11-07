@@ -85,6 +85,24 @@ export function achievementsCardHtml(all, have, newNow, { note, unlocked, unlock
   </ul></section>`;
 }
 
+/**
+ * "Collapse and play" at the end of How it works (Jason, 2026-11-08): closes the section, brings
+ * the table and panel into view, and puts keyboard focus in the panel. The section remembers
+ * being closed (rememberToggle), so returning players go straight to the table.
+ */
+export function wireCollapse() {
+  for (const btn of document.querySelectorAll('[data-collapse]')) {
+    btn.addEventListener('click', () => {
+      const d = document.getElementById(btn.dataset.collapse);
+      if (d) d.open = false;
+      const game = document.querySelector('.game');
+      game?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      const panel = document.getElementById('panel');
+      if (panel) { if (!panel.hasAttribute('tabindex')) panel.setAttribute('tabindex', '-1'); panel.focus({ preventScroll: true }); }
+    });
+  }
+}
+
 /** A collapsible section that remembers whether this viewer left it open. */
 export function rememberToggle(id, prefix) {
   const d = document.getElementById(id);

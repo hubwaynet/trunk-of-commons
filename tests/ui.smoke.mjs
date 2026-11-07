@@ -151,6 +151,30 @@ for (const setup of [DESKTOP, PHONE]) {
   });
 }
 
+// ---------- both games: the ring legend sits in How it works, and "Collapse and play" closes it ----------
+for (const path of ['/games/rising-pool/', '/games/centipede-ultimatum/?preview']) {
+  test(`${path}: Collapse and play brings up the table and is remembered`, async (t) => {
+    const run = await open(path, PHONE);
+    const { page } = run;
+    const label = `collapse-${path.split('/')[2]}`;
+    await page.waitForSelector('#panel .card');
+    assert.ok(await page.$('#how-it-works .ring-legend'), `${label}: the ring legend is in How it works`);
+    assert.equal(await page.$('.game .ring-legend'), null, `${label}: no ring legend under the table`);
+    await page.click('.fold-close');
+    assert.equal(await page.$eval('#how-it-works', (d) => d.open), false, `${label}: How it works closes`);
+    assert.equal(await focusId(page), 'panel', `${label}: keyboard focus moves to the panel`);
+    const tableTop = await page.$eval('.table-wrap', (e) => Math.round(e.getBoundingClientRect().top));
+    assert.ok(tableTop >= 0 && tableTop < 40, `${label}: the table is at the top of the screen (${tableTop}px)`);
+    // the section saves its state on the details "toggle" event, which fires a moment after closing
+    await page.waitForFunction(() => Object.keys(localStorage).some((k) => k.endsWith('.how-it-works') && localStorage.getItem(k) === '0'));
+    await page.reload();
+    await page.waitForSelector('#panel .card');
+    assert.equal(await page.$eval('#how-it-works', (d) => d.open), false, `${label}: still closed on return`);
+    await noSidewaysScroll(page, label);
+    await finish(t, run, label);
+  });
+}
+
 // ---------- Game 2 ----------
 async function playCentipede(page, { grabAt = 25, label }) {
   await page.clock.install();

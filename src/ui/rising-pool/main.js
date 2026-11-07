@@ -11,7 +11,7 @@ import { keepFocus } from '../focus.js';
 import { announce } from '../announce.js';
 import {
   NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, frag, signed, toast,
-  achievementStore, progressHtml, achievementsCardHtml, rememberToggle, momentsCardHtml,
+  achievementStore, progressHtml, achievementsCardHtml, rememberToggle, momentsCardHtml, wireCollapse,
 } from '../common.js';
 import { tableMoments } from './moments.js';
 import { pickMoments } from '../ideas.js';
@@ -672,5 +672,6 @@ function render() {
 document.getElementById('new-game').addEventListener('click', () => newSession({ watch: G.watch }));
 document.getElementById('watch-toggle').addEventListener('click', () => newSession({ watch: !G.watch }));
 rememberToggle('how-it-works', 'trunk.risingPool');
+wireCollapse();
 rememberToggle('strategy-key', 'trunk.risingPool');
 newSession();

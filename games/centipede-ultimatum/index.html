@@ -45,6 +45,13 @@
       <p><b>Average below 1: rejected.</b> The grabber leaves the table, the pool goes back to each player in proportion to what they put in, and everything the grabber holds stays in the pool for the others. Otherwise the split is paid out.</p>
       <p><b>Can't afford the amount? You pass:</b> no giving, no grabbing, but you keep your seat and your vote. The rising amount is this game's real pressure: every round costs one more. The table ends after round 20, when nobody can give, or when fewer than three remain.</p>
       <p><b>Free riders.</b> A 0 vote on a fair split that passed anyway is a free 0. Fair means you got at least what you put in and close to an equal share, nobody else was short-changed, and the divider kept no more than a fair share. A 0 against an unfair split is a protest, not a free 0. Two free 0s make a <b>free rider</b>: anyone dividing can cut their share, and nobody defends them. The divide card shows who is on one free 0 and who is a free rider.</p>
+      <p class="ring-legend small muted"><span class="eyebrow">Rings</span>
+        <span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9" stroke-width="1.8" class="seat-rep rep-generous"/><circle cx="11" cy="11" r="5.6" stroke-width="1.8" class="seat-rep rep-generous"/></svg>generous (double)</span>
+        <span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke-width="1.5" class="seat-rep rep-coop"/></svg>cooperative (thin)</span>
+        <span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke-width="3.4" stroke-dasharray="4 2.8" class="seat-rep rep-free"/></svg>free loading (dashed)</span>
+        <span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke-width="3.8" class="seat-rep rep-exploit"/></svg>exploitive (heavy)</span>
+        <span class="ring-help">From each player's splits and votes so far: exploitive kept more than a fair share in their latest split; free loading has two free 0s; generous gave part of their own share away, or votes 2 on most splits.</span></p>
+      <p class="fold-end"><button type="button" class="btn ghost fold-close" data-collapse="how-it-works">Collapse and play ▴</button></p>
     </section>
   </details>
 
@@ -53,12 +60,6 @@
       <div class="table-wrap">
         <svg id="table" viewBox="0 0 400 440" role="img" aria-label="The table: players around the pool"></svg>
       </div>
-      <p class="ring-legend small muted"><span class="eyebrow">Rings</span>
-        <span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9" stroke-width="1.8" class="seat-rep rep-generous"/><circle cx="11" cy="11" r="5.6" stroke-width="1.8" class="seat-rep rep-generous"/></svg>generous (double)</span>
-        <span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke-width="1.5" class="seat-rep rep-coop"/></svg>cooperative (thin)</span>
-        <span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke-width="3.4" stroke-dasharray="4 2.8" class="seat-rep rep-free"/></svg>free loading (dashed)</span>
-        <span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke-width="3.8" class="seat-rep rep-exploit"/></svg>exploitive (heavy)</span>
-        <span class="ring-help">From each player's splits and votes so far: exploitive kept more than a fair share in their latest split; free loading has two free 0s; generous gave part of their own share away, or votes 2 on most splits.</span></p>
     </div>
     <div class="panel" id="panel"></div>
   </div>
