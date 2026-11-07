@@ -115,6 +115,7 @@ function newSession({ watch = false } = {}) {
     : `New table: you, ${listNames(G.seats.filter((x) => !x.human).map((x) => x.name))}. Everyone starts with ${START_BALANCE}.`);
   if (!firstLoad) announcePrompt();
   else G.promptKey = promptKey(); // the turn card is read with the page on arrival
+  if (!firstLoad) showTable({ ifHidden: true }); // New table, Watch the bots, or the end card's New table
   firstLoad = false;
   schedule();
 }

@@ -85,13 +85,20 @@ export function achievementsCardHtml(all, have, newNow, { note, unlocked, unlock
   </ul></section>`;
 }
 
+/** True when the whole table picture is on screen. */
+export function tableInView() {
+  const t = document.querySelector('.table-wrap')?.getBoundingClientRect();
+  return !!t && t.top >= 0 && t.bottom <= innerHeight;
+}
+
 /**
- * Scroll the play area (table and panel) to the top of the screen. With ifHidden, only when the
- * table's top has scrolled off the screen, as on a phone after reading a split's results.
+ * Scroll the play area (table and panel) to the top of the screen. With ifHidden, only when part
+ * of the table is off the screen: on a phone after a split's results, or after New table from the
+ * foot of a finished table (Jason, 2026-11-08). A desktop that already shows the table stays put.
  */
 export function showTable({ ifHidden = false } = {}) {
   const game = document.querySelector('.game');
-  if (!game || (ifHidden && game.getBoundingClientRect().top >= 0)) return;
+  if (!game || (ifHidden && tableInView())) return;
   game.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
 }
 

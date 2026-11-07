@@ -95,6 +95,22 @@ async function noSidewaysScroll(page, label) {
   assert.ok(extra <= 0, `${label}: page scrolls sideways by ${extra}px`);
 }
 
+// Click a button that starts the next round or table: if part of the table was off the screen, the
+// table comes back to the top; if it was all in view, the page doesn't jump.
+async function clickBringsUpTable(page, selector, label) {
+  await page.locator(selector).scrollIntoViewIfNeeded();
+  const where = () => page.evaluate(() => {
+    const t = document.querySelector('.table-wrap').getBoundingClientRect();
+    return { top: Math.round(document.querySelector('.game').getBoundingClientRect().top), inView: t.top >= 0 && t.bottom <= innerHeight };
+  });
+  const before = await where();
+  await page.click(selector);
+  let after = await where();
+  for (let i = 0; i < 30 && !before.inView && (after.top < 0 || after.top >= 40); i++) { await page.waitForTimeout(50); after = await where(); } // smooth scroll on desktop
+  if (!before.inView) assert.ok(after.top >= 0 && after.top < 40, `${label}: the table is at ${after.top}px, not the top of the screen`);
+  else assert.equal(after.top, before.top, `${label}: the page jumped though the table was in view`);
+}
+
 const focusId = (page) => page.evaluate(() => {
   const a = document.activeElement;
   return a === document.body || !a ? 'BODY' : a.id || a.closest('[id]')?.id || a.tagName;
@@ -147,6 +163,7 @@ for (const setup of [DESKTOP, PHONE]) {
     await showedCard(page, label);
     await noSidewaysScroll(page, label);
     if (setup === DESKTOP) await axeCheck(page, label);
+    await clickBringsUpTable(page, '#again', `${label} new table`);
     await finish(t, run, label);
   });
 }
@@ -229,19 +246,7 @@ async function playCentipede(page, { grabAt = 25, label }) {
       const reasons = await page.$$eval('.outcome .why0 li', (li) => li.length);
       assert.equal(reasons, zeros, `${label}: ${zeros} bot 0 votes but ${reasons} reasons`);
       seen.botZeros += zeros;
-      if (!seen.stayChecked) {
-        // "Stay & play" brings the table back to the top of the screen when it had scrolled off
-        seen.stayChecked = true;
-        await page.locator('#stay').scrollIntoViewIfNeeded();
-        const gameTop = () => page.$eval('.game', (e) => Math.round(e.getBoundingClientRect().top));
-        const before = await gameTop();
-        await page.click('#stay');
-        let after = await gameTop();
-        for (let i = 0; i < 30 && before < 0 && (after < 0 || after >= 40); i++) { await page.waitForTimeout(50); after = await gameTop(); } // smooth scroll on desktop
-        if (before < 0) assert.ok(after >= 0 && after < 40, `${label}: after Stay & play the table is at ${after}px, not the top of the screen`);
-        else assert.equal(after, before, `${label}: the page jumped after Stay & play though the table was in view`);
-        continue;
-      }
+      if (!seen.stayChecked) { seen.stayChecked = true; await clickBringsUpTable(page, '#stay', `${label} Stay & play`); continue; }
       await page.click('#stay');
       continue;
     }
@@ -270,6 +275,7 @@ for (const setup of [DESKTOP, PHONE]) {
     assert.match(await page.textContent('.debrief'), /The Commons started with 120/);
     await noSidewaysScroll(page, label);
     if (setup === DESKTOP) await axeCheck(page, label);
+    await clickBringsUpTable(page, '#again', `${label} new table`);
     await finish(t, run, label);
   });
 }

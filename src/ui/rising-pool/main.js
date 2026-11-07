@@ -11,7 +11,7 @@ import { keepFocus } from '../focus.js';
 import { announce } from '../announce.js';
 import {
   NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, frag, signed, toast,
-  achievementStore, progressHtml, achievementsCardHtml, rememberToggle, momentsCardHtml, wireCollapse,
+  achievementStore, progressHtml, achievementsCardHtml, rememberToggle, momentsCardHtml, wireCollapse, showTable,
 } from '../common.js';
 import { tableMoments } from './moments.js';
 import { pickMoments } from '../ideas.js';
@@ -66,6 +66,7 @@ function newSession({ watch = false } = {}) {
   if (watch) scheduleAuto();
   if (G.phase === 'broke') announce(sayBroke());
   else if (!watch && !firstLoad) announce(sayChoose());
+  if (!firstLoad) showTable({ ifHidden: true }); // New table, Watch, Play another table, Start over (Jason, 2026-11-08)
   firstLoad = false;
 }
 let firstLoad = true; // the page itself is read on arrival; announce from the first new table on
