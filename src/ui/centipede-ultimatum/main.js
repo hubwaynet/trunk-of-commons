@@ -652,6 +652,7 @@ function stayCard() {
 const END_TEXT = {
   'all-broke': 'Nobody could afford the amount any more. What was in the pool went back by what each player put in.',
   'too-few': 'Fewer than three players remained.',
+  'too-few-pool': 'Fewer than three players remained. What the sent-out grabber left in the pool was shared equally between them.',
   'commons-exhausted': 'The Commons ran out and could not pay the round bonus. The pool went back by what each player put in.',
   'round-cap': 'The table reached round 20, the last round. What was in the pool went back by what each player put in.',
   rejected: 'A split was rejected and the table ended.',
@@ -674,7 +675,7 @@ function endCard() {
   }).sort((a, b) => b.net - a.net);
   const best = rows[0];
   const card = h(`<div class="card debrief"><h2>Table over</h2>
-    <p>${END_TEXT[s.endReason] ?? ''} ${s.rounds.at(-1)?.round ?? 0} rounds.</p>
+    <p>${END_TEXT[s.endReason === 'too-few' && Object.values(s.finalShares ?? {}).some((x) => x > 0) ? 'too-few-pool' : s.endReason] ?? ''} ${s.rounds.at(-1)?.round ?? 0} rounds.</p>
     <table class="nets"><thead><tr><th>Player</th><th>Strategy</th><th>Ended</th><th>Net</th></tr></thead><tbody>
     ${rows.map(({ st, net, bal }) => `<tr${st.id === 'you' ? ' class="me"' : ''}><td><span class="who"><span class="dot" style="background:${st.hue}"></span>${esc(st.name)}</span></td>
       <td>${st.strategy ? esc(STRATEGIES[st.strategy].label) : '<span class="muted">you</span>'}</td><td>${bal}</td><td class="${net > 0 ? 'pos' : net < 0 ? 'neg' : ''}">${signed(net)}</td></tr>`).join('')}

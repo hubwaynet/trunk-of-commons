@@ -429,3 +429,18 @@ Jason: "the game should not simply end with a single 20th round but play out to 
 - **Tables rarely end with a grab, whatever the rule.** The rising amount outruns most players a round or two after the last split, so the table ends with a pool on it (median about 120 points), handed back by stake. Players who can't afford the amount can't grab it either.
 - **Players gain from playing on:** the two fair styles average +21 and +24 with no limit, against +17 and +18 now. Among bots, Patient and Pushover gain most (about +5.5 each); Edge Watcher and Pool Watcher lose about 2.5.
 - **Full distance** ("still at the table when round 20 ended") needs a new wording under any change, such as "still at the table when it ended".
+
+### Decided, and a last split simulated (Jason, 2026-11-08)
+
+- **Jason chose:** no round limit. The table ends when fewer than three players can afford the round's amount, when fewer than three remain, or when the Commons runs out. *Not built yet:* Full distance needs a new wording first.
+- **Bug fixed (agent):** when a rejection left fewer than three players, the points the sent-out grabber left in the pool vanished. This happened at 10% of bot tables, every time the table ended as "too few". Those points are now shared equally between the players who remain. The conservation test now also checks that the pool is empty when a table ends.
+- **A last split, simulated for Jason** (engine option `lastPool: 'grab'`). When the table ends with a pool on it and three or more players, the next player in turn divides it, even if they can't afford the amount, and everyone votes as usual. With the new ending:
+  - It happens at 88–100% of tables. The final pool's median is about 85–110 points.
+  - It mostly passes: rejected 2–10%, accepted 40–50%, welcomed 45–52%. The divider keeps more than an equal share at 10–25% of tables. Greed is still risky here: a rejected divider leaves the table and their points.
+  - Balance barely moves. Fair players gain about 1.5–2 points, and bots move by under 1.
+  - You divide the last split at 10–25% of tables if you play fairly.
+- **Full distance, if it meant** (fair styles / giver / coalition):
+  - "still at the table when it ended": 89–97% / 100% / 51%
+  - "…in round 15 or later": 77–88% / 11–17% / 36%
+  - "…in round 20 or later": 35–47% / 0–1% / 13–17%
+  - Before, it was 30–53% for the style that suits it.

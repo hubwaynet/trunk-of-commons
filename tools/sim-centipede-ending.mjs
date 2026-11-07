@@ -12,6 +12,7 @@ const VARIANTS = {
   'round limit 20 (now)': {},
   'no limit': { maxRound: Infinity },
   'no limit, ends when fewer than 3 can give': { maxRound: Infinity, minGivers: 3 },
+  'fewer than 3 can give, then a last split': { maxRound: Infinity, minGivers: 3, lastPool: 'grab' },
 };
 const LEARNER_KEYS = ['giver', 'stake, votes 2 on own', 'fair + sanctions', 'patient skimmer', 'coalition'];
 
@@ -34,11 +35,24 @@ function measure(s, you = null) {
     roundsAfter20: after20.length,
     thinAfter20: after20.filter((r) => acting(r) < 3).length,
     commons: s.commons.reserve,
+    final: (() => {
+      const u = s.rounds.at(-1)?.ultimatum;
+      if (!u?.final) return null;
+      const n = Object.keys(u.shares).length;
+      return { result: u.result, pool: u.pool, grabber: u.grabber, kept: u.shares[u.grabber], fair: Math.floor(u.pool / n), stake: u.stakes[u.grabber] ?? 0 };
+    })(),
   };
   if (you) {
     const p = s.players.find((x) => x.id === you);
     const mine = s.rounds.flatMap((r) => r.moves.filter((m) => m.id === you));
     Object.assign(out, { net: p.balance - p.start, atEnd: p.active, turns: mine.length, passes: mine.filter((m) => m.move === 'pass').length });
+    // candidate wordings for Full distance once round 20 is no longer the end
+    out.fd = {
+      'at the table when it ended': p.active,
+      'at the end, and the money ran out (not too few)': p.active && s.endReason !== 'too-few',
+      'at the end of a table of 15+ rounds': p.active && rounds >= 15,
+      'at the end of a table of 20+ rounds': p.active && rounds >= 20,
+    };
   }
   return out;
 }
@@ -55,7 +69,18 @@ function summarise(ms, title) {
   const long = ms.filter((m) => m.roundsAfter20 > 0);
   if (long.length) lines.push(`    tables past 20: ${mean(long.map((m) => m.roundsAfter20)).toFixed(1)} extra rounds on average, of which ${pct(long.reduce((a, m) => a + m.thinAfter20, 0), long.reduce((a, m) => a + m.roundsAfter20, 0))} had fewer than 3 players able to act; ${mean(long.map((m) => m.splitsAfter20)).toFixed(1)} splits after round 20`);
   lines.push(`    rounds with fewer than 3 able to act: ${pct(ms.reduce((a, m) => a + m.thin, 0), ms.reduce((a, m) => a + m.rounds, 0))} of all rounds; Commons left median ${median(ms.map((m) => m.commons))}`);
+  const fin = ms.filter((m) => m.final);
+  if (fin.length) {
+    const res = {};
+    for (const m of fin) res[m.final.result] = (res[m.final.result] ?? 0) + 1;
+    lines.push(`    last split at ${pct(fin.length, n)} of tables: pool median ${median(fin.map((m) => m.final.pool))}; ${Object.entries(res).map(([k, v]) => `${k} ${pct(v, fin.length)}`).join(', ')}; divider kept more than an equal share ${pct(fin.filter((m) => m.final.kept > m.final.fair + 1).length, fin.length)}`);
+    if (ms[0].net !== undefined) {
+      const mine = fin.filter((m) => m.final.grabber === 'you');
+      lines.push(`    you divided the last split at ${pct(mine.length, n)} of tables`);
+    }
+  }
   if (ms[0].net !== undefined) {
+    lines.push('    Full distance if it meant: ' + Object.keys(ms[0].fd).map((k) => `${k} ${pct(ms.filter((m) => m.fd[k]).length, n)}`).join('; '));
     lines.push(`    you: net mean ${mean(ms.map((m) => m.net)).toFixed(1)}, median ${median(ms.map((m) => m.net))}; at the table at the end ${pct(ms.filter((m) => m.atEnd).length, n)}; your turns median ${median(ms.map((m) => m.turns))}, 90th pct ${q(ms.map((m) => m.turns), 0.9)}, of which passes median ${median(ms.map((m) => m.passes))}`);
   }
   return lines.join('\n');

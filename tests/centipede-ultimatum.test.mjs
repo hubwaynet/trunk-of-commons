@@ -132,6 +132,7 @@ test('simulated tables conserve points and finish', () => {
     const s = playTable(keys, 3000 + t);
     assert.equal(s.status, 'ended');
     assert.equal(total(s), 6 * 20 + 120, `table ${t}`);
+    assert.equal(s.pool, 0, `table ${t}: ${s.pool} points left in the pool when it ended (${s.endReason})`);
     assert.ok(s.players.every((p) => p.balance >= 0), `table ${t}`);
   }
 });
@@ -197,6 +198,23 @@ test('a grabber sent out by a rejection leaves all their points in the pool', ()
   assert.equal(s.pool, s.rounds.at(-1).ultimatum.forfeit);
   assert.ok(s.pool > 0);
   assert.equal(total(s), before);
+});
+
+test('when a rejection leaves too few players, what the grabber left is shared between them', () => {
+  const three = ['a', 'b', 'c'];
+  let s = createGame({ players: three.map((id) => ({ id })), commonsReserve: 120 });
+  for (const id of three) s = act(s, id, 'give');
+  s = act(s, 'a', 'grab');
+  s = divide(s, splitBy(s.pool, { a: 1, b: 0, c: 0 }));
+  s = vote(s, { a: 2, b: 0, c: 0 });
+  const left = s.pool;
+  assert.ok(left > 0);
+  s = stay(s, { b: true, c: true });
+  assert.equal(s.endReason, 'too-few');
+  assert.equal(s.pool, 0);
+  assert.equal(s.finalShares.b + s.finalShares.c, left);
+  assert.ok(Math.abs(s.finalShares.b - s.finalShares.c) <= 1, 'shared equally');
+  assert.equal(s.players.reduce((a, p) => a + p.balance, 0) + s.commons.reserve, 3 * 20 + 120);
 });
 
 test('a split judged in the last round ends the table there (no stay step for a round 21)', () => {

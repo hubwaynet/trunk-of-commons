@@ -24,18 +24,22 @@ export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptabl
  *   what each put in. A split judged in the last round ends the table there.
  * minGivers: the table ends before a round when fewer than this many players can afford to give
  *   (1, the rule so far: nobody can give). Kept as an option to simulate other endings.
+ * lastPool: what happens to a pool still on the table when it ends with three or more players.
+ *   'refund' (default): it goes back by what each put in. 'grab': one last split instead. The next
+ *   player in turn divides it, even if they can't afford the amount, and everyone votes as usual
+ *   (simulated for Jason, 2026-11-08).
  * onReject: what else a rejected split does.
  *   'end'        the table ends (2018 rule)
  *   'continue'   play carries on
  *   'grabberOut' the grabber leaves the table and play carries on (default)
  */
 export function createGame({
-  players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = 20, minGivers = 1,
+  players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = 20, minGivers = 1, lastPool = 'refund',
   onReject = 'grabberOut', firstGrabRound = 1, rejectedPool = 'refund', welcomeAt = 'atLeast', welcomeBonus = 1, grabOpens = 'afterLap', rejectedGrabberPoints = 'pool',
 }) {
   if (!players || players.length < minPlayers) throw new Error(`Need at least ${minPlayers} players`);
   return {
-    seed, startBalance, minPlayers, maxRound, minGivers, onReject, firstGrabRound, rejectedPool, welcomeAt, welcomeBonus, grabOpens, rejectedGrabberPoints,
+    seed, startBalance, minPlayers, maxRound, minGivers, lastPool, onReject, firstGrabRound, rejectedPool, welcomeAt, welcomeBonus, grabOpens, rejectedGrabberPoints,
     turnsSinceSplit: 0, // gives and passes since the last split (or the start)
     round: 1,
     phase: 'turn',
@@ -120,11 +124,11 @@ function completeRound(s) {
   const givers = s.current.moves.filter((m) => m.move === 'give').length;
   if (givers === 0) {
     const rec = { ...s.current, result: 'stalled', topUp: 0, poolAfter: s.pool };
-    return endSeason({ ...s, rounds: [...s.rounds, rec], current: null }, 'all-broke');
+    return finish({ ...s, rounds: [...s.rounds, rec], current: null }, 'all-broke');
   }
   if (s.commons.reserve < givers) {
     const rec = { ...s.current, result: 'complete', topUp: 0, poolAfter: s.pool };
-    return endSeason({ ...s, rounds: [...s.rounds, rec], current: null }, 'commons-exhausted');
+    return finish({ ...s, rounds: [...s.rounds, rec], current: null }, 'commons-exhausted');
   }
   const next = {
     ...s,
@@ -140,10 +144,10 @@ function completeRound(s) {
 
 /** Before a round starts: end the table if nobody can give, or the round cap is passed. */
 function checkStart(s) {
-  if (s.round > s.maxRound) return endSeason(s, 'round-cap');
+  if (s.round > s.maxRound) return finish(s, 'round-cap');
   const givers = activeIds(s).filter((id) => canGive(s, id)).length;
-  if (givers === 0) return endSeason(s, 'all-broke');
-  if (givers < s.minGivers) return endSeason(s, 'few-can-give');
+  if (givers === 0) return finish(s, 'all-broke');
+  if (givers < s.minGivers) return finish(s, 'few-can-give');
   return s;
 }
 
@@ -151,6 +155,20 @@ function checkStart(s) {
  * The table ends with a pool still on it: it goes back to each player in proportion to what
  * they put in, like a rejected pool (Jason, 2026-11-05; it was shared equally before).
  */
+/** The table is over: end it, or first open one last split of the pool (lastPool 'grab'). */
+function finish(s, reason) {
+  const ids = activeIds(s);
+  if (s.lastPool !== 'grab' || s.pool <= 0 || ids.length < s.minPlayers) return endSeason(s, reason);
+  const g = ids[0]; // the next player in turn
+  return {
+    ...s,
+    phase: 'divide',
+    finalSplit: reason,
+    current: { round: s.round, moves: [{ id: g, move: 'grab', amount: 0, final: true }] },
+    ultimatum: { round: s.round, grabber: g, pool: s.pool, stakes: { ...s.stakes }, shares: null, votes: null, final: true },
+  };
+}
+
 function endSeason(s, reason) {
   const ids = activeIds(s);
   const back = s.pool > 0 ? splitBy(s.pool, Object.fromEntries(ids.map((id) => [id, s.stakes[id] ?? 0]))) : {};
@@ -262,6 +280,7 @@ export function vote(s, votes) {
       next.rounds = [...next.rounds.slice(0, -1), { ...next.rounds.at(-1), ultimatum: { ...record, forfeit: left } }];
     }
   }
+  if (s.finalSplit) return endSeason(next, s.finalSplit); // the last split: the table ends as it was going to
   // The last round is over: end here rather than ask everyone to stay for a round that won't come.
   if (s.round >= s.maxRound) return endSeason(next, 'round-cap');
   return { ...next, phase: 'stay' };
@@ -285,7 +304,9 @@ export function stay(s, decisions) {
   const at = rev.indexOf(last.grabber);
   const order = [...rev.slice(at + 1), ...rev.slice(0, at + 1)];
   const next = { ...s, players, order, round: r + 1, turnIndex: 0, phase: 'turn' };
-  if (players.filter((p) => p.active).length < s.minPlayers) return { ...next, phase: 'ended', status: 'ended', endReason: 'too-few' };
+  // A pool left by a sent-out grabber goes to the players who remain. Nobody has a stake in it,
+  // so it is shared equally. (Fix, 2026-11-08: before, it vanished when too few remained.)
+  if (players.filter((p) => p.active).length < s.minPlayers) return endSeason(next, 'too-few');
   return checkStart(next);
 }
 
