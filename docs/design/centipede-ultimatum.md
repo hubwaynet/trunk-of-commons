@@ -409,3 +409,23 @@ Results (before → after):
 - Jason, the same day: on his iPhone the table, status and turn card all fit, so the status card stays.
 - **Stay & play.** After a split's results, the Stay button now reads "Stay & play" and scrolls back up to the table when its top has scrolled off the screen (Jason, 2026-11-08). It's the shared `showTable` helper. Without it, a phone was left looking at the old results while the next round started. Desktop scrolls too when the results were long enough to push the table up. Rising Pool's "Stay for round N" is unchanged, because its button and table already share the screen.
 - **New table brings up the table too** (Jason, 2026-11-08), in both games: New table, Watch the bots, and the end card's New table (in Rising Pool also Play another table and Start over). The rule for all of these and Stay & play: scroll only when part of the table picture is off the screen.
+
+## Finding: playing on past round 20 (agent, 2026-11-08; for Jason to decide)
+
+Jason: "the game should not simply end with a single 20th round but play out to completion with a grab & insufficient players or an exhaustion of resources." The round limit was his fix on 2026-11-05 for long tables that dragged on (see "Long tables" above). `tools/sim-centipede-ending.mjs` compares three endings: 4,000 bot tables, plus 1,500 tables for each of five styles in the player's seat. The new engine option `minGivers` (default 1, unchanged rules) makes the third one possible.
+
+| | Round limit 20 (now) | No limit | No limit; ends when fewer than 3 can afford the amount |
+|---|---|---|---|
+| Bot tables: median rounds (90th percentile, longest) | 15 (20, 20) | 15 (45, 73) | 11 (14, 22) |
+| Bot tables past round 20 / past 30 | — | 33% / 25% | 0% / 0% |
+| Rounds where fewer than 3 players can give or grab | 27% | 46% (88% of rounds after round 20) | 15% |
+| Fair player (stake split, votes 2): median rounds (90th, longest) | 20 (20, 20) | 23 (39, 60) | 17 (25, 37) |
+| Fair player: their turns, median (90th) | 16 (19) | 20 (35) | 15 (22) |
+| Fair player: net points, mean | +17.9 | +24.2 | +18.0 |
+| Last round ends with a split (bots / fair player) | 30% / 32% | 15% / 3% | 5% / 4% |
+| How bot tables end | nobody can give 53%, round 20 37%, too few 10% | nobody can give 82%, too few 15%, Commons empty 4% | fewer than 3 can give 73%, nobody can give 22%, too few 5% |
+
+- **Without a limit, the long tail comes back.** A quarter of bot tables pass round 30. After round 20, most rounds have only one or two players who can still afford the amount while the rest pass, though about 4–9 more splits do happen at those long tables.
+- **Tables rarely end with a grab, whatever the rule.** The rising amount outruns most players a round or two after the last split, so the table ends with a pool on it (median about 120 points), handed back by stake. Players who can't afford the amount can't grab it either.
+- **Players gain from playing on:** the two fair styles average +21 and +24 with no limit, against +17 and +18 now. Among bots, Patient and Pushover gain most (about +5.5 each); Edge Watcher and Pool Watcher lose about 2.5.
+- **Full distance** ("still at the table when round 20 ended") needs a new wording under any change, such as "still at the table when it ended".

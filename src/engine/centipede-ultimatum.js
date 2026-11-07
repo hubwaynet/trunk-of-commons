@@ -22,18 +22,20 @@ export const VOTES = [0, 1, 2]; // unacceptable, acceptable, more than acceptabl
  *   'keep' — they leave with their points (the earlier rule).
  * maxRound: the table ends after this round (20, Jason 2026-11-05). Any pool left goes back by
  *   what each put in. A split judged in the last round ends the table there.
+ * minGivers: the table ends before a round when fewer than this many players can afford to give
+ *   (1, the rule so far: nobody can give). Kept as an option to simulate other endings.
  * onReject: what else a rejected split does.
  *   'end'        the table ends (2018 rule)
  *   'continue'   play carries on
  *   'grabberOut' the grabber leaves the table and play carries on (default)
  */
 export function createGame({
-  players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = 20,
+  players, seed = 0, startBalance = 20, commonsReserve = 120, minPlayers = 3, maxRound = 20, minGivers = 1,
   onReject = 'grabberOut', firstGrabRound = 1, rejectedPool = 'refund', welcomeAt = 'atLeast', welcomeBonus = 1, grabOpens = 'afterLap', rejectedGrabberPoints = 'pool',
 }) {
   if (!players || players.length < minPlayers) throw new Error(`Need at least ${minPlayers} players`);
   return {
-    seed, startBalance, minPlayers, maxRound, onReject, firstGrabRound, rejectedPool, welcomeAt, welcomeBonus, grabOpens, rejectedGrabberPoints,
+    seed, startBalance, minPlayers, maxRound, minGivers, onReject, firstGrabRound, rejectedPool, welcomeAt, welcomeBonus, grabOpens, rejectedGrabberPoints,
     turnsSinceSplit: 0, // gives and passes since the last split (or the start)
     round: 1,
     phase: 'turn',
@@ -139,7 +141,9 @@ function completeRound(s) {
 /** Before a round starts: end the table if nobody can give, or the round cap is passed. */
 function checkStart(s) {
   if (s.round > s.maxRound) return endSeason(s, 'round-cap');
-  if (!activeIds(s).some((id) => canGive(s, id))) return endSeason(s, 'all-broke');
+  const givers = activeIds(s).filter((id) => canGive(s, id)).length;
+  if (givers === 0) return endSeason(s, 'all-broke');
+  if (givers < s.minGivers) return endSeason(s, 'few-can-give');
   return s;
 }
 
