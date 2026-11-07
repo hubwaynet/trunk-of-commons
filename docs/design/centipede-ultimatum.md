@@ -490,3 +490,14 @@ Jason asked whether a welcomed last split should let the table carry on, since t
 ### How it works in three columns (Jason, 2026-11-08)
 
 On wider screens, How it works now has three columns: the first three instructions (take turns, the grabber divides, rejection) stacked in the first, "Can't afford the amount" in the second, and "Free riders" in the third. A horizontal rule separates them from the ring legend below. Phones show one column in the same order. The rule above the ring legend is shared, so Rising Pool has it too.
+
+### Finding: the Commons runs out more often now (agent, 2026-11-08)
+
+Jason's table reached round 39 and ended with the Commons empty. The three survivors (Spiteful, Mirror and Jason) held all 240 points: the 120 the six players started with plus the Commons' whole 120. Over 3,000 simulated tables per style, 39 rounds matched the longest seen.
+
+With closing splits carrying on, a cooperative core can keep going until the Commons can't pay the round bonus:
+- The Commons now runs out at 20–26% of fair-play tables, against 3–4% before carrying on.
+- It runs out at 12% for the giver and 4% of bot tables.
+- The survivors hold every point at 5–7% of fair-play tables.
+
+The end card had said the Commons "rarely runs out here". It now says whether this table ran out and why.

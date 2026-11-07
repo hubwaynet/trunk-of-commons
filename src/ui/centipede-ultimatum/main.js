@@ -720,7 +720,8 @@ function commonsSummary(s) {
   const net = s.players.reduce((a, p) => a + p.balance - p.start, 0);
   return `The Commons started with ${c.start}, paid ${c.paidOut} in round and welcome bonuses, took back ${c.received} in vote tokens, and finished with ${c.reserve}. `
     + `Together the players finished ${signed(net)} on where they started: every point the table gained came out of the Commons. `
-    + (s.endReason === 'commons-exhausted' ? 'This time it ran out, which is rare here: usually the pressure is the rising amount.' : 'It rarely runs out here; this game\'s pressure is the rising amount.');
+    // Since closing splits can carry on (2026-11-08), the Commons runs out at about 1 fair table in 4-5
+    + (s.endReason === 'commons-exhausted' ? 'This time it ran out: the table kept going until the Commons had nothing left to pay.' : s.endReason === 'too-few' ? 'It didn\'t run out this time.' : 'It didn\'t run out this time: the rising amount ended the table first.');
 }
 
 function endCard() {
