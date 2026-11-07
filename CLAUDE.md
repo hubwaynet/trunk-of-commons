@@ -31,10 +31,12 @@ These are the key rules settled with Jason:
 - Reputation uses a fixed threshold: green if the player's average choice is at least medium. Relative reputation is reserved for a later, more complex game.
 - There are five achievements, ordered easiest to hardest by simulated odds. Earning all five plays fireworks and unlocks Game 2. The check uses localStorage key `trunk.risingPool.achievements`.
 
-## Game 2, Centipede & Ultimatum (playable, Nov 2026)
+## Game 2, Centipede & Ultimatum (done, Nov 2026)
 
 - **The current rules are summarised at the top of `docs/design/centipede-ultimatum.md`.** The rest of that file is a dated decision log.
 - Engine options (`createGame`) default to Jason's decisions. Older variants are kept as options so simulations can compare them.
+- No last round (Jason, 2026-11-08). When fewer than three players can afford the amount, the pool goes to a **closing split**, divided by the next player in turn. If it's welcomed and three or more can then afford the next round, play carries on; otherwise the table is over. A cooperative table can now run the Commons dry, at about 1 fair table in 4 or 5. When it does, the debrief says so ("Rules for what may be taken", Ostrom).
+- Simulators also include `tools/sim-centipede-ending.mjs`, which compares the ways a table can end.
 - Bots: 11 strategies with social voting (solidarity, turn-taking, dominance, grudges, free-rider sanctions). They read everything from `botView`, which also computes free riders.
 - Simulators: `tools/sim-centipede.mjs` (bot tables) and `tools/sim-centipede-achievements.mjs` (learner styles for the human seat, including Jason's exploit patterns: coalition, dominator, skimmer).
 - Locked behind the five Rising Pool achievements; `?preview` opens it (Jason is fine with this). Six achievements; all six unlock Game 3. Unlocks are permanent and stored by `src/ui/progress-store.js`; each game's Reset clears only its achievements.
@@ -43,6 +45,8 @@ These are the key rules settled with Jason:
 
 ## Next
 
-The decisions from the 2026-11-06 review are logged in both design docs under "Review decisions", and all are built. Colour must never be the only cue on either table (Jason, 2026-11-06): use shape or line style and a word as well (rings, chips, tags), and check new visuals in greyscale.
+Games 1 and 2 are done for now: bots with strategies and the educational debrief are enough (Jason, 2026-11-08). The decisions from the 2026-11-06 review are logged in both design docs under "Review decisions", and all are built. Colour must never be the only cue on any table (Jason, 2026-11-06): use shape or line style and a word as well (rings, chips, tags), and check new visuals in greyscale.
+
+Later, with many players at many tables, the commons may need connecting between tables, alongside player profiles that carry between tables (Jason, 2026-11-08). Ostrom's eighth design principle, nested layers of organisation, may be a guide (agent's note, not decided).
 
 Then Game 3, the Wheel of Fortune (working title), which needs headless simulation first. Start from `docs/design/wheel-of-fortune.md`: the 2017 rules in brief and the questions to settle with Jason (nothing decided yet). After that comes the larger framework (token economy, governance), followed by legal review and onboarding.

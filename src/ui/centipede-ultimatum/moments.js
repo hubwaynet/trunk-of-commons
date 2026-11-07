@@ -128,6 +128,21 @@ export function tableMoments(game, { names, reasons = {} }) {
       line: `Your split in round ${welcomed.round} was welcomed (average ${welcomed.voteAvg.toFixed(2)}), and everyone got a bonus point.` });
   }
 
+  // 0. The Commons ran dry (Jason, 2026-11-08: "it should spell out what happened"). Always shown.
+  if (game.endReason === 'commons-exhausted') {
+    const c = game.commons;
+    const left = game.players.filter((p) => p.active).map((p) => p.id);
+    const held = left.reduce((a, id) => a + game.players.find((p) => p.id === id).balance, 0);
+    const all = game.players.reduce((a, p) => a + p.start, 0) + c.start;
+    const lastR = game.rounds.at(-1)?.round ?? 0;
+    const count = ['', 'one', 'two', 'three', 'four', 'five', 'six'][left.length] ?? String(left.length);
+    const holders = left.includes('you') ? `the ${count} of you` : L(left);
+    const took = c.reserve === 0 ? `The players took all ${c.start} points it started with`
+      : `It paid out ${c.paidOut} and took back ${c.received}, leaving ${c.reserve}: too little for the next round's bonus`;
+    out.push({ idea: 'commonsDrained', priority: 0, you: true,
+      line: `The Commons ran dry in round ${lastR}. ${cap(L(left))} kept the table going: every lap the Commons paid a point to each giver, and a bonus for each welcomed split, until it couldn't pay any more. ${took}${held === all ? `, and ${holders} finished holding every point in the game` : ''}.` });
+  }
+
   // 8. The rising amount ended the table
   const lastRound = game.rounds.at(-1)?.round ?? 0;
   if (game.endReason === 'all-broke' || game.endReason === 'few-can-give') {

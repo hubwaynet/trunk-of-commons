@@ -79,6 +79,11 @@ export const IDEAS = {
     text: 'Paying to reward a fair split is positive reciprocity. It builds the trust that lets a group keep building, rather than grabbing.',
     source: { label: 'Ostrom and Walker, Trust and Reciprocity (2003)', url: 'https://www.russellsage.org/publications/book/trust-and-reciprocity' },
   },
+  commonsDrained: {
+    name: 'Rules for what may be taken',
+    text: "Trust between players doesn't protect what they share. Ostrom found that commons last when there are rules for how much may be taken, suited to local conditions, and the people using them help make those rules. Without such a rule, a table that cooperates well can still use its Commons up.",
+    source: { label: 'Ostrom, Governing the Commons (1990)', url: 'https://en.wikipedia.org/wiki/Elinor_Ostrom' },
+  },
   risingAmount: {
     name: 'The rising amount',
     text: "The rising amount is this game's real pressure. Every round costs one more, so the pool has to be shared out before the players run dry. Game 1 teaches the finite Commons; here the limit is what players can keep paying.",

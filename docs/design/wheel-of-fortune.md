@@ -89,6 +89,15 @@ The game also asks who the hero is: the player who shared the most and showed ot
 - **The seat palette.** The six seat colours come from the 2017 RGB colour wheel, one per seat at a six-player table. Review item M6 still applies: white numbers on chartreuse, orange and spring green fall below 4.5:1.
 - **Accessibility rule.** Colour must never be the only cue (Jason, 2026-11-06). Use shape or line style, plus a word.
 
+## Lessons from Game 2's ending (2026-11-08)
+
+- **How a table ends shapes the whole game.** Game 2's fixed last round felt abrupt. Playing on to a natural end brought back long, dull tails. And the money sitting in the pool made "can players still pay?" the wrong test. Simulate the ending early.
+- **A cooperative group can drain a shared reserve.** Once Game 2's tables could carry on, the Commons ran dry at about 1 fair table in 4 or 5. Measure reserve exhaustion and stuck pools in Game 3's simulations from the start.
+
+## Later (Jason, 2026-11-08)
+
+With many players at many tables, the commons may need connecting between tables, alongside player profiles that carry between tables. This is not for Game 3's first version, but it bears on question 6 (reputation carrying over) and question 7 (points between tables).
+
 ## Questions to settle with Jason
 
 These are prompts for the first session, not decisions. Put them one at a time, each with a recommendation and the reason for it.

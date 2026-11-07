@@ -90,3 +90,23 @@ test('every idea has a name, a sentence and a checked source (or none, by design
     else assert.equal(k, 'risingAmount');
   }
 });
+
+test('Game 2: a Commons run dry is always named, with what the table took', () => {
+  const play = (reserve) => {
+    let s = cg2({ players: ids.map((id) => ({ id })), commonsReserve: reserve });
+    while (!s.finalSplit) s = act(s, currentPlayer(s), 'give');
+    s = divide(s, splitBy(s.pool, { you: 1, a: 1, b: 1, c: 1 }));
+    return vote(s, { you: 2, a: 2, b: 2, c: 2 });
+  };
+  // 4 in reserve: round 1's bonus empties it; in round 2 it can't pay
+  const dry = play(4);
+  assert.equal(dry.endReason, 'commons-exhausted');
+  const m = moments2(dry, { names });
+  const d = m.find((x) => x.idea === 'commonsDrained');
+  assert.equal(d.line, 'The Commons ran dry in round 2. You, Wren, Moss and Fig kept the table going: every lap the Commons paid a point to each giver, and a bonus for each welcomed split, until it couldn\'t pay any more. The players took all 4 points it started with, and the four of you finished holding every point in the game.');
+  assert.equal(pickMoments(m)[0].idea, 'commonsDrained');
+  // 3 in reserve: too little for round 1's four bonuses, so 3 are left over
+  const short = moments2(play(3), { names }).find((x) => x.idea === 'commonsDrained');
+  assert.match(short.line, /leaving 3: too little for the next round's bonus\.$/);
+  assert.ok(IDEAS.commonsDrained.source.url.startsWith('https://'));
+});
