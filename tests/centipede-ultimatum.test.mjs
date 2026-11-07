@@ -13,6 +13,7 @@ const giveAll = (s) => { for (const id of ids) s = act(s, id, 'give'); return s;
 const total = (s) => s.players.reduce((a, p) => a + p.balance, 0) + s.pool + s.commons.reserve;
 const bal = (s, id) => s.players.find((p) => p.id === id).balance;
 const shares = (o) => o;
+const activeIdsOf = (s) => s.players.filter((p) => p.active).map((p) => p.id);
 
 test('a completed round adds 1 per giver and the pool carries over', () => {
   let s = giveAll(fresh());
@@ -217,7 +218,7 @@ test('when a rejection leaves too few players, what the grabber left is shared b
   assert.equal(s.players.reduce((a, p) => a + p.balance, 0) + s.commons.reserve, 3 * 20 + 120);
 });
 
-test('default (Jason, 2026-11-08): when fewer than three can afford the amount, the next player divides one last split', () => {
+test('default (Jason, 2026-11-08): when fewer than three can afford the amount, the next player divides a closing split', () => {
   let s = fresh({}, { a: 1, b: 1, c: 5, d: 5 });
   s = giveAll(s); // round 1: pool 4 + 4. Round 2 needs 2: only c and d can afford it
   assert.equal(s.phase, 'divide');
@@ -242,6 +243,18 @@ test('default (Jason, 2026-11-08): when fewer than three can afford the amount, 
   assert.equal(bal(rejected, 'a'), 0);
   assert.equal(rejected.players.find((p) => p.id === 'a').active, false);
   assert.equal(total(rejected), before);
+  // welcomed, with three or more able to afford round 2: play carries on after the stay step
+  const welcomed = vote(s, { a: 2, b: 2, c: 2, d: 2 });
+  assert.equal(welcomed.status, 'playing');
+  assert.equal(welcomed.phase, 'stay');
+  assert.equal(welcomed.finalSplit, null);
+  const next = stay(welcomed, {});
+  assert.equal(next.phase, 'turn');
+  assert.equal(next.round, 2);
+  assert.ok(activeIdsOf(next).filter((id) => bal(next, id) >= 2).length >= 3);
+  // without carrying on, a welcomed closing split ends the table
+  const never = vote(divide(giveAll(fresh({ continueAfterLast: 'never' }, { a: 1, b: 1, c: 5, d: 5 })), splitBy(8, { a: 1, b: 1, c: 1, d: 1 })), { a: 2, b: 2, c: 2, d: 2 });
+  assert.equal(never.status, 'ended');
   // the earlier rule hands the pool back instead
   const old = giveAll(fresh({ lastPool: 'refund' }, { a: 1, b: 1, c: 5, d: 5 }));
   assert.equal(old.status, 'ended');

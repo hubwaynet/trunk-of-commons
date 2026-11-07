@@ -18,7 +18,8 @@ This section describes the game as it stands. Everything below it is the dated l
 - **Rejection:** the pool goes back by what each put in, the grabber leaves the table, and everything the grabber holds stays in the pool for the others.
 - **After a split:** each player stays or sits out for good. The next round runs in reverse order, starting with the player after the divider, so the divider goes last.
 - **End of the table:** there's no last round (Jason, 2026-11-08). The table ends when fewer than three players can afford the round's amount, when fewer than three remain, or when the Commons can't pay the round bonus.
-  - **The last split:** a pool still on the table then goes to one last split. The next player in turn divides it, even if they can't afford the amount, and everyone votes as usual. A rejected divider leaves, and their points are shared equally by the others.
+  - **The closing split:** a pool still on the table then goes to a closing split. The next player in turn divides it, even if they can't afford the amount, and everyone votes as usual. A rejected divider leaves, and their points are shared equally by the others.
+  - **Welcomed, the table carries on** (Jason, 2026-11-08): if the closing split is welcomed and three or more players can then afford the next round, play goes on after the usual stay step. Accepted, rejected, or welcomed with fewer than three able to pay, the table is over. It never carries on once the Commons has run out.
   - With fewer than three players there's no last split. A sent-out grabber's points left in the pool are shared equally by those who remain.
 - **Free riders:** two free 0s. A free 0 is a 0 vote on a fair split that passed anyway: the voter got at least what they put in and close to an equal share, nobody else was short-changed, and the divider kept no more than a fair share. A 0 against an unfair split is a protest, not a free 0 (Jason, 2026-11-06). Free riders can be cut without the solidarity voters defending them.
 - **Access:** locked behind all five Rising Pool achievements (`?preview` opens it). Six achievements, ordered easiest first. All six unlock Game 3. Unlocks are permanent, and Reset clears only that game's achievements.
@@ -475,3 +476,13 @@ Jason asked whether a welcomed last split should let the table carry on, since t
   - Rounds where fewer than three can act rise from 22% to 25%.
   - Fair players gain about 3 points. Full distance rises from 34–37% to 47–48% for fair styles, and from 0% to 16% for the giver.
 - **Carry on if passed:** almost every table carries on, again and again. Medians are 24–26 rounds, the longest 56, and thin rounds reach 32–36%: much of the old drag returns.
+
+### Built: the closing split carries on when welcomed (Jason, 2026-11-08)
+
+- Jason chose "carry on if welcomed", under the name **closing split** (it may not be the last). `continueAfterLast: 'welcomed'` is now the default.
+- On the page:
+  - Every card, the table and the status card say "Closing split".
+  - The note on the divide, wait and vote cards gives the rule: welcome it and, if three or more can then afford the next round, play carries on; otherwise the table is over.
+  - The result card and the spoken result say which happened. A welcomed closing split that carries on goes to the usual Stay & play step.
+  - In the round log it's a "Close" column, with CLOSE against the divider. The end card says how the closing split went ("accepted but not welcomed", for example).
+- Achievement odds with the closing split (style that suits each one): Nobody short-changed 100%, Steady hand 95%, Welcomed 91%, One clean grab 78%, Full distance 48% (was 37% without carrying on), Your vote counted 46%. Full distance and Your vote counted are now about equally hard; Full distance stays last.
