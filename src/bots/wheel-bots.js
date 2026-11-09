@@ -7,7 +7,7 @@
 // has shared), the wheel, and the boost fund. Use the supplied rng, never Math.random.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { whiteId, blackId, seatAngle, turnTo, quotas, UNIT } from '../engine/wheel.js';
+import { whiteId, blackId, seatAngle, turnTo, quotas, feePct, UNIT } from '../engine/wheel.js';
 import { shuffle } from '../engine/rng.js';
 
 export const FAMILIES = {
@@ -29,6 +29,8 @@ export function botView(s, id) {
     minSpeed: s.minSpeed,
     reverseAbove: s.reverseAbove,
     voteSpeed: s.voteSpeed,
+    voteCost: s.voteCost,
+    voteCostAgainst: s.voteCostAgainst,
     slowest: s.slowest,
     white: whiteId(s),
     heldFor: s.t - s.holderSince, // seconds the current player has had the white arrow in their segment
@@ -94,11 +96,41 @@ export function arrowAt(v, angle, id) {
 }
 /** Bots keep a reserve: they stop paying to steer below this share of the stake. */
 const canPay = (v, reserve) => v.me.balance >= reserve * v.stake;
-/** Bring the white arrow to a player: hurry it when it is next, hold it back while it is there. */
-export function bring(v, id, strength, reserve = 0.25) {
+/**
+ * What one second of the white arrow on `id` is worth to the bot, in tokens: the reward stream (what
+ * the black side pays this second) times the part of it that ends up with the bot. For itself, that
+ * is what it keeps after sharing and the fee; for someone else, the slice of their shares that comes
+ * to the bot (with the boost), if the bot is among the people they share with.
+ */
+export function arrowWorth(v, id) {
+  const reward = v.players.reduce((a, p) => a + p.owes, 0) / UNIT;
+  const p = v.players.find((x) => x.id === id);
+  const others = Math.max(0, Math.min(p.people, v.n) - 1);
+  const f = others ? (p.share * others) / (10 * (others + 1)) : 0;
+  if (id === v.id) return reward * (1 - f) * (1 - feePct(f) / 100);
+  if (!others) return 0;
+  const d = (a, b) => { const x = (((a - b) % v.n) + v.n) % v.n; return Math.min(x, v.n - x); };
+  const me = v.players.find((x) => x.id === v.id);
+  const reach = [...v.players].filter((x) => x.id !== p.id).sort((a, b) => d(a.pos, p.pos) - d(b.pos, p.pos)).slice(0, others);
+  if (!reach.some((x) => x.id === me.id)) return 0;
+  return (reward * f * (1 + others / (v.n - 1) / 10)) / others;
+}
+/**
+ * Holding pays only if slowing the wheel by a degree buys more than it costs (Jason, 2026-11-09:
+ * "Smarter bots, not protection"). Slowing by k degrees a second keeps the arrow there about k/speed
+ * of a second longer each second, at k times the price of a vote against the wheel.
+ */
+export const holdPays = (v, id) => arrowWorth(v, id) / Math.max(1, v.minSpeed) > (v.voteCostAgainst ?? v.voteCost ?? 1);
+/**
+ * Bring the white arrow to a player: hurry it when it is next; hold it back while it is there, but
+ * only when that pays (unless `always`, the stubborn holder kept for learner styles and comparisons).
+ */
+export function bring(v, id, strength, reserve = 0.25, always = false) {
   if (!canPay(v, reserve)) return 0;
   const at = arrowAt(v, v.theta, id);
-  return at === 'next' ? v.dir * strength : at === 'on' ? -v.dir * strength : 0;
+  if (at === 'next') return v.dir * strength;
+  if (at === 'on' && (always || holdPays(v, id))) return -v.dir * strength;
+  return 0;
 }
 /** The poorest player, if below `below` of the stake. */
 const poorest = (v, below) => {
@@ -162,13 +194,13 @@ export const STRATEGIES = {
   },
   selfSteerer: {
     label: 'Self-Steerer', family: 'steerer',
-    summary: 'Pays to hurry the white arrow towards itself and to hold it back while it is there. Shares half, the most it can keep.',
-    tell: 'Votes as the white arrow nears it, and against the wheel while it has it.',
+    summary: 'Pays to hurry the white arrow towards itself, and to hold it back while it is there when that pays more than it costs. Shares half, the most it can keep.',
+    tell: 'Votes as the white arrow nears it; against the wheel while it has it, if holding pays.',
     create: () => ({ decide: (v) => ({ vote: bring(v, v.id, 3), share: 5, people: everyone(v) }) }),
   },
   sharerSteerer: {
     label: 'Patron', family: 'steerer',
-    summary: 'Pays to bring the white arrow to whoever else has shared most lately: hurrying it there, holding it back while it is there. Shares seven tenths.',
+    summary: 'Pays to bring the white arrow to whoever else has shared most lately: hurrying it there, and holding it back while it is there when what comes back to it pays for that. Shares seven tenths.',
     tell: 'Votes as the white arrow nears the most generous player.',
     create: () => {
       const memory = sharingMemory();

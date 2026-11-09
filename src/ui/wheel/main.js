@@ -10,7 +10,7 @@
 // shows each account in full.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { createGame, step, seatAngle, quotas, whiteId, blackId, feePct, ledger, UNIT } from '../../engine/wheel.js';
+import { createGame, step, seatAngle, quotas, whiteId, blackId, feePct, ledger, voteCostOf, UNIT } from '../../engine/wheel.js';
 import { STRATEGIES, FAMILIES, botView, selectRoster } from '../../bots/wheel-bots.js';
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 import { isUnlocked } from '../progress-store.js';
@@ -445,30 +445,29 @@ function updateDials() {
   $('#fee-note').textContent = f === 0
     ? `You keep everything, and the fee takes 95% of it: you end up with 5% of what you receive.${share && people === 1 ? ' Sharing only with yourself counts as keeping.' : ''}`
     : `${Math.round(f * 100)}% goes to the others. On the ${Math.round((1 - f) * 100)}% you keep, the fee takes ${fee}%: you end up with ${net}% of what you receive, plus whatever comes back.`;
-  const cost = (Math.abs(vote) * s.voteCost).toFixed(2).replace(/\.?0+$/, '');
+  const cost = (Math.abs(vote) * voteCostOf(s, vote)).toFixed(2).replace(/\.?0+$/, '');
   const withWheel = Math.sign(vote) === s.dir;
   $('#o-vote').textContent = vote === 0 ? 'no vote'
-    : `${vote > 0 ? '↻ clockwise' : '↺ anticlockwise'} ${Math.abs(vote)}, ${withWheel ? 'with' : 'against'} the wheel's turn, costing ${cost} a second`;
+    : `${vote > 0 ? '↻ clockwise' : '↺ anticlockwise'} ${Math.abs(vote)}, ${withWheel ? 'with the wheel\'s turn: faster' : 'against the wheel\'s turn: slower'}, costing ${cost} a second`;
   $('#vote-note').textContent = `${voteEffect()} Your vote fades back to 0, one step a second: turn it again to keep pushing.`;
   G.knobs?.vote.set(vote, false); // refreshes "with" or "against" when the wheel turns round
 }
 
-/** What everyone's votes did last second, in words (the rule: votes with the wheel add speed only
- * past the minimum; against it, they must pass reverseAbove to turn it round). */
+/** What everyone's votes did last second, in words. Votes with the wheel's turn add to its speed; votes
+ * against it slow it, never below the slowest; more than reverseAbove against turns it round. */
 function voteEffect() {
   const s = G.s;
   const last = s.ticks.at(-1);
-  if (!last) return `Votes with the wheel's turn speed it up only once everyone's together pass ${s.minSpeed}. Turning it round takes more than ${s.reverseAbove}, so nobody can do it alone.`;
-  const net = last.net;
-  const sum = net === 0 ? '' : `${net > 0 ? '↻' : '↺'}${Math.abs(net)}`;
-  if (net === 0) return `Last second nobody's votes added up to anything, so the wheel turned at its minimum ${s.minSpeed}° a second.`;
-  if (G.prev.dir !== s.dir) return `Last second the votes added up to ${sum}: more than ${s.reverseAbove}, so together they turned the wheel round.`;
-  if (Math.sign(net) === s.dir) {
-    return Math.abs(net) > s.minSpeed
-      ? `Last second the votes added up to ${sum}, with the wheel's turn: it turned ${last.speed}° a second.`
-      : `Last second the votes added up to ${sum}, with the wheel's turn. That's not past ${s.minSpeed}, so it still turned at its minimum ${s.minSpeed}° a second.`;
+  const price = (u) => String(u).replace(/^0\./, '.').replace(/^\.25$/, '¼').replace(/^1$/, '1');
+  if (!last) {
+    return `Votes with the wheel's turn speed it up, at ${price(s.voteCost)} token a degree. Votes against slow it, at ${price(s.voteCostAgainst)} token a degree, never below ${s.slowest}° a second. Turning it round takes more than ${s.reverseAbove} against, so nobody can do it alone.`;
   }
-  return `Last second the votes added up to ${sum}, against the wheel's turn. That's not past ${s.reverseAbove}, so it held its direction at ${s.minSpeed}° a second.`;
+  const net = last.net;
+  const sum = `${net > 0 ? '↻' : '↺'}${Math.abs(net)}`;
+  if (net === 0) return `Last second nobody voted, so the wheel turned at its usual ${s.minSpeed}° a second.`;
+  if (G.prev.dir !== s.dir) return `Last second the votes added up to ${sum}: more than ${s.reverseAbove} against the wheel, so together they turned it round.`;
+  if (Math.sign(net) === s.dir) return `Last second the votes added up to ${sum}, with the wheel's turn: it sped up to ${last.speed}° a second.`;
+  return `Last second the votes added up to ${sum}, against the wheel's turn: it slowed to ${last.speed}° a second${last.speed === s.slowest && s.voteSpeed === 'addsSlows' ? ', its slowest' : ''}.`;
 }
 
 // ---------- the panel ----------

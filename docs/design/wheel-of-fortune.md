@@ -6,7 +6,7 @@
 - *Wheel of Fortune Sharing Game*, 2017-11-19, in the claude.ai project.
 - Game 3 ("multiplayer iterated") in *TrunK of Commons*, 2018-08-07.
 
-**Status, 2026-11-09: core rules settled and simulated; a play-test page is up** (`games/wheel/?preview`), revised after Jason's first play (decisions 14-20). The first five questions are answered (see "Decisions" below). A pure engine (`src/engine/wheel.js`), eight bots (`src/bots/wheel-bots.js`), a simulator (`tools/sim-wheel.mjs`) and tests (`tests/wheel.test.mjs`) are on main. The first findings and the proposals waiting for Jason are at the end of this file. As in the other design logs, each decision has its date and who decided.
+**Status, 2026-11-09: core rules settled and simulated; a play-test page is up** (`games/wheel/?preview`), revised after Jason's first play (decisions 14-23). The first five questions are answered (see "Decisions" below). A pure engine (`src/engine/wheel.js`), eight bots (`src/bots/wheel-bots.js`), a simulator (`tools/sim-wheel.mjs`) and tests (`tests/wheel.test.mjs`) are on main. The first findings and the proposals waiting for Jason are at the end of this file. As in the other design logs, each decision has its date and who decided.
 
 ## The idea (2017)
 
@@ -140,7 +140,7 @@ These were the prompts for the first session. Questions 1-5 are answered (see "D
 ## The core as built (2026-11-09)
 
 - **Seats** by join order: the initiator at the white arrow, then alternating sides, the last to join at the black arrow (six players sit at seats 0, 1, 5, 2, 4, 3).
-- **Each second:** votes are paid into the boost fund and their sum sets the speed (at least 6° a second) and, if it is more than 9 against the wheel, turns it round (decision 11; it was any net vote at first); the seat holding the black arrow pays 9 and its two neighbours 1 each into the reward; the wheel turns; parcels due arrive.
+- **Each second:** votes are paid into the boost fund (a quarter token a degree with the wheel's turn, a token a degree against it, decision 22) and their sum sets the speed: 6° a second plus the net vote, never below 2 (decision 21); more than 9 against turns it round (decision 11; it was any net vote at first), starting at 6 the other way; the seat holding the black arrow pays 9 and its two neighbours 1 each into the reward; the wheel turns; parcels due arrive.
 - **The reward** takes 2 seconds to cross and lands on whoever is at the white arrow when it arrives.
 - **Receiving:** each player's arrivals for the second are added up and settled once. They pass on (share dial) tenths to the nearest people (people dial), keep the rest and pay the 2017 fee on what they keep (95% when keeping everything, otherwise 100% minus the share). The boost fund adds up to 10% to what's shared, in proportion to the people reached. Shares travel 45° a second round the rim: 2, 3 or 4 seconds at six seats.
 - **Ending:** at 360 seconds, or when anyone can't pay. Rewards still crossing are forfeited to the boost fund; shares still travelling complete with settings frozen (2017).
@@ -271,7 +271,7 @@ Under the current rules a vote with the wheel adds speed only once the table's v
 
 ### Votes that add and slow (Jason, 2026-11-09)
 
-Decision 21 (Jason, 2026-11-09): votes should "add speed, and slow it". Built as the engine option `voteSpeed: 'addsSlows'` (speed = 6 + the net vote, never below `slowest`; turning round still needs more than 9 together, and then starts at 6 the other way). `'adds'` (no slowing) and `'pastMin'` (the first rule, still the default until the floor is settled) are kept for comparison.
+Decision 21 (Jason, 2026-11-09): votes should "add speed, and slow it". Built as the engine option `voteSpeed: 'addsSlows'` (speed = 6 + the net vote, never below `slowest`; turning round still needs more than 9 together, and then starts at 6 the other way). `'adds'` (no slowing) and `'pastMin'` (the first rule) are kept for comparison. Since decisions 22-23, `'addsSlows'` is the default.
 
 Simulated: 300 tables per row. Bot tables are six random bots. "Alone" means the style in your seat against five random bots. The hard holder is `bringSelf`: it shares half, hurries the white arrow to itself at 9 and holds it back at 9. Nets are in tokens. Reproduce with a scratch runner over `createGame` options (as in `tools/sim-wheel.mjs`).
 
@@ -304,7 +304,42 @@ What it shows:
 3. **The floor matters only for strong votes.** Bots vote 2 or 3, so floors 0 to 3 give the same bot tables.
 4. **The pinned-player protection keeps tables alive.** After 10 seconds in a row at the black arrow, a seat pays 1 instead of 9. With it, 96% of tables last at a stake of 650, against 50% without. A hard holder loses even while holding the arrow all the time, since the pinned seat pays so little.
 
-Jason's response (2026-11-09): "Shouldn't the cost of pinning the wheel outweigh the benefits?" Not yet settled; see the next section's options.
+Jason's response (2026-11-09): "Shouldn't the cost of pinning the wheel outweigh the benefits?" The agent's options:
+
+- **(A)** Votes against the wheel cost more.
+- **(B)** The reward stops after a long hold.
+- **(C)** Collection follows how far the wheel turns. The agent advised against it, because it would make most steering pointless.
+
+22. **Pricier votes against the wheel** (Jason, 2026-11-09: "(A) Pricier votes against the wheel"). A vote against the wheel's turn costs 1 token a degree, 2017's price (`voteCostAgainst: 1`, the default). A vote with it stays at a quarter. Fighting momentum now costs four times as much as hurrying it.
+23. **Smarter bots, not protection** (Jason, 2026-11-09: "Smarter bots, not protection"). The steering bots hold the white arrow back only when holding pays them more than it costs (`holdPays` and `arrowWorth` in `src/bots/wheel-bots.js`):
+    - **What a second of the arrow is worth:** to the Self-Steerer, the reward stream times what it keeps after sharing and the fee; to the Patron, the slice of the favoured player's shares that comes back to it.
+    - **What holding buys:** slowing by k degrees a second keeps the arrow there about k/6 of a second longer each second, at k times the price of a vote against.
+    - **The result:** at a token a degree, neither bot ever finds holding worth it; at a quarter, the Self-Steerer would.
+    - **What's kept:** hurrying stays (it shows the wish, at a quarter token a degree). The stubborn holder survives as `bring(..., always = true)`, for learner styles.
+    - **No protection:** the pinned-player protection stays off (`blackRun: Infinity`).
+    - **The floor** is 2° a second (`slowest: 2`), the agent's choice, open to Jason. At 0 one player could stop the wheel dead.
+
+### After decisions 21-23 (2026-11-09)
+
+300 tables per row, smart bots. "Holds when it costs" is the stubborn gentle holder (shares half, hurries and holds at 3 whatever it costs); "holds if it pays" is the same with the smart rule.
+
+| | First rule, stake 650 | Now, stake 650 | First rule, stake 1,000 | Now, stake 1,000 |
+|---|---|---|---|---|
+| Votes that changed the wheel | 0% | 100% | 0% | 100% |
+| Bot tables lasted | 100% | 83% | 100% | 100% |
+| Bonus earned | 39% | 40% | 100% | 100% |
+| Self-Steerer: white arrow, net | 17%, -263 | 17%, -246 | 17%, +49 | 17%, +51 |
+| Alone: shares half, no steering | -249 | -142 | +115 | +119 |
+| Alone: holds if it pays | -327 | -221 | +44 | +35 |
+| Alone: holds when it costs | -328 | -420 | +44 | -106 |
+| Alone: hard holder (9, stubborn) | -440 | -644 | -88 | -982 |
+| Alone: shares half and stewards | -228 | -137 | +87 | +95 |
+
+1. **Pinning now costs the pinner more than it gains.** Every holding style ends below the same player not steering. A hard holder spends most of its stake.
+2. **Votes always count, and the bots' votes are now hurrying.** The Self-Steerer and Patron hurry the arrow towards themselves or their favourite, and the Lifeguard hurries arrows past the poorest player.
+3. **Stewarding pays its way at a tight stake.** At 650 the steward ends a little better off than the plain sharer (-137 against -142) and helps the table: its tables last 94% of the time, against 88%, and earn the bonus 59%, against 53%. At 1,000 it's a small gift to the table (+95 against +119).
+4. **Who still goes bust at 650.** Of 300 bot tables, 50 ended early, every one because a Keeper or Free Rider couldn't pay. None ended because a seat was pinned: the longest run at the black arrow is back to 10 seconds, one natural pass. With stubborn holding bots it had been 18 seconds, and 148 tables ended early.
+5. **Selfish steering no longer tempts.** The dilemma left in steering is cooperative: steering for the table helps, and at a tight stake it pays for itself.
 
 ## Open for the next session (2026-11-09)
 

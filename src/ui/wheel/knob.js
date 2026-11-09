@@ -68,8 +68,8 @@ export function createKnob(opts) {
 
   function show() {
     for (const [v, shape] of bars) shape.classList.toggle('on', lit(v, value));
-    const [x, y] = pt(angleOf(value), 21);
-    const [x0, y0] = pt(angleOf(value), 13);
+    const [x, y] = pt(angleOf(value), 22);
+    const [x0, y0] = pt(angleOf(value), 17);
     pointer.setAttribute('x1', x0.toFixed(2)); pointer.setAttribute('y1', y0.toFixed(2));
     pointer.setAttribute('x2', x.toFixed(2)); pointer.setAttribute('y2', y.toFixed(2));
     const c = centre(value);

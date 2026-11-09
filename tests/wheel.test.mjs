@@ -87,12 +87,17 @@ test('sharing only with yourself: a loophole as written, ordinary keeping with s
 test('votes: zero allowed; momentum needs more than one player can vote to turn the wheel back', () => {
   let s = step(fresh({}, { a: { vote: -9 } }));
   assert.equal(s.dir, 1); // one player's strongest vote can't turn it back (Jason, 2026-11-09)
-  assert.equal(s.speed, 6);
-  assert.equal(bal(s, 'a'), s.stake - 9 * UNIT * s.voteCost); // and it still costs: a quarter token a degree
-  assert.equal(s.voteCost, 0.25);
+  assert.equal(s.speed, 2); // but it slows the wheel, to the floor (Jason, 2026-11-09: "add speed, and slow it")
+  assert.equal(bal(s, 'a'), s.stake - 9 * UNIT * s.voteCostAgainst); // against the wheel: a token a degree
+  assert.equal(s.voteCostAgainst, 1);
+  const w = step(fresh({}, { a: { vote: 4 } }));
+  assert.equal(w.speed, 10); // with the wheel: adds to the minimum
+  assert.equal(bal(w, 'a'), w.stake - 4 * UNIT * w.voteCost); // a quarter token a degree
+  assert.equal(w.voteCost, 0.25);
   s = step(fresh({}, { a: { vote: -5 }, b: { vote: -5 } }));
   assert.equal(s.dir, -1); // two together can
-  assert.equal(s.speed, 10);
+  assert.equal(s.speed, 6); // and it starts the other way at the minimum
+  assert.equal(step(fresh({ voteSpeed: 'pastMin' }, { a: { vote: -5 }, b: { vote: -5 } })).speed, 10); // the first rule
   let m = step(fresh({ reverseAbove: 6 }, { a: { vote: -6 } }));
   assert.equal(m.dir, 1); // 2017: 6 against isn't enough...
   m = step(fresh({ reverseAbove: 6 }, { a: { vote: -7 } }));
@@ -178,19 +183,32 @@ test('each player\'s ledger closes exactly, and the ending is recorded for the p
 
 test('voteSpeed: the first rule ignores small votes; adds speeds up; addsSlows also slows, to a floor', () => {
   const one = (opts, vote) => step(fresh(opts), { a: { vote } }).speed;
-  assert.equal(one({}, 4), 6, 'pastMin: a lone 4 with the wheel changes nothing');
-  assert.equal(one({}, 8), 8);
-  assert.equal(one({}, -4), 6, 'pastMin: a lone 4 against changes nothing');
+  assert.equal(one({ voteSpeed: 'pastMin' }, 4), 6, 'pastMin: a lone 4 with the wheel changes nothing');
+  assert.equal(one({ voteSpeed: 'pastMin' }, 8), 8);
+  assert.equal(one({ voteSpeed: 'pastMin' }, -4), 6, 'pastMin: a lone 4 against changes nothing');
   assert.equal(one({ voteSpeed: 'adds' }, 4), 10);
   assert.equal(one({ voteSpeed: 'adds' }, -4), 6, 'adds: votes against cancel down to the minimum');
   assert.equal(one({ voteSpeed: 'addsSlows' }, 4), 10);
   assert.equal(one({ voteSpeed: 'addsSlows' }, -3), 3);
+  assert.equal(one({}, -3), 3, 'addsSlows is the default');
   assert.equal(one({ voteSpeed: 'addsSlows', slowest: 2 }, -9), 2, 'never below the floor');
   assert.equal(one({ voteSpeed: 'addsSlows', slowest: 0 }, -9), 0);
   // turning round still needs more than 9 together, and starts at the minimum the other way
   const s = step(fresh({ voteSpeed: 'addsSlows' }), { a: { vote: -6 }, b: { vote: -5 } });
   assert.equal(s.dir, -1);
   assert.equal(s.speed, 6);
+});
+
+test('smarter bots: the Self-Steerer holds the arrow back only when holding pays (Jason, 2026-11-09)', () => {
+  const rng = mulberry32(3);
+  const bot = STRATEGIES.selfSteerer.create(rng);
+  // put the white arrow in the bot's segment: it would hold at a quarter token a degree, not at 1
+  const at = (opts) => {
+    const s = createGame({ players: ids.map((id) => ({ id, settings: { share: 5, people: 6 } })), stake: 1000, ...opts });
+    return bot.decide(botView(s, 'a')).vote;
+  };
+  assert.equal(at({ voteCostAgainst: 0.25 }), -3, 'cheap: holding pays, so it holds');
+  assert.equal(at({}), 0, 'at a token a degree: holding costs more than it gains, so it lets go');
 });
 
 // The old holding logic (pay just enough to keep the arrow in your segment), and the Self-Steerer bot.
