@@ -68,6 +68,7 @@ function newTable({ watch = G?.watch ?? false } = {}) {
     paused: true, started: false, speed: Number($('#speed')?.value) || 1, lastStep: now(), timer: null,
     events: [], holder: whiteId(s), holderSince: 0, holderMark: statsMark(s.players[0]), last: settingsOf(s), warned: false, fx: {},
     focus: watch ? 'all' : 'you', knobs: null, endAnim: null, endTimer: null,
+    first: settingsOf(s), lessons: Object.fromEntries(ids.map((id) => [id, []])),
   };
   drawTable();
   renderFlowControl();
@@ -613,12 +614,18 @@ function noteEvents() {
     }
   }
   if (!G.watch && s.status === 'playing' && blackId(s) === 'you' && blackId(G.prev) !== 'you') announce('The black arrow reaches you: you pay 9 a second.');
-  // dial changes by the bots (their tells)
+  // What the bots learn, in their own words (Jason, 2026-11-09: "Every bot should learn and
+  // demonstrate what they learn"), and any other dial changes (their tells)
   for (const p of s.players) {
     if (p.id === 'you') continue;
     const was = G.last[p.id];
     const st = p.settings;
-    if (was.share !== st.share || was.people !== st.people) pushEvent(`${G.name[p.id]} now ${st.share === 0 || st.people === 1 ? 'keeps everything' : `passes on ${st.share}/10 to ${Math.min(st.people, s.n) - 1} others`}${whyMoved(p.id, was)}.`);
+    const note = G.decided?.[p.id]?.note;
+    if (note) {
+      const text = note.replace(/@\[([^\]]+)\]/g, (_, id) => G.name[id] ?? 'someone');
+      G.lessons[p.id].push({ t: s.t, text });
+      pushEvent(`${G.name[p.id]} ${text}.`);
+    } else if (was.share !== st.share || was.people !== st.people) pushEvent(`${G.name[p.id]} now ${settingText(st)}.`);
     if (!was.vote && st.vote) pushEvent(`${G.name[p.id]} votes ${st.vote > 0 ? 'clockwise' : 'anticlockwise'} ${Math.abs(st.vote)} (${Math.sign(st.vote) === G.prev.dir ? 'with the wheel' : 'against it'}).`);
   }
   if (G.prev.dir !== s.dir) pushEvent(`Together the votes turned the wheel round: now ${s.dir > 0 ? 'clockwise' : 'anticlockwise'}.`, true);
@@ -656,18 +663,10 @@ function receipt(p, mark, secs) {
   return `${who} ${secs} s at the white arrow: ${recT} reached ${them}${shIn >= 50 ? ` (${fmt(reward)} reward, ${fmt(shIn)} in shares from others)` : ''}. ${passed}; the fee took ${feeT}; ${you ? 'you' : 'they'} kept ${keptT}.`;
 }
 
-/** Why a learning bot moved its dial (Jason, 2026-11-09: players adjust from feedback, the rules
- * and fees on one side, other players' reactions on the other). Empty for the fixed strategies. */
-function whyMoved(id, was) {
-  const d = G.decided?.[id];
-  if (d?.reformed && was.share === 0) return d.reformed.why === 'fees'
-    ? ': the fees have cost it three tenths of its stake'
-    : ': others hurried the white arrow past it';
-  const r = d?.learning?.result;
-  if (r === 'better') return ': it kept more per token of reward last lap than the lap before, so it tries further the same way';
-  if (r === 'worse') return ': it kept less per token of reward last lap than the lap before, so it turns back';
-  if (r === 'start') return ': trying a change after its first lap';
-  return '';
+/** A player's dials in words. */
+function settingText(st) {
+  const others = Math.min(st.people, G.s.n) - 1;
+  return st.share === 0 || others === 0 ? 'keeps everything' : `passes on ${st.share}/10 to ${others >= G.s.n - 1 ? 'everyone' : `the ${others} nearest`}`;
 }
 function renderEvents() {
   const ul = $('#events');
@@ -844,6 +843,7 @@ function showEnd() {
       <tbody>${rows.map(({ p, key, net }) => { const m = L[p.id]; return `<tr><th scope="row"><span class="who"><span class="dot" style="background:${G.hue[p.id]}"></span>${esc(G.name[p.id])}</span></th><td>${key === 'you' ? 'You' : esc(STRATEGIES[key].label)}</td><td>${fmt(m.received)}</td><td>${fmt(m.sharesOut)}</td><td>${fmt(m.fees)}</td><td>${fmt(m.beforeSplit)}</td><td>${s.bonus ? `+${fmt(m.refund + m.bonus)}` : '0'}</td><td>${fmt(p.balance)}</td><td class="${net >= 0 ? 'pos' : 'neg'}">${signed(tok(net))}</td></tr>`; }).join('')}</tbody>
     </table></div>
     <p class="small muted">Received: rewards and shares that reached them, before they passed anything on. Before the split: what they held once the last shares had landed, before the boost fund was shared out.</p>
+    ${learnedHtml(rows)}
     <p>Richest: <b>${esc(G.name[richest.p.id])}</b>. Gave the most to others: <b>${esc(G.name[giver.p.id])}</b>. Who was the hero?</p>
     <p><button class="btn" id="again" type="button">New table</button></p>
   </section>`);
@@ -853,13 +853,34 @@ function showEnd() {
   update();
 }
 
+/**
+ * What the bots learned: each bot's opening habit, its lessons with the time and the reason, and
+ * where it ended (Jason, 2026-11-09: "The game play and appropriate explanations assist human
+ * players to understand what there is to learn").
+ */
+function learnedHtml(rows) {
+  const at = (t) => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+  const items = rows.filter(({ key }) => key !== 'you').map(({ p, key }) => {
+    const ls = G.lessons[p.id];
+    const start = settingText(G.first[p.id]);
+    const end = settingText(p.settings);
+    const shown = ls.length <= 3 ? ls : [ls[0], ...ls.slice(-2)];
+    const more = ls.length - shown.length;
+    const lessons = ls.length
+      ? `<ul class="lessons">${shown.map((l, i) => `${i === 1 && more ? `<li class="muted">… ${more} more like these …</li>` : ''}<li><span class="ev-time">after ${at(l.t)}</span> ${esc(l.text)}</li>`).join('')}</ul>`
+      : '<p class="small muted">Nothing it met called for a change.</p>';
+    return `<li><b>${esc(G.name[p.id])}</b>, ${esc(STRATEGIES[key].label)}: started out ${esc(start.replace(/^passes/, 'passing').replace(/^keeps/, 'keeping'))}, ended ${esc(end.replace(/^passes/, 'passing').replace(/^keeps/, 'keeping'))}.${lessons}</li>`;
+  });
+  return `<div class="learned"><h4>What the bots learned</h4><p class="small muted">Each bot stands in for a player who learns from experience: from its own results, which is where the fees show up, and from how other players react.</p><ul>${items.join('')}</ul></div>`;
+}
+
 // ---------- strategy key ----------
 function renderKey() {
   const groups = Object.entries(FAMILIES).map(([fam, title]) => {
     const items = Object.values(STRATEGIES).filter((st) => st.family === fam);
     return `<div class="key-group"><h3>${esc(title)}</h3>${items.map((st) => `<div class="key-item"><b>${esc(st.label)}</b><span>${esc(st.summary)}</span><span class="key-tell"><span class="eyebrow">Tell</span>${esc(st.tell)}</span></div>`).join('')}</div>`;
   }).join('');
-  $('#key').innerHTML = `<p class="key-note muted">Five of these sit at each table, in a random order and under random names. The end card shows who was who.</p><div class="key-groups">${groups}</div>`;
+  $('#key').innerHTML = `<p class="key-note muted">Five of these sit at each table, in a random order and under random names. Each starts with its own habit and learns from what happens, from its results and from how others react; What's happening says what each one learns, and the end card shows who was who.</p><div class="key-groups">${groups}</div>`;
 }
 
 // ---------- start ----------

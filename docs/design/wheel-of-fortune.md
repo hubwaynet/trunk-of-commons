@@ -6,7 +6,7 @@
 - *Wheel of Fortune Sharing Game*, 2017-11-19, in the claude.ai project.
 - Game 3 ("multiplayer iterated") in *TrunK of Commons*, 2018-08-07.
 
-**Status, 2026-11-09: core rules settled and simulated; a play-test page is up** (`games/wheel/?preview`), revised after Jason's first play (decisions 14-25). The first five questions are answered (see "Decisions" below). A pure engine (`src/engine/wheel.js`), eight bots (`src/bots/wheel-bots.js`), a simulator (`tools/sim-wheel.mjs`) and tests (`tests/wheel.test.mjs`) are on main. The first findings and the proposals waiting for Jason are at the end of this file. As in the other design logs, each decision has its date and who decided.
+**Status, 2026-11-09: core rules settled and simulated; a play-test page is up** (`games/wheel/?preview`), revised after Jason's first play (decisions 14-26). The first five questions are answered (see "Decisions" below). A pure engine (`src/engine/wheel.js`), eight bots (`src/bots/wheel-bots.js`), a simulator (`tools/sim-wheel.mjs`) and tests (`tests/wheel.test.mjs`) are on main. The first findings and the proposals waiting for Jason are at the end of this file. As in the other design logs, each decision has its date and who decided.
 
 ## The idea (2017)
 
@@ -378,7 +378,52 @@ Jason asked: "How could players learn about the fees & boosts that occur accordi
     - **Fee and boost flows in the picture,** for the player you follow. Squares carry the fee from their seat into the hub, and diamonds carry the fund's boost out to their lane, each labelled with this second's amount. The shapes and labels carry it in greyscale.
     - **Agent's choice, open to Jason:** no comparisons ("at 6/10 you'd have kept 25"). Players discover the better settings by trying, in line with decision 24's principle of learning from experience. A comparison line is easy to add.
 
-Jason's observation (2026-11-09): "the fee collection amass because players don't learn the fee rules are to encourage sharing, punish selfishness. Free Rider did not learn to change, even though it had feedback & time ... a longer game would suggest adjustments if representing a human player." Open: whether every bot should learn (see Open below).
+Jason's observation (2026-11-09): "the fee collection amass because players don't learn the fee rules are to encourage sharing, punish selfishness. Free Rider did not learn to change, even though it had feedback & time ... a longer game would suggest adjustments if representing a human player."
+
+### Every bot learns (Jason, 2026-11-09)
+
+26. **Every bot learns and shows what it learned** (Jason: "Every bot should learn and demonstrate what they learn. The game play and appropriate explainations assist human players to understand what there is to learn."). Each bot keeps its character as its opening habit, so its tell shows early, and learns from both kinds of feedback with its own temperament. Its own results, lap by lap, are where the fees show up. Other players' reactions are seconds in which their votes hurried the white arrow on while it had it, and what came back to it. When a bot learns something, it says so in What's happening, and the end card adds "What the bots learned": each bot's opening habit, its lessons with the time and reason, and where it ended. The Reformed Keeper is folded into the Keeper.
+
+| Bot | Opening habit | What it learns from | What it does |
+|---|---|---|---|
+| Sharer | 8/10 to everyone | what comes back | eases a tenth at a time (never below half) when less than half of what it passes on comes back; shares more again when 8 in 10 come back |
+| Keeper | keeps everything | the fees; reactions | stubborn: starts sharing once the fees have cost it 4/10 of its stake, or after 5 seconds of being hurried past; then 2 tenths more every 10 s, up to the others' average |
+| Free Rider | half, to itself only | the fee; reactions | after two laps keeping under a tenth of its reward, or 3 seconds hurried past, widens to the 2 nearest, then to everyone |
+| Opportunist | 9/10, half at the white arrow | reactions | drops the trick if hurried past while cutting; says so if three laps pass and nobody reacts |
+| Reciprocator | the others' average | the others' sharing | follows them up or down, and says so |
+| Self-Steerer | hurries the arrow to itself | its results | steers less after each lap its votes cost more than its reward rose, then stops: hurrying brings the arrow sooner, not for longer |
+| Patron | hurries the arrow to the most generous | what comes back while each player holds the arrow | after two laps, hurries the arrow past a player who sends it almost nothing back |
+| Lifeguard | rescues the poorest | whether its help is swallowed | stops hurrying the white arrow to a poor player who keeps under a tenth of what reaches them; still hurries the black arrow past them |
+| Learner | a random share | its results | Win-Stay, Lose-Shift, 2 tenths a lap |
+
+Simulated: 300 bot tables per row, with the same seeds for the bots as they were (fixed, plus the two Learners) and for every bot learning.
+
+| | Stake 650, as they were | Stake 650, every bot learns | Stake 1,000, as they were | Stake 1,000, every bot learns |
+|---|---|---|---|---|
+| Bot tables lasted | 86% | 99% | 100% | 100% |
+| Bonus earned | 55% | 98% | 100% | 100% |
+| Boost fund at the end (median) | 2,568 | 2,058 | 2,635 | 2,160 |
+| Table's mean share dial at 30 s, 2 min, 4 min, the end (a keeper counts 0) | 4.5, 4.8, 5.4, 5.5 | 5.2, 5.7, 6.5, 6.7 | 4.5, 4.6, 5.4, 5.5 | 5.2, 5.7, 6.2, 6.7 |
+| Keeper net | -389 | -19 | -80 | -16 |
+| Free Rider net | -383 | -25 | -87 | +19 |
+| Self-Steerer net | -210 | +31 | +52 | +72 |
+
+How often each lesson comes (share of tables where the bot sits, stake 650):
+
+- **Keeper:** starts sharing at every table, after a median of 2:18 at stake 650 and 3:49 at 1,000.
+- **Free Rider:** widens its sharing at 83% of tables.
+- **Opportunist:** drops its trick at 58% and says nobody reacted at 37%.
+- **Self-Steerer:** steers less, then stops steering for itself, at every table, starting after about 1:38.
+- **Patron:** hurries the arrow past a keeper at 26%.
+- **Lifeguard:** stops sending the white arrow to a swallowing keeper at 15%.
+- **Sharer:** eases at 29%.
+- **Learner:** moves its dial about six times a table.
+
+1. **Learning keeps the table alive.** At the tight stake, tables earn the bonus almost every time, and every bot ends better off. The fund piles up less because the bots feeding it with fees learn not to.
+2. **The table's sharing climbs over the six minutes,** from about 5 tenths to nearly 7. It settles above the Learner's selfish 6/10 because the Sharers and the Reciprocators' following hold it up.
+3. **Reactions are partly accidental.** A bot hurrying the arrow towards itself also hurries it past its neighbour, and that counts as "others hurried the arrow past it". The Patron's hurrying past keepers is the deliberate kind. A person playing can do it on purpose.
+
+## Open for the next session (2026-11-09)
 
 ## Open for the next session (2026-11-09)
 

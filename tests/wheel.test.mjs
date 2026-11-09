@@ -162,8 +162,8 @@ test('each player\'s ledger closes exactly, and the ending is recorded for the p
   let lasted = 0, busted = 0;
   for (let seed = 1; seed <= 24; seed++) {
     const keys = selectRoster(mulberry32(seed), 6);
-    for (const stake of [600, 1000]) {
-      const s = playTable(keys, seed, { record: true, stake });
+    for (const [ks, stake] of [[keys, 600], [keys, 1000], [Array(6).fill('keep'), 400]]) { // six fixed keepers go bust
+      const s = playTable(ks, seed, { record: true, stake });
       if (s.endReason === 'time') lasted++; else busted++;
       const e = s.ending;
       assert.ok(e && e.bell.length === 6 && e.beforeSplit.length === 6, 'ending recorded');
@@ -211,19 +211,19 @@ test('smarter bots: the Self-Steerer holds the arrow back only when holding pays
   assert.equal(at({}), 0, 'at a token a degree: holding costs more than it gains, so it lets go');
 });
 
-test('the Reformed Keeper keeps until the fees bite or others hurry the arrow past it (Jason, 2026-11-09)', () => {
-  // others' reactions: three seconds of being hurried past while it has the white arrow
-  let bot = STRATEGIES.reformedKeeper.create(mulberry32(1));
+test('the Keeper keeps until the fees bite or others keep hurrying the arrow past it, and says why', () => {
+  // others' reactions: five seconds of being hurried past while it has the white arrow
+  let bot = STRATEGIES.keeper.create(mulberry32(1));
   let s = createGame({ players: ids.map((id) => ({ id, settings: id === 'b' ? { vote: 4 } : {} })), stake: 1000 });
   const view = (st) => botView(st, 'a');
-  for (let i = 0; i < 2; i++) assert.equal(bot.decide({ ...view(s), t: i }).share, 0, 'still keeping');
-  const d = bot.decide({ ...view(s), t: 2 });
-  assert.equal(d.reformed.why, 'reactions');
+  for (let i = 0; i < 4; i++) { const d = bot.decide({ ...view(s), t: i }); assert.equal(d.share, 0, 'still keeping'); assert.equal(d.note, null); }
+  const d = bot.decide({ ...view(s), t: 4 });
+  assert.match(d.note, /starts sharing: others kept hurrying the white arrow past it/);
   assert.ok(d.share > 0 && d.people === 6, 'starts sharing with everyone');
-  // the fees: its tokens below 7/10 of the stake
-  bot = STRATEGIES.reformedKeeper.create(mulberry32(1));
-  s = createGame({ players: ids.map((id) => ({ id, balance: id === 'a' ? 600 : 1000 })), stake: 1000 });
-  assert.equal(bot.decide(view(s)).reformed.why, 'fees');
+  // the fees: its tokens below 6/10 of the stake
+  bot = STRATEGIES.keeper.create(mulberry32(1));
+  s = createGame({ players: ids.map((id) => ({ id, balance: id === 'a' ? 550 : 1000 })), stake: 1000 });
+  assert.match(bot.decide(view(s)).note, /the fees have cost it four tenths of its stake/);
 });
 
 test('the Learner moves its share dial after each lap and learns away from keeping', () => {

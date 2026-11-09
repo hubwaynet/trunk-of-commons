@@ -143,11 +143,11 @@ const poorest = (v, below) => {
  * and hurry the white arrow to them. It never tries to turn the wheel back, which would send the
  * black arrow over the player who has just paid.
  */
-export function rescue(v, strength, below = 0.4, reserve = 0.25) {
+export function rescue(v, strength, below = 0.4, reserve = 0.25, whiteTo = () => true) {
   const p = poorest(v, below);
   if (!p || !canPay(v, reserve)) return 0;
   if (arrowAt(v, v.theta + 180, p.id) === 'on') return v.dir * strength;
-  if (arrowAt(v, v.theta, p.id) === 'next') return v.dir * strength;
+  if (arrowAt(v, v.theta, p.id) === 'next' && whiteTo(p.id)) return v.dir * strength;
   return 0;
 }
 
@@ -174,167 +174,334 @@ function sharingMemory() {
   };
 }
 
-export const STRATEGIES = {
-  sharer: {
-    label: 'Sharer', family: 'sharer',
-    summary: 'Passes on eight tenths of everything it receives, to everyone. Never steers.',
-    tell: 'Share bar long and yellow; never votes.',
-    create: () => fixed(8, 'all'),
-  },
-  keeper: {
-    label: 'Keeper', family: 'keeper',
-    summary: 'Keeps everything it receives and never steers, even though the fee takes most of what it keeps.',
-    tell: 'Share bar empty; never votes.',
-    create: () => fixed(0, 1),
-  },
-  freeRider: {
-    label: 'Free Rider', family: 'keeper',
-    summary: 'Shares half of what it receives, but only with itself, so nothing reaches anyone else.',
-    tell: 'Share bar at half, people dial at one.',
-    create: () => fixed(5, 1),
-  },
-  selfSteerer: {
-    label: 'Self-Steerer', family: 'steerer',
-    summary: 'Pays to hurry the white arrow towards itself, and to hold it back while it is there when that pays more than it costs. Shares half, the most it can keep.',
-    tell: 'Votes as the white arrow nears it; against the wheel while it has it, if holding pays.',
-    create: () => ({ decide: (v) => ({ vote: bring(v, v.id, 3), share: 5, people: everyone(v) }) }),
-  },
-  sharerSteerer: {
-    label: 'Patron', family: 'steerer',
-    summary: 'Pays to bring the white arrow to whoever else has shared most lately: hurrying it there, and holding it back while it is there when what comes back to it pays for that. Shares seven tenths.',
-    tell: 'Votes as the white arrow nears the most generous player.',
-    create: () => {
-      const memory = sharingMemory();
-      return {
-        decide: (v) => {
-          const score = memory(v);
-          const best = others(v).reduce((a, p) => (score[p.id] > score[a.id] + 1e-9 ? p : a));
-          return { vote: bring(v, best.id, 2), share: 7, people: everyone(v) };
-        },
-      };
-    },
-  },
-  poorSteerer: {
-    label: 'Lifeguard', family: 'steerer',
-    summary: 'When a player falls below four tenths of the stake, it pays to hurry the black arrow past them and the white arrow to them. Shares seven tenths.',
-    tell: 'Votes when an arrow nears the poorest player.',
-    create: () => ({ decide: (v) => ({ vote: rescue(v, 3), share: 7, people: everyone(v) }) }),
-  },
-  reciprocator: {
-    label: 'Reciprocator', family: 'sharer',
-    summary: 'Shares as much as the others do on average, between two and nine tenths. Never steers.',
-    tell: 'Its share bar follows the table.',
-    create: () => ({
-      decide: (v) => {
-        const avg = others(v).reduce((a, p) => a + p.share, 0) / (v.n - 1);
-        return { vote: 0, share: Math.max(2, Math.min(9, Math.round(avg))), people: everyone(v) };
-      },
-    }),
-  },
-  learner: {
-    label: 'Learner', family: 'learner',
-    summary: 'Learns from its own results: starts at a random share, and after each turn of the wheel moves its share dial again the same way if it kept more per token of reward than the turn before, or turns back if it kept less (Win-Stay, Lose-Shift).',
-    tell: 'Its share bar moves by two tenths once a lap, just after the white arrow leaves it.',
-    create: (rng) => learner(rng),
-  },
-  reformedKeeper: {
-    label: 'Reformed Keeper', family: 'learner',
-    summary: 'Keeps everything until experience tells it otherwise: when the fees have cost it three tenths of its stake, or when others hurry the white arrow past it. Then it starts sharing with everyone, a little more every 10 seconds, up to the table\'s average.',
-    tell: 'Share bar empty, then filling after it is hurried past or its tokens fall.',
-    create: () => reformedKeeper(),
-  },
-  opportunist: {
-    label: 'Opportunist', family: 'keeper',
-    summary: 'Shows a generous share bar, nine tenths, until the white arrow reaches it; then it drops to half while the reward flows in.',
-    tell: 'Share bar shrinks at the white arrow.',
-    create: () => ({ decide: (v) => ({ vote: 0, share: v.white === v.id ? 5 : 9, people: everyone(v) }) }),
-  },
-};
+/*
+ * Every bot learns, and shows what it learned (Jason, 2026-11-09: "Bots are standing in for human
+ * players. As long as there is feedback, and time to learn, a player should eventually adjust from
+ * experience. While the rules and fees are one feedback, player reactions are another." ... "Every
+ * bot should learn and demonstrate what they learn.")
+ *
+ * Each bot keeps its character as its opening habit, so its tell shows early, and learns from both
+ * kinds of feedback with its own temperament. When it learns something it says so: decide() returns
+ * `note`, a sentence the page shows in What's happening ("@[id]" stands for a player's name).
+ */
 
 /**
- * Learning from experience (Jason, 2026-11-09: "Bots are standing in for human players. As long as
- * there is feedback, and time to learn, a player should eventually adjust from experience. While the
- * rules and fees are one feedback, player reactions are another.")
- *
- * A lap is the time between one white-arrow visit and the next: each lap holds one visit of each
- * arrow, so laps compare fairly. `lapWatcher` reports when the white arrow has just left a player.
+ * Experience: a player's results lap by lap. A lap runs from the end of one white-arrow visit to the
+ * end of the next, so each lap holds one visit of each arrow and laps compare fairly. Also counts
+ * reactions: seconds in which the others' votes hurried the white arrow on while this player had it.
  */
-function lapWatcher() {
+function experience() {
+  let mark = null;
   let had = false;
+  let laps = 0;
+  let hurried = 0;
+  let hurriedVisit = 0;
+  let last = null;
   return (v) => {
+    const st = v.me.stats;
+    const now = { kept: v.me.balance + st.paid + st.voted, reward: st.reward, sharesIn: st.sharesIn, sharesOut: st.sharesOut, voted: st.voted, boost: st.boost, t: v.t };
+    mark ??= now;
     const has = v.white === v.id;
-    const left = had && !has;
+    if (has && others(v).reduce((a, p) => a + p.vote, 0) * v.dir > 0) { hurried++; hurriedVisit++; }
+    let lap = null;
+    if (had && !has) {
+      const d = (k) => now[k] - mark[k];
+      lap = { reward: d('reward'), kept: d('kept'), sharesIn: d('sharesIn'), sharesOut: d('sharesOut'), voted: d('voted'), boost: d('boost'), hurried: hurriedVisit, secs: d('t') };
+      lap.keptRate = lap.reward > 0 ? lap.kept / lap.reward : null; // what it kept per token of reward
+      lap.backRate = lap.sharesOut > 0 ? lap.sharesIn / lap.sharesOut : null; // what came back per token passed on
+      laps++;
+      mark = now;
+      hurriedVisit = 0;
+      last = lap;
+    }
     had = has;
-    return left;
+    return { lap, laps, hurried, last, visitHurried: hurriedVisit };
   };
 }
-/** What a player made over a lap from what reached it: everything except what the black side took
- * and what it spent on votes, per token of reward that reached it. */
-const lapMark = (v) => ({ kept: v.me.balance + v.me.stats.paid + v.me.stats.voted, reward: v.me.stats.reward });
+/** Builds a bot from a step function that may set a note; the note is returned once. */
+function teach(stepFn) {
+  return {
+    decide: (v) => {
+      const out = stepFn(v);
+      return { vote: out.vote ?? 0, share: out.share, people: out.people, note: out.note ?? null };
+    },
+  };
+}
+const othersAverageShare = (v) => { const o = others(v); return o.reduce((a, p) => a + p.share, 0) / o.length; };
+const tenths = (x) => Math.round(x * 10);
+
+/** The Sharer: passes on 8/10 to everyone. It learns from what comes back: when others give back
+ * less than half of what it passes on, it eases down a tenth at a time (never below half); when they
+ * give back more, it shares more again. */
+function sharer() {
+  const xp = experience();
+  let share = 8;
+  return teach((v) => {
+    const e = xp(v);
+    let note = null;
+    if (e.lap && e.laps >= 2 && e.lap.backRate != null) {
+      const back = e.lap.backRate;
+      if (back < 0.5 && share > 5) { share--; note = `eases to ${share}/10: only ${tenths(back)} came back to it for every 10 it passed on last lap`; }
+      else if (back >= 0.8 && share < 8) { share++; note = `shares more again, ${share}/10: ${tenths(back)} came back to it for every 10 it passed on last lap`; }
+    }
+    return { share, people: v.n, note };
+  });
+}
+
+/** The Keeper: keeps everything, and is stubborn about it. It starts sharing only when the fees have
+ * cost it four tenths of its stake, or others have hurried the white arrow past it for 5 seconds;
+ * then it shares a little more every 10 seconds, up to the others' average (between half and 8/10). */
+function keeper() {
+  const xp = experience();
+  let share = 0;
+  let reformed = false;
+  let lastStep = 0;
+  return teach((v) => {
+    const e = xp(v);
+    let note = null;
+    if (!reformed) {
+      if (v.me.balance < 0.6 * v.stake) { reformed = true; note = 'starts sharing: the fees have cost it four tenths of its stake'; }
+      else if (e.hurried >= 5) { reformed = true; note = 'starts sharing: others kept hurrying the white arrow past it'; }
+      if (reformed) lastStep = v.t - 10;
+    }
+    if (reformed && v.t - lastStep >= 10) {
+      const target = Math.max(5, Math.min(8, Math.round(othersAverageShare(v))));
+      if (share < target) { share = Math.min(target, share + 2); lastStep = v.t; }
+    }
+    return share ? { share, people: v.n, note } : { share: 0, people: 1, note };
+  });
+}
+
+/** The Free Rider: passes on half, but only to itself, which counts as keeping. It learns from the fee:
+ * after two laps in which the fee left it with less than a tenth of its reward, or once others have
+ * hurried the white arrow past it for 3 seconds, it widens its sharing, a step a lap, to everyone. */
+function freeRider() {
+  const xp = experience();
+  let people = 1;
+  let poorLaps = 0;
+  let reacted = false;
+  return teach((v) => {
+    const e = xp(v);
+    let note = null;
+    const widen = (why) => {
+      people = people === 1 ? 3 : v.n;
+      note = `${people >= v.n ? 'widens its sharing to everyone' : 'widens its sharing to the 2 nearest'}: ${why}`;
+    };
+    if (e.lap && e.lap.keptRate != null) {
+      poorLaps = e.lap.keptRate < 0.1 ? poorLaps + 1 : 0;
+      if (people < v.n && poorLaps >= 2) widen('the fee took nearly all it kept, because sharing only with itself counts as keeping');
+      else if (people > 1 && people < v.n && e.lap.keptRate >= 0.1) widen('sharing beyond itself left it with more');
+    }
+    if (!reacted && people === 1 && e.hurried >= 3) { reacted = true; widen('others hurried the white arrow past it'); }
+    return { share: 5, people, note };
+  });
+}
+
+/** The Opportunist: shows 9/10, but cuts to half while the white arrow is with it. It learns from
+ * reactions: if others hurry the white arrow past it while it cuts its sharing, it drops the trick.
+ * If three laps go by and nobody has reacted, it says so: the trick is working. */
+function opportunist() {
+  const xp = experience();
+  let trick = true;
+  let saidWorks = false;
+  return teach((v) => {
+    const e = xp(v);
+    let note = null;
+    if (trick && v.white === v.id && e.visitHurried >= 2) { trick = false; note = 'drops its trick and keeps sharing 9/10 at the white arrow: others hurried the arrow past it while it cut its sharing'; }
+    if (trick && !saidWorks && e.laps >= 3 && e.hurried === 0) { saidWorks = true; note = 'keeps cutting its sharing at the white arrow: in three laps nobody has reacted'; }
+    return { share: trick && v.white === v.id ? 5 : 9, people: v.n, note };
+  });
+}
+
+/** The Reciprocator: shares as much as the others do on average (between 2 and 9 tenths), and says
+ * so when it follows them up or down. */
+function reciprocator() {
+  let share = null;
+  return teach((v) => {
+    const target = Math.max(2, Math.min(9, Math.round(othersAverageShare(v))));
+    let note = null;
+    if (share != null && target !== share) note = `${target > share ? 'shares more' : 'shares less'}, ${target}/10: following the others' average sharing`;
+    share = target;
+    return { share, people: v.n, note };
+  });
+}
+
+/** The Self-Steerer: hurries the white arrow towards itself (and holds it back when that pays). It
+ * learns from its results: after a lap in which its votes cost more than its reward rose, it steers
+ * less, until it stops steering for itself. Hurrying brings the arrow sooner, not for longer. */
+function selfSteerer() {
+  const xp = experience();
+  let strength = 3;
+  let prevReward = null;
+  return teach((v) => {
+    const e = xp(v);
+    let note = null;
+    if (e.lap) {
+      if (strength > 0 && e.lap.voted > 0 && prevReward != null && e.lap.reward - prevReward <= e.lap.voted) {
+        strength--;
+        note = strength
+          ? `steers less: it spent ${tok(e.lap.voted)} on votes last lap, and its reward didn't rise to match`
+          : 'stops steering for itself: hurrying the arrow brought it no more reward than its votes cost';
+      }
+      prevReward = e.lap.reward;
+    }
+    return { vote: strength ? bring(v, v.id, strength) : 0, share: 5, people: v.n, note };
+  });
+}
+
+/** The Patron: hurries the white arrow towards whoever else has shared most lately. It learns whose
+ * turn at the white arrow brings it nothing back: after two laps, it hurries the arrow past a player
+ * who sends it almost nothing while they have it. */
+function patron() {
+  const memory = sharingMemory();
+  const xp = experience();
+  const back = {}; // per holder: shares that reached the patron while they had the white arrow, and seconds
+  let lastIn = null;
+  const passOver = new Set();
+  return teach((v) => {
+    const score = memory(v);
+    const e = xp(v);
+    let note = null;
+    if (lastIn != null && v.white !== v.id) {
+      const b = (back[v.white] ??= { got: 0, secs: 0 });
+      b.got += v.me.stats.sharesIn - lastIn;
+      b.secs++;
+    }
+    lastIn = v.me.stats.sharesIn;
+    if (e.lap && e.laps >= 2) {
+      const rates = Object.entries(back).filter(([, b]) => b.secs >= 6).map(([id, b]) => [id, b.got / b.secs]);
+      const avg = rates.reduce((a, [, r]) => a + r, 0) / Math.max(1, rates.length);
+      for (const [id, r] of rates) {
+        if (!passOver.has(id) && r < 0.15 * avg) { passOver.add(id); note = `hurries the white arrow past @[${id}]: almost nothing comes back to it while @[${id}] has the arrow`; break; }
+      }
+    }
+    let vote;
+    if (passOver.has(v.white) && canPay(v, 0.25)) vote = v.dir * 2;
+    else {
+      const best = others(v).filter((p) => !passOver.has(p.id)).reduce((a, p) => (!a || score[p.id] > score[a.id] + 1e-9 ? p : a), null);
+      vote = best ? bring(v, best.id, 2) : 0;
+    }
+    return { vote, share: 7, people: v.n, note };
+  });
+}
+
+/** The Lifeguard: hurries the black arrow past the poorest player and the white arrow to them. It
+ * learns when that help is swallowed: if the poorest keeps less than a tenth of the reward that
+ * reaches them, it stops hurrying the white arrow to them, but still hurries the black arrow past. */
+function lifeguard() {
+  const noWhite = new Set();
+  const visit = {}; // the current white-arrow holder's balance and reward when its visit began
+  let holder = null;
+  return teach((v) => {
+    let note = null;
+    if (v.white !== holder) {
+      const h = holder && v.players.find((p) => p.id === holder);
+      if (h && visit.reward != null) {
+        const got = h.reward - visit.reward;
+        const kept = h.balance - visit.balance + (h.owes ?? 0);
+        const poor = h.balance < 0.4 * v.stake;
+        if (poor && got > 5 * UNIT && kept < 0.1 * got && !noWhite.has(h.id)) {
+          noWhite.add(h.id);
+          note = `stops hurrying the white arrow to @[${h.id}]: the fee swallowed what reached them; it still hurries the black arrow past them`;
+        }
+      }
+      holder = v.white;
+      const w = v.players.find((p) => p.id === holder);
+      visit.reward = w.reward;
+      visit.balance = w.balance;
+    }
+    return { vote: rescue(v, 3, 0.4, 0.25, (id) => !noWhite.has(id)), share: 7, people: v.n, note };
+  });
+}
+const tok = (u) => Math.round(u / UNIT);
 
 /**
- * The Learner: Win-Stay, Lose-Shift on its own results (the rules and fees as feedback). It starts at
- * a random share dial. After each lap it compares what it kept per token of reward with the lap
- * before: if it did at least as well, it moves its dial again the same way; if worse, it turns back.
+ * The Learner: Win-Stay, Lose-Shift on its own results. It starts at a random share dial. After each
+ * lap it compares what it kept per token of reward with the lap before: if it did at least as well,
+ * it moves its dial 2 tenths further the same way; if worse, it turns back.
  */
 function learner(rng) {
+  const xp = experience();
   let share = Math.floor(rng() * 11);
   let way = rng() < 0.5 ? -1 : 1;
   let last = null;
-  let mark = null;
-  let result = null; // 'start', 'better' or 'worse', for the page to say why the dial moved
-  const lap = lapWatcher();
-  return {
-    decide: (v) => {
-      mark ??= lapMark(v);
-      if (lap(v)) {
-        const now = lapMark(v);
-        const reward = now.reward - mark.reward;
-        if (reward > 0) {
-          const score = (now.kept - mark.kept) / reward;
-          result = last == null ? 'start' : score < last ? 'worse' : 'better';
-          if (result === 'worse') way = -way; // lose: shift
-          last = score;
-          share = Math.max(0, Math.min(10, share + 2 * way));
-          if (share === 0 || share === 10) way = -way; // at an end, the next try goes back
-          mark = now;
-        }
+  return teach((v) => {
+    const e = xp(v);
+    let note = null;
+    if (e.lap && e.lap.keptRate != null) {
+      const score = e.lap.keptRate;
+      const result = last == null ? 'start' : score < last ? 'worse' : 'better';
+      if (result === 'worse') way = -way; // lose: shift
+      last = score;
+      const was = share;
+      share = Math.max(0, Math.min(10, share + 2 * way));
+      if (share === 0 || share === 10) way = -way; // at an end, the next try goes back
+      if (share !== was) {
+        note = `${share > was ? 'shares more' : 'shares less'}, ${share}/10: ${result === 'start' ? 'trying a change after its first lap'
+          : result === 'better' ? 'it kept more per token of reward last lap than the lap before, so it tries further the same way'
+            : 'it kept less per token of reward last lap than the lap before, so it turns back'}`;
       }
-      return { vote: 0, share, people: v.n, learning: { share, way, result } };
-    },
-  };
+    }
+    return { share, people: v.n, note };
+  });
 }
 
-/**
- * The Reformed Keeper: keeps everything until experience tells it otherwise. Two kinds of feedback
- * count: the fees biting (its tokens fall below 7/10 of the stake), and other players reacting
- * (3 seconds in which the others' votes hurried the white arrow on while it had it). Then it starts
- * sharing with everyone, 2 tenths more every 10 seconds, up to the others' average (at least half,
- * at most 8 tenths).
- */
-function reformedKeeper() {
-  let hurried = 0;
-  let reformed = null; // { t, why }
-  let share = 0;
-  let lastStep = 0;
-  return {
-    decide: (v) => {
-      if (!reformed) {
-        const othersNet = v.players.filter((p) => p.id !== v.id).reduce((a, p) => a + p.vote, 0);
-        if (v.white === v.id && othersNet * v.dir > 0) hurried++;
-        if (v.me.balance < 0.7 * v.stake) reformed = { t: v.t, why: 'fees' };
-        else if (hurried >= 3) reformed = { t: v.t, why: 'reactions' };
-        if (reformed) lastStep = v.t - 10;
-      }
-      if (reformed && v.t - lastStep >= 10) {
-        const others = v.players.filter((p) => p.id !== v.id);
-        const target = Math.max(5, Math.min(8, Math.round(others.reduce((a, p) => a + p.share, 0) / others.length)));
-        if (share < target) { share = Math.min(target, share + 2); lastStep = v.t; }
-      }
-      return share ? { vote: 0, share, people: v.n, reformed } : { vote: 0, share: 0, people: 1, reformed };
-    },
-  };
-}
+export const STRATEGIES = {
+  sharer: {
+    label: 'Sharer', family: 'sharer',
+    summary: 'Starts passing on eight tenths of everything to everyone, and never steers. Learns from what comes back: eases down (never below half) when others give back less than half of what it passes on, and shares more again when they give back more.',
+    tell: 'Share bar long; dips a tenth at a time when little comes back.',
+    create: () => sharer(),
+  },
+  keeper: {
+    label: 'Keeper', family: 'keeper',
+    summary: 'Starts keeping everything, and is stubborn about it. Starts sharing only once the fees have cost it four tenths of its stake, or others have hurried the white arrow past it for 5 seconds; then shares a little more every 10 seconds.',
+    tell: 'Share bar empty, then filling, late.',
+    create: () => keeper(),
+  },
+  freeRider: {
+    label: 'Free Rider', family: 'keeper',
+    summary: 'Starts sharing half of what it receives, but only with itself, so nothing reaches anyone else. Learns from the fee: after two laps in which it kept less than a tenth of its reward, or once others hurry the arrow past it, it widens its sharing to more people.',
+    tell: 'Share bar at half, people dial at one, then widening.',
+    create: () => freeRider(),
+  },
+  selfSteerer: {
+    label: 'Self-Steerer', family: 'steerer',
+    summary: 'Starts paying to hurry the white arrow towards itself, holding it back only when that pays. Shares half. Learns from its results: when its votes cost more than its reward rose, it steers less, until it stops.',
+    tell: 'Votes as the white arrow nears it, less each lap.',
+    create: () => selfSteerer(),
+  },
+  sharerSteerer: {
+    label: 'Patron', family: 'steerer',
+    summary: 'Starts paying to hurry the white arrow towards whoever else has shared most lately. Shares seven tenths. Learns whose turn at the white arrow brings it nothing back, and hurries the arrow past them.',
+    tell: 'Votes as the white arrow nears the most generous, and to hurry it past a keeper.',
+    create: () => patron(),
+  },
+  poorSteerer: {
+    label: 'Lifeguard', family: 'steerer',
+    summary: 'When a player falls below four tenths of the stake, it pays to hurry the black arrow past them and the white arrow to them. Shares seven tenths. Learns when its help is swallowed by the fee, and then only hurries the black arrow past them.',
+    tell: 'Votes when an arrow nears the poorest player.',
+    create: () => lifeguard(),
+  },
+  reciprocator: {
+    label: 'Reciprocator', family: 'sharer',
+    summary: 'Shares as much as the others do on average, between two and nine tenths, following them up or down. Never steers.',
+    tell: 'Its share bar follows the table.',
+    create: () => reciprocator(),
+  },
+  learner: {
+    label: 'Learner', family: 'learner',
+    summary: 'Starts at a random share and learns from its own results: after each turn of the wheel it moves its share dial again the same way if it kept more per token of reward than the turn before, or turns back if it kept less (Win-Stay, Lose-Shift).',
+    tell: 'Its share bar moves by two tenths once a lap, just after the white arrow leaves it.',
+    create: (rng) => learner(rng),
+  },
+  opportunist: {
+    label: 'Opportunist', family: 'keeper',
+    summary: 'Shows a generous share bar, nine tenths, but cuts to half while the white arrow is with it. Learns from reactions: drops the trick if others hurry the arrow past it while it cuts; says so if nobody reacts.',
+    tell: 'Share bar shrinks at the white arrow, until someone reacts.',
+    create: () => opportunist(),
+  },
+};
 
 /** A varied roster: at least one from each family, the rest at random, in a random join order. */
 export function selectRoster(rng, count = 5) {

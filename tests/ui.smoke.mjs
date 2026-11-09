@@ -396,7 +396,7 @@ async function playWheel(page, label) {
   assert.match(await page.$eval('#fee-note', (e) => e.textContent), /Of every 100 that reach you, 42 go to the others/, `${label}: the split follows the Pass on dial`);
   assert.equal(await page.$$eval('#split-bar .split-seg', (s) => s.length), 3, `${label}: others, fee and you in the split`);
   const receiptText = await page.$$eval('#events li', (l) => l.map((x) => x.textContent).join(' | '));
-  assert.match(receiptText, /Your \d+ s at the white arrow: \d+ reached you\. You passed on \d+, and the fund added \d+ to it; the fee took \d+; you kept \d+\./, `${label}: a receipt for your visit (${receiptText})`);
+  assert.match(receiptText, /Your \d+ s at the white arrow: \d+ reached you( \(\d+ reward, \d+ in shares from others\))?\. You passed on \d+, and the fund added \d+ to it; the fee took \d+; you kept \d+\./, `${label}: a receipt for your visit (${receiptText})`);
   // following another player's shares, from the picker
   const other = await page.$eval('#flow-focus', (s) => s.options[2].value);
   await page.selectOption('#flow-focus', other);
@@ -417,6 +417,10 @@ async function playWheel(page, label) {
   const end = await page.$eval('.end-card', (e) => e.textContent);
   assert.doesNotMatch(end, /undefined|NaN/, `${label}: end card`);
   assert.match(end, /Who was the hero/, `${label}: end card asks the hero question`);
+  // what the bots learned: one entry for each bot, with no gaps in the words
+  const learned = await page.$$eval('.learned > ul > li', (l) => l.map((x) => x.textContent));
+  assert.equal(learned.length, 5, `${label}: five bots in What the bots learned`);
+  for (const l of learned) assert.doesNotMatch(l, /undefined|NaN|@\[/, `${label}: ${l}`);
   // your account in full: the lines add up to what you end with (Jason, 2026-11-09)
   const acct = await page.$$eval('.ledger tbody tr td', (tds) => tds.map((td) => td.textContent));
   const num = (x) => Number(x.replace(/\u2212/g, '-').replace(/[^0-9+-]/g, '').replace(/^\+/, ''));
