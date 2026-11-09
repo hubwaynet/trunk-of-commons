@@ -218,12 +218,24 @@ function experience() {
     return { lap, laps, hurried, last, visitHurried: hurriedVisit };
   };
 }
-/** Builds a bot from a step function that may set a note; the note is returned once. */
+/**
+ * Builds a bot from a step function that may set a note. Each bot speaks at most once a lap (Jason,
+ * 2026-11-09: "Each bot once a lap at most"): a lap starts as the white arrow leaves it, and a note
+ * that comes after one already given in the same lap is not said (the change still shows on its dials).
+ */
 function teach(stepFn) {
+  let had = false;
+  let spoke = false;
   return {
     decide: (v) => {
       const out = stepFn(v);
-      return { vote: out.vote ?? 0, share: out.share, people: out.people, note: out.note ?? null };
+      const has = v.white === v.id;
+      if (had && !has) spoke = false; // a new lap
+      had = has;
+      let note = out.note ?? null;
+      if (note && spoke) note = null;
+      else if (note) spoke = true;
+      return { vote: out.vote ?? 0, share: out.share, people: out.people, note };
     },
   };
 }
@@ -313,15 +325,22 @@ function opportunist() {
   });
 }
 
-/** The Reciprocator: shares as much as the others do on average (between 2 and 9 tenths), and says
- * so when it follows them up or down. */
+/** The Reciprocator: shares as much as the others do on average (between 2 and 9 tenths). Once a lap,
+ * as the white arrow leaves it, it says where following them has taken it since it last spoke. */
 function reciprocator() {
   let share = null;
+  let said = null;
+  let had = false;
   return teach((v) => {
-    const target = Math.max(2, Math.min(9, Math.round(othersAverageShare(v))));
+    share = Math.max(2, Math.min(9, Math.round(othersAverageShare(v))));
+    said ??= share;
+    const has = v.white === v.id;
     let note = null;
-    if (share != null && target !== share) note = `${target > share ? 'shares more' : 'shares less'}, ${target}/10: following the others' average sharing`;
-    share = target;
+    if (had && !has && share !== said) {
+      note = `${share > said ? 'shares more' : 'shares less'}, ${share}/10 (from ${said}/10): following the others' average sharing`;
+      said = share;
+    }
+    had = has;
     return { share, people: v.n, note };
   });
 }
@@ -485,7 +504,7 @@ export const STRATEGIES = {
   },
   reciprocator: {
     label: 'Reciprocator', family: 'sharer',
-    summary: 'Shares as much as the others do on average, between two and nine tenths, following them up or down. Never steers.',
+    summary: 'Shares as much as the others do on average, between two and nine tenths, following them up or down, and says once a lap where that has taken it. Never steers.',
     tell: 'Its share bar follows the table.',
     create: () => reciprocator(),
   },

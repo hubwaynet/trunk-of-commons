@@ -371,6 +371,7 @@ async function playWheel(page, label) {
   await page.goto(page.url()); // reload so the page's timers run on the test clock
   await page.waitForSelector('#pause');
   assert.equal(await page.$eval('#clock', (e) => e.textContent), '6:00', `${label}: the clock waits for Start`);
+  assert.equal(await page.$eval('#stake', (e) => e.value), '500', `${label}: the play-test stake is 500 by default`);
   // the dials work from the keyboard, and keep focus while the clock runs
   await page.focus('#d-share');
   await page.keyboard.press('ArrowRight');
@@ -423,6 +424,9 @@ async function playWheel(page, label) {
   const end = await page.$eval('.end-card', (e) => e.textContent);
   assert.doesNotMatch(end, /undefined|NaN/, `${label}: end card`);
   assert.match(end, /Who was the hero/, `${label}: end card asks the hero question`);
+  // the what-if replays your table with one other Pass on setting (Jason, 2026-11-09); the page logs
+  // an error (failing this test) if replaying your own dials doesn't reproduce your table
+  assert.match(await page.$eval('.what-if', (e) => e.textContent), /passing on (8|5)\/10 to everyone all the way through: you'd have ended with \d/, `${label}: the what-if`);
   // what the bots learned: one entry for each bot, with no gaps in the words
   const learned = await page.$$eval('.learned > ul > li', (l) => l.map((x) => x.textContent));
   assert.equal(learned.length, 5, `${label}: five bots in What the bots learned`);

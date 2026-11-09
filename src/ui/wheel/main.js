@@ -55,7 +55,7 @@ function newTable({ watch = G?.watch ?? false } = {}) {
   const ids = keys.map((k, i) => (k === 'you' ? 'you' : `${k}#${i}`));
   const inst = keys.map((k) => (k === 'you' ? null : STRATEGIES[k].create(rng)));
   const names = shuffle(rng, NAMES);
-  const stake = Number($('#stake')?.value) || 650;
+  const stake = Number($('#stake')?.value) || 500; // 500 by default (Jason, 2026-11-09, decision 29)
   const dials = { vote: 0, share: 5, people: 6 }; // you start passing on half, to everyone
   // The bots set their dials before the clock starts, so the table shows them from the first look.
   const blank = createGame({ players: ids.map((id) => ({ id })), seed, stake });
@@ -65,14 +65,14 @@ function newTable({ watch = G?.watch ?? false } = {}) {
     seed, keys, ids, inst, watch, s, prev: s, dials: { ...dials },
     name: Object.fromEntries(ids.map((id, i) => [id, id === 'you' ? 'You' : names[i]])),
     hue: Object.fromEntries(ids.map((id, i) => [id, id === 'you' ? HUMAN_HUE : HUES[i % HUES.length]])),
-    paused: true, started: false, speed: Number($('#speed')?.value) || 1, lastStep: now(), timer: null,
+    paused: true, started: false, speed: Number($('#speed')?.value) || 1, lastStep: now(), timer: null, myLog: [],
     events: [], holder: whiteId(s), holderSince: 0, holderMark: statsMark(s.players[0]), last: settingsOf(s), warned: false, fx: {},
     blackHolder: blackId(s), blackSince: 0, blackMark: statsMark(player0(s, blackId(s))),
     // Whose shares, fee and boost the picture shows: the white arrow by default (Jason, 2026-11-09,
     // after playing: "the player focus showing fees & boosts to follow the white arrow by default,
     // with an option to switch to black arrow or select any bot to view").
     focus: 'white', knobs: null, endAnim: null, endTimer: null,
-    first: settingsOf(s), lessons: Object.fromEntries(ids.map((id) => [id, []])),
+    first: settingsOf(s), lessons: Object.fromEntries(ids.map((id) => [id, []])), spoke: {},
   };
   drawTable();
   renderFlowControl();
@@ -117,6 +117,7 @@ function tick() {
   if (G.s.status !== 'playing') return;
   const d = {};
   G.ids.forEach((id, i) => { d[id] = G.inst[i] ? G.inst[i].decide(botView(G.s, id)) : { ...G.dials }; });
+  if (!G.watch) G.myLog.push({ ...G.dials }); // your dials each second, for the what-if on the end card
   G.decided = d; // the learners say why they moved (shown in What's happening)
   G.prev = G.s;
   G.s = step(G.s, d);
@@ -518,7 +519,10 @@ function updateDials() {
   const withWheel = Math.sign(vote) === s.dir;
   $('#o-vote').textContent = vote === 0 ? 'no vote'
     : `${vote > 0 ? '↻ clockwise' : '↺ anticlockwise'} ${Math.abs(vote)}, ${withWheel ? 'with the wheel\'s turn: faster' : 'against the wheel\'s turn: slower'}, costing ${cost} a second`;
-  $('#vote-note').textContent = `${voteEffect()} Your vote fades back to 0, one step a second: turn it again to keep pushing.`;
+  const wasted = Math.sign(vote) === -s.dir && s.voteSpeed === 'addsSlows' ? Math.abs(vote) - (s.minSpeed - s.slowest) : 0;
+  // Beyond 4 against, the wheel is already at its slowest (Jason, 2026-11-09, decision 30: "say so")
+  const beyond = wasted > 0 ? ` On its own, a vote of more than ${s.minSpeed - s.slowest} against can't slow the wheel below ${s.slowest}° a second: the extra ${wasted} only costs more, unless others vote against with you.` : '';
+  $('#vote-note').textContent = `${voteEffect()}${beyond} Your vote fades back to 0, one step a second: turn it again to keep pushing.`;
   G.knobs?.vote.set(vote, false); // refreshes "with" or "against" when the wheel turns round
 }
 
@@ -635,6 +639,7 @@ function noteEvents() {
   const w = s.status === 'playing' ? whiteId(s) : null;
   if (w !== G.holder) {
     const prev = s.players.find((p) => p.id === G.holder);
+    G.spoke[prev.id] = false; // a new lap for this bot: it may speak once again
     const got = tok(prev.stats.reward - G.holderMark.reward);
     if (t - G.holderSince >= 3) {
       const followed = G.focus === 'white' || G.focus === prev.id || (prev.id === 'you' && G.focus === 'all');
@@ -654,7 +659,10 @@ function noteEvents() {
   }
   if (!G.watch && s.status === 'playing' && blackId(s) === 'you' && blackId(G.prev) !== 'you') announce('The black arrow reaches you: you pay 9 a second.');
   // What the bots learn, in their own words (Jason, 2026-11-09: "Every bot should learn and
-  // demonstrate what they learn"), and any other dial changes (their tells)
+  // demonstrate what they learn"), and otherwise a dial change or a vote (their tells). Each bot
+  // speaks at most once a lap (Jason, 2026-11-09: "Each bot once a lap at most"): the bots say at
+  // most one lesson a lap, and a dial change or vote gets a line only if the bot hasn't spoken this
+  // lap. Everything still shows on the seats and in the picture.
   for (const p of s.players) {
     if (p.id === 'you') continue;
     const was = G.last[p.id];
@@ -664,8 +672,13 @@ function noteEvents() {
       const text = note.replace(/@\[([^\]]+)\]/g, (_, id) => G.name[id] ?? 'someone');
       G.lessons[p.id].push({ t: s.t, text });
       pushEvent(`${G.name[p.id]} ${text}.`);
-    } else if (was.share !== st.share || was.people !== st.people) pushEvent(`${G.name[p.id]} now ${settingText(st)}.`);
-    if (!was.vote && st.vote) pushEvent(`${G.name[p.id]} votes ${st.vote > 0 ? 'clockwise' : 'anticlockwise'} ${Math.abs(st.vote)} (${Math.sign(st.vote) === G.prev.dir ? 'with the wheel' : 'against it'}).`);
+      G.spoke[p.id] = true;
+    } else if (!G.spoke[p.id]) {
+      let line = null;
+      if (was.share !== st.share || was.people !== st.people) line = `${G.name[p.id]} now ${settingText(st)}.`;
+      else if (!was.vote && st.vote) line = `${G.name[p.id]} votes ${st.vote > 0 ? 'clockwise' : 'anticlockwise'} ${Math.abs(st.vote)} (${Math.sign(st.vote) === G.prev.dir ? 'with the wheel' : 'against it'}).`;
+      if (line) { pushEvent(line); G.spoke[p.id] = true; }
+    }
   }
   if (G.prev.dir !== s.dir) pushEvent(`Together the votes turned the wheel round: now ${s.dir > 0 ? 'clockwise' : 'anticlockwise'}.`, true);
   G.last = settingsOf(s);
@@ -902,6 +915,7 @@ function showEnd() {
       <tbody>${rows.map(({ p, key, net }) => { const m = L[p.id]; return `<tr><th scope="row"><span class="who"><span class="dot" style="background:${G.hue[p.id]}"></span>${esc(G.name[p.id])}</span></th><td>${key === 'you' ? 'You' : esc(STRATEGIES[key].label)}</td><td>${fmt(m.received)}</td><td>${fmt(m.sharesOut)}</td><td>${Math.round(100 * passedOn(p))}%</td><td>${fmt(m.fees)}</td><td>${fmt(m.beforeSplit)}</td><td>${s.bonus ? `+${fmt(m.refund + m.bonus)}` : '0'}</td><td>${fmt(p.balance)}</td><td class="${net >= 0 ? 'pos' : 'neg'}">${signed(tok(net))}</td></tr>`; }).join('')}</tbody>
     </table></div>
     <p class="small muted">Received: rewards and shares that reached them, before they passed anything on. Shared out: what they sent to others, the fund's boost included. Passed on: the part of what reached them that they sent to others, the boost not counted, which sets their part of the boost fund. Before the split: what they held once the last shares had landed, before the boost fund was shared out.</p>
+    ${me ? whatIfHtml(me) : ''}
     ${learnedHtml(rows)}
     <p>Richest: <b>${esc(G.name[richest.p.id])}</b>. Gave the most to others: <b>${esc(G.name[giver.p.id])}</b>. Who was the hero?</p>
     <p><button class="btn" id="again" type="button">New table</button></p>
@@ -910,6 +924,41 @@ function showEnd() {
   card.querySelector('#again').addEventListener('click', () => { newTable(); showTable({ ifHidden: true }); });
   announce(`${lasted ? 'The table lasted the six minutes.' : `The table ended at ${at}: ${bust.join(' and ')} couldn't pay.`} ${fundLine}${me ? ` You end with ${fmt(me.balance)}, ${signed(tok(me.balance - me.start))} on your stake.` : ''}`);
   update();
+}
+
+/**
+ * What if (Jason, 2026-11-09, decision 32: "What-if on end card only"): the same table replayed, same
+ * seed, same bots from the same start, with your votes as you made them, but one other Pass on
+ * setting held all table, to everyone. If you passed on less than 7/10 on average it shows 8/10;
+ * otherwise half. The bots react to the difference, so this is one table, not a rule.
+ */
+function whatIf(share) {
+  const rng = mulberry32(G.seed);
+  selectRoster(rng, 5);
+  const inst = G.keys.map((k) => (k === 'you' ? null : STRATEGIES[k].create(rng)));
+  const blank = createGame({ players: G.ids.map((id) => ({ id })), seed: G.seed, stake: G.s.stake / UNIT });
+  // share null: your dials as you set them (a check that the replay matches the table you played)
+  const mine = (x) => (share == null ? (x ?? { vote: 0, share: 5, people: G.s.n }) : { vote: x?.vote ?? 0, share, people: G.s.n });
+  const players = G.ids.map((id, i) => ({ id, settings: inst[i] ? inst[i].decide(botView(blank, id)) : mine(null) }));
+  let s = createGame({ players, seed: G.seed, stake: G.s.stake / UNIT, record: false });
+  while (s.status === 'playing') {
+    const d = {};
+    G.ids.forEach((id, i) => { d[id] = inst[i] ? inst[i].decide(botView(s, id)) : mine(G.myLog[s.t]); });
+    s = step(s, d);
+  }
+  return s;
+}
+function whatIfHtml(me) {
+  if (!G.myLog.length) return '';
+  const avg = G.myLog.reduce((a, x) => a + (x.people > 1 ? x.share : 0), 0) / G.myLog.length;
+  const share = avg < 7 ? 8 : 5;
+  const same = whatIf(null).players.find((x) => x.id === 'you');
+  if (same.balance !== me.balance) { console.error('What if: the replay does not match the table played'); return ''; }
+  const w = whatIf(share);
+  const p = w.players.find((x) => x.id === 'you');
+  const ended = w.endReason === 'time' ? (w.bonus ? 'lasted the six minutes with the bonus' : 'lasted the six minutes, but without the bonus') : `ended at ${Math.floor(w.t / 60)}:${String(w.t % 60).padStart(2, '0')}, when someone couldn't pay`;
+  const diff = tok(p.balance - me.balance);
+  return `<div class="what-if"><h4>What if?</h4><p>The same table again, with the same bots starting the same way and your votes as you made them, but passing on <b>${share}/10 to everyone</b> all the way through: you'd have ended with <b>${fmt(p.balance)}</b> (${signed(tok(p.balance - p.start))} on your stake), ${diff === 0 ? 'the same as you did' : `${Math.abs(diff)} ${diff > 0 ? 'more' : 'less'} than you did`}, and the table would have ${ended}.</p><p class="small muted">The bots react to what you do, so a different setting changes their play too. One table can go either way: try it and see.</p></div>`;
 }
 
 /**

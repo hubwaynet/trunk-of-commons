@@ -324,6 +324,27 @@ test('the simulator re-runs earlier eras: under the first rule, votes never chan
   assert.ok(N.changedSecs / N.voteSecs > 0.9, 'under decisions 21-23 they nearly always do');
 });
 
+test('each bot speaks at most once a lap (Jason, 2026-11-09)', () => {
+  let notes = 0;
+  for (let t = 0; t < 20; t++) {
+    const keys = selectRoster(mulberry32(70 + t), 6);
+    const said = {};
+    let holder = null;
+    playTable(keys, 900 + t, { stake: 500 }, 'now', (prev, s, d) => {
+      const w = whiteId(prev); // what the bots saw when they decided
+      if (holder && w !== holder) said[holder] = 0; // a new lap for the bot the arrow just left
+      holder = w;
+      for (const p of s.players) {
+        if (!d[p.id].note) continue;
+        notes++;
+        said[p.id] = (said[p.id] ?? 0) + 1;
+        assert.ok(said[p.id] <= 1, `${p.id} spoke twice in a lap at ${s.t}: ${d[p.id].note}`);
+      }
+    });
+  }
+  assert.ok(notes > 100, `they still speak (${notes} notes in 20 tables)`);
+});
+
 test('the simulator reports every table conserved', () => {
   const st = simulate(30, (t, rng) => selectRoster(rng, 6));
   assert.equal(st.conserved, 30);
