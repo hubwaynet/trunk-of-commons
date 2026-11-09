@@ -67,12 +67,23 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
  * boostStart: tokens in the boost fund when the table starts (2017 doesn't say; 0).
  * endBonus: what finishing the full six minutes earns, when the poorest player still holds at least
  *   10% of the stake. The bonus is 2% (poorest holds 10-20% of the stake) up to 10% (90% or more).
- *   'refund' (default, Jason 2026-11-09): the game's boost fund is shared equally among the players
+ *   'refund' (default, Jason 2026-11-09): the game's boost fund is shared out among the players
  *            instead of going to the common fund, and the common fund adds the bonus, as a % of
  *            each player's stake. A table that busts loses its fund.
+ *            How the fund is shared out is set by refundBy.
  *   '2017'   as written: the bonus is added to the boost on shares still travelling at the end.
  *            Simulated: it changes nothing (nets moved by 3 tokens at most).
  *   'none'   no bonus (the first core)
+ * refundBy: with endBonus 'refund', how the boost fund is shared out at full time.
+ *   'rate'   (default; Jason, 2026-11-09, after playing: "I'd like the end-game fund split to be
+ *            according to sharing behaviour instead of equal"). In proportion to the part of what
+ *            reached each player (rewards and shares in) that they passed on to others, the boost
+ *            not counted: behaviour, not luck. A keeper gets nothing. If nobody passed anything on,
+ *            equal shares. The measure is the agent's choice, open to Jason.
+ *   'equal'  in equal shares (Jason, 2026-11-09, decision 10; in line with 2018's equal Universal
+ *            Distribution).
+ *   'tokens' in proportion to the tokens each passed on to others, the boost not counted.
+ *   The common fund's bonus stays a % of each stake, the same for everyone.
  * delays: 2017's "privilege as latency": a change to a vote dial takes effect after a delay of up to
  *   1.5 seconds by seat (none at the white arrow, the most at the black) plus up to 1.5 seconds for an
  *   extreme vote (none for 1, the most for 9), rounded to whole seconds. Off in the core.
@@ -83,14 +94,14 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
 export function createGame({
   players, seed = 0, stake = 1000, maxTicks = MAX_TICKS, minSpeed = 6, minVote = 0, maxVote = 9, voteCost = 0.25, voteCostAgainst = 1, reverseAbove = 9, voteSpeed = 'addsSlows', slowest = 2, blackRun = Infinity,
   collect = { black: 9, grey: 1 }, greyReach = 90, rewardTransit = 2, shareSpeed = 45, minParcel = 0.1, boostMax = 10,
-  selfShare = 'kept', boostStart = 0, endBonus = 'refund', delays = false, maxDepth = 40, record = true,
+  selfShare = 'kept', boostStart = 0, endBonus = 'refund', refundBy = 'rate', delays = false, maxDepth = 40, record = true,
 }) {
   if (!players || players.length < 3) throw new Error('Need at least 3 players');
   const n = players.length;
   const pos = joinPositions(n);
   const start = Math.round(stake * UNIT);
   return {
-    seed, n, maxTicks, minSpeed, minVote, maxVote, voteCost, voteCostAgainst: voteCostAgainst ?? voteCost, reverseAbove, voteSpeed, slowest, blackRun, greyReach, rewardTransit, shareSpeed, boostMax, selfShare, endBonus, delays, maxDepth, record,
+    seed, n, maxTicks, minSpeed, minVote, maxVote, voteCost, voteCostAgainst: voteCostAgainst ?? voteCost, reverseAbove, voteSpeed, slowest, blackRun, greyReach, rewardTransit, shareSpeed, boostMax, selfShare, endBonus, refundBy, delays, maxDepth, record,
     collect: { black: Math.round(collect.black * UNIT), grey: Math.round(collect.grey * UNIT) },
     minParcel: Math.round(minParcel * UNIT),
     stake: start,
@@ -110,6 +121,7 @@ export function createGame({
       voteLog: [], // with delays on: recent dial values, { t, v, at } (at: when each takes effect)
       effVote: 0, // the vote in effect (equals the dial unless delays are on)
       atBlack: 0, // seconds in a row at the black arrow
+      refund: 0, // their share of the boost fund at full time
       stats: { paid: 0, voted: 0, reward: 0, sharesIn: 0, sharesOut: 0, fees: 0, boost: 0 },
     })),
     fund: { start: Math.round(boostStart * UNIT), balance: Math.round(boostStart * UNIT), fees: 0, votes: 0, boostPaid: 0, forfeits: 0, refunded: 0 },
@@ -372,16 +384,41 @@ function endTable(st, reason) {
   if (pct && st.endBonus !== 'none') st.bonus = { pct, poorest: Math.min(...st.players.map((p) => p.balance)) };
   if (pct && st.endBonus === '2017') st.boostMax += pct;
   deliver(st, st.t, true, null);
-  if (ending) Object.assign(ending, { beforeSplit: st.players.map((p) => p.balance), fundBeforeSplit: st.fund.balance, refundEach: 0, topUp: 0 });
+  if (ending) Object.assign(ending, { beforeSplit: st.players.map((p) => p.balance), fundBeforeSplit: st.fund.balance, refunds: st.players.map(() => 0), topUp: 0 });
   if (pct && st.endBonus === 'refund') {
-    const each = Math.floor(st.fund.balance / st.n);
+    const w = refundWeights(st);
+    const W = w.reduce((a, x) => a + x, 0);
+    const fund = st.fund.balance;
     const topUp = Math.floor((st.stake * pct) / 100);
-    for (const p of st.players) p.balance += each + topUp;
-    st.fund.balance -= each * st.n; st.fund.refunded += each * st.n;
+    st.players = st.players.map((p, i) => {
+      const refund = Math.floor((fund * w[i]) / W);
+      st.fund.balance -= refund; st.fund.refunded += refund;
+      return { ...p, refund, balance: p.balance + refund + topUp };
+    });
     st.commonIn += topUp * st.n;
-    if (ending) Object.assign(ending, { refundEach: each, topUp });
+    if (ending) Object.assign(ending, { refunds: st.players.map((p) => p.refund), topUp });
   }
   return { ...st, status: 'ended', endReason: reason, ending };
+}
+
+/**
+ * Each player's weight in the share-out of the boost fund (refundBy), as whole numbers. The part
+ * passed on is what they sent to others less the boost the fund added, over what reached them.
+ */
+export function refundWeights(s) {
+  const passed = (p) => Math.max(0, p.stats.sharesOut - p.stats.boost);
+  const got = (p) => p.stats.reward + p.stats.sharesIn;
+  let w;
+  if (s.refundBy === 'rate') w = s.players.map((p) => (got(p) > 0 ? Math.round((1e6 * passed(p)) / got(p)) : 0));
+  else if (s.refundBy === 'tokens') w = s.players.map(passed);
+  else w = s.players.map(() => 1);
+  return w.some((x) => x > 0) ? w : s.players.map(() => 1);
+}
+
+/** The part of what reached a player that they passed on to others (0..1), the boost not counted. */
+export function passedOn(p) {
+  const got = p.stats.reward + p.stats.sharesIn;
+  return got > 0 ? Math.max(0, p.stats.sharesOut - p.stats.boost) / got : 0;
 }
 
 /**
@@ -392,7 +429,7 @@ function endTable(st, reason) {
 export function ledger(s, id) {
   const p = s.players.find((x) => x.id === id);
   const st = p.stats;
-  const refund = s.ending?.refundEach ?? (s.fund.refunded / s.n);
+  const refund = p.refund ?? 0;
   const bonus = s.ending?.topUp ?? (s.commonIn / s.n);
   const received = st.reward + st.sharesIn;
   return {

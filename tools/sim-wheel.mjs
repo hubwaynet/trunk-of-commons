@@ -6,6 +6,7 @@
 //         'same'     six players all of one style: what happens when everyone plays it?
 //         'dilemma'  learners and same side by side
 //         'stakes'   bot tables at a range of stakes
+//         'split'    how the boost fund is shared out: equal, by the part passed on, by tokens passed on
 //   options: engine options, e.g. '{"stake":500,"selfShare":"kept"}'
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -127,6 +128,22 @@ export function dilemmaReport(rows, title = '') {
   return L.join('\n');
 }
 
+/**
+ * How the boost fund is shared out (Jason, 2026-11-09, after playing: "according to sharing behaviour
+ * instead of equal"). Each style alone against five random bots, and six of one style, at each stake
+ * and each way of sharing out the fund.
+ */
+export function splitCompare(tables, opts = {}, stakes = [650, 800, 1000], ways = ['equal', 'rate', 'tokens'], styles = ['keep', 'half', 'generous', 'all', 'stewardHalf', 'stewardAll']) {
+  const L = ['== How the boost fund is shared out: your net alone against five random bots (six of this style: net each)'];
+  for (const stake of stakes) {
+    for (const refundBy of ways) {
+      const rows = dilemma(tables, { ...opts, stake, refundBy }, styles);
+      L.push(`stake ${stake}, ${refundBy}: ${rows.map((r) => `${r.style} ${r.soloNet.toFixed(0)} (${r.sameNet.toFixed(0)})`).join(' · ')}`);
+    }
+  }
+  return L.join('\n');
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const tables = Number(process.argv[2] ?? 1000);
   const mode = process.argv[3] ?? 'bots';
@@ -135,6 +152,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const bots = (t, rng) => selectRoster(rng, 6);
   if (mode === 'bots') console.log(report(simulate(tables, bots, opts), `bots ${tag}`));
   if (mode === 'learners' || mode === 'dilemma' || mode === 'same') console.log(dilemmaReport(dilemma(tables, opts), tag));
+  if (mode === 'split') console.log(splitCompare(tables, opts));
   if (mode === 'stakes') {
     for (const stake of [300, 400, 500, 600, 800, 1000]) console.log(report(simulate(tables, bots, { ...opts, stake }), `bots stake ${stake} ${tag}`));
   }

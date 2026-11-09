@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createGame, step, joinPositions, quotas, feePct, transitTicks, whiteId, blackId, totalUnits, bonusPct, voteDelay, ledger, UNIT,
+  createGame, step, joinPositions, quotas, feePct, transitTicks, whiteId, blackId, totalUnits, bonusPct, voteDelay, ledger, passedOn, UNIT,
 } from '../src/engine/wheel.js';
 import { STRATEGIES, botView, selectRoster, steer } from '../src/bots/wheel-bots.js';
 import { playTable, simulate } from '../tools/sim-wheel.mjs';
@@ -138,8 +138,31 @@ test('the end bonus: 2% to 10% by the poorest player; at full time the fund is r
   assert.equal(totalUnits(r), startTotal(r));
 });
 
+test('the boost fund is shared out by sharing: a keeper gets none of it (Jason, 2026-11-09)', () => {
+  const settings = { all: { share: 8, people: 6 }, a: { share: 0, people: 1 }, b: { share: 4, people: 6 } };
+  const play = (refundBy) => run(fresh({ stake: 5000, ...(refundBy ? { refundBy } : {}) }, settings), 400);
+  const of = (s, id) => s.players.find((p) => p.id === id);
+  const r = play();
+  assert.equal(r.refundBy, 'rate', 'by sharing is the default');
+  assert.equal(r.endReason, 'time');
+  assert.equal(of(r, 'a').refund, 0, 'the keeper gets none of the fund');
+  assert.ok(of(r, 'b').refund > 0 && of(r, 'c').refund > of(r, 'b').refund, 'more for passing on more');
+  const ratio = of(r, 'c').refund / of(r, 'b').refund;
+  const expected = passedOn(of(r, 'c')) / passedOn(of(r, 'b'));
+  assert.ok(Math.abs(ratio - expected) < 0.001, `in proportion to the part passed on (${ratio} against ${expected})`);
+  assert.ok(r.fund.balance < r.n, 'the whole fund is shared out, but for odd hundredths');
+  assert.equal(totalUnits(r), startTotal(r));
+  const eq = play('equal');
+  assert.ok(eq.players.every((p) => p.refund === eq.players[0].refund), 'equal shares, as an option');
+  const tk = play('tokens');
+  assert.equal(of(tk, 'a').refund, 0);
+  // nobody passed anything on: equal shares
+  const keepers = run(fresh({ stake: 5000 }, { all: { share: 0, people: 1 } }), 400);
+  assert.ok(keepers.bonus && keepers.players.every((p) => p.refund === keepers.players[0].refund && p.refund > 0));
+});
+
 test('every token is accounted for, under every rule variant', () => {
-  const variants = [{}, { selfShare: 'cascade' }, { reverseAbove: 6, minVote: 1 }, { endBonus: 'none', stake: 600 }, { endBonus: '2017', stake: 2000 }];
+  const variants = [{}, { selfShare: 'cascade' }, { reverseAbove: 6, minVote: 1 }, { endBonus: 'none', stake: 600 }, { endBonus: '2017', stake: 2000 }, { refundBy: 'equal' }, { refundBy: 'tokens' }];
   for (const opts of variants) {
     for (let t = 0; t < 40; t++) {
       const s = playTable(selectRoster(mulberry32(t), 6), 100 + t, opts);
@@ -173,7 +196,8 @@ test('each player\'s ledger closes exactly, and the ending is recorded for the p
         assert.equal(L.beforeSplit, e.beforeSplit[i], `${p.id} matches the recorded balance before the split`);
         assert.equal(L.beforeSplit + L.refund + L.bonus, p.balance, `${p.id} ends with`);
       }
-      if (s.bonus) assert.ok(e.refundEach > 0 && e.topUp > 0); else assert.equal(e.refundEach + e.topUp, 0);
+      const refunded = e.refunds.reduce((a, x) => a + x, 0);
+      if (s.bonus) assert.ok(refunded > 0 && e.topUp > 0); else assert.equal(refunded + e.topUp, 0);
       // the flows the page draws after the bell: shares that were still travelling all land
       assert.ok(e.shares.every((x) => x.arrive > s.t - 1 && x.kind === 'share'));
     }

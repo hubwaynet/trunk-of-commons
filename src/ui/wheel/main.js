@@ -10,7 +10,7 @@
 // shows each account in full.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { createGame, step, seatAngle, quotas, whiteId, blackId, feePct, ledger, voteCostOf, UNIT } from '../../engine/wheel.js';
+import { createGame, step, seatAngle, quotas, whiteId, blackId, feePct, ledger, voteCostOf, passedOn, refundWeights, UNIT } from '../../engine/wheel.js';
 import { STRATEGIES, FAMILIES, botView, selectRoster } from '../../bots/wheel-bots.js';
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 import { isUnlocked } from '../progress-store.js';
@@ -67,7 +67,11 @@ function newTable({ watch = G?.watch ?? false } = {}) {
     hue: Object.fromEntries(ids.map((id, i) => [id, id === 'you' ? HUMAN_HUE : HUES[i % HUES.length]])),
     paused: true, started: false, speed: Number($('#speed')?.value) || 1, lastStep: now(), timer: null,
     events: [], holder: whiteId(s), holderSince: 0, holderMark: statsMark(s.players[0]), last: settingsOf(s), warned: false, fx: {},
-    focus: watch ? 'all' : 'you', knobs: null, endAnim: null, endTimer: null,
+    blackHolder: blackId(s), blackSince: 0, blackMark: statsMark(player0(s, blackId(s))),
+    // Whose shares, fee and boost the picture shows: the white arrow by default (Jason, 2026-11-09,
+    // after playing: "the player focus showing fees & boosts to follow the white arrow by default,
+    // with an option to switch to black arrow or select any bot to view").
+    focus: 'white', knobs: null, endAnim: null, endTimer: null,
     first: settingsOf(s), lessons: Object.fromEntries(ids.map((id) => [id, []])),
   };
   drawTable();
@@ -85,6 +89,16 @@ function newTable({ watch = G?.watch ?? false } = {}) {
 let animating = false; // one animation loop for the page, whichever table is showing
 
 const settingsOf = (s) => Object.fromEntries(s.players.map((p) => [p.id, { ...p.settings }]));
+const player0 = (s, id) => s.players.find((p) => p.id === id);
+/** The player the picture follows now: whoever has the white or black arrow, one chosen player, or
+ * nobody ('all': everyone's shares alike). */
+const focusId = () => {
+  if (!G || G.focus === 'all') return null;
+  const s = G.s.status === 'playing' ? G.s : G.prev;
+  if (G.focus === 'white') return whiteId(s);
+  if (G.focus === 'black') return blackId(s);
+  return G.focus;
+};
 const statsMark = (p) => ({ ...p.stats });
 const player = (id) => G.s.players.find((p) => p.id === id);
 const disp = (pos) => seatAngle(G.s, pos) + OFFSET; // where a seat is drawn
@@ -203,7 +217,7 @@ function drawTable() {
     t.childNodes[0].textContent = G.name[p.id];
     g.append(t);
     // Tap a seat to follow its shares (the picker under the picture does the same from the keyboard).
-    g.addEventListener('click', () => setFocus(G.focus === p.id ? 'all' : p.id));
+    g.addEventListener('click', () => setFocus(G.focus === p.id ? 'white' : p.id));
     seats.append(g);
   }
   svg.append(seats);
@@ -228,7 +242,7 @@ function drawSeats() {
     const ring = g.querySelector('.seat-ring');
     ring.setAttribute('class', `seat-ring${w === p.id ? ' receiving' : paying >= 9 * UNIT ? ' paying' : paying ? ' paying-light' : ''}`);
     g.classList.toggle('bust', G.s.bust.includes(p.id));
-    g.classList.toggle('focused', G.focus === p.id);
+    g.classList.toggle('focused', focusId() === p.id);
   });
   drawVotes();
   const fund = $('#hub-fund');
@@ -299,7 +313,7 @@ function rewardDots(theta, T, parcels, stopAtHub = false) {
  * parcels moving along it. Following one player writes the amount on its way on each of their bands.
  */
 function flowMarkup(T, parcels) {
-  const focus = G.focus;
+  const focus = focusId() ?? 'all';
   const pairs = new Map();
   for (const x of parcels) {
     if (x.kind !== 'share') continue;
@@ -361,7 +375,7 @@ function drawMoving(frac) {
  * its boost to what they share. Each is labelled with the amount this second.
  */
 function feeMarkup(frac) {
-  const id = G.focus === 'all' ? null : G.focus;
+  const id = focusId();
   const fx = id && G.fx?.[id];
   if (!fx || G.s.status !== 'playing') return '';
   const p = player(id);
@@ -413,10 +427,10 @@ function redrawNow() {
 function renderFlowControl() {
   const box = $('#flow-ctl');
   if (!box) return;
-  const opts = [['all', "Everyone's"], ...G.s.players.map((p) => [p.id, p.id === 'you' ? 'Yours' : `${G.name[p.id]}'s`])];
-  box.innerHTML = `<label class="small"><b>Shares shown:</b> <select id="flow-focus">${opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('')}</select></label>
+  const opts = [['white', 'The white arrow'], ['black', 'The black arrow'], ['all', 'Everyone alike'], ...G.s.players.map((p) => [p.id, p.id === 'you' ? 'You' : G.name[p.id]])];
+  box.innerHTML = `<label class="small"><b>Follow:</b> <select id="flow-focus">${opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('')}</select></label>
     <details class="flow-legend small" id="picture-key"><summary>What the picture shows</summary>
-      <p class="muted">Gold dots: the reward, crossing from the black arrow to the white. Each player's shares run in their own lane, in their colour, from them to each person they share with: thicker for more on the way, with the amount on its way written on the band for the player you follow. Tap a seat to follow it, or pick above. Curved arrows beside the seats are votes: longer and thicker for stronger, dashed when against the wheel's turn. The hub shows the boost fund: for the player you follow, squares carry the fee from their seat into it and diamonds carry its boost out to their shares, each with the amount. Rings: solid for the seat receiving, dashed for the seats paying.</p></details>`;
+      <p class="muted">Gold dots: the reward, crossing from the black arrow to the white. Each player's shares run in their own lane, in their colour, from them to each person they share with: thicker for more on the way. Follow picks whose shares, fee and boost stand out: whoever has the white arrow (the default), whoever has the black arrow, one player, or everyone alike. Tap a seat to follow it, and tap it again to go back to the white arrow. For the player you follow, the amount on its way is written on each band, squares carry the fee from their seat into the hub (the boost fund) and diamonds carry its boost out to their shares, each with the amount, and a receipt in What's happening adds up each of their turns at an arrow. Curved arrows beside the seats are votes: longer and thicker for stronger, dashed when against the wheel's turn. Rings: solid for the seat receiving, dashed for the seats paying.</p></details>`;
   const sel = $('#flow-focus');
   sel.value = G.focus;
   sel.addEventListener('change', (e) => setFocus(e.target.value));
@@ -425,7 +439,8 @@ function setFocus(id) {
   G.focus = id;
   const sel = $('#flow-focus');
   if (sel && sel.value !== id) sel.value = id;
-  for (const g of document.querySelectorAll('#seats .seat')) g.classList.toggle('focused', g.dataset.id === id);
+  const f = focusId();
+  for (const g of document.querySelectorAll('#seats .seat')) g.classList.toggle('focused', g.dataset.id === f);
   redrawNow();
 }
 
@@ -567,7 +582,7 @@ function update() {
     $('#mine').textContent = fmt(b);
     const net = tok(b - me.start);
     $('#mine-net').textContent = `${net === 0 ? '±0' : signed(net)} on your stake`;
-    $('#fund-line').textContent = `Boost fund (in the hub): ${fmt(G.endAnim ? G.endAnim.e.fundAtBell : s.fund.balance)} tokens, shared out equally if the table lasts with the poorest above a tenth of the stake.`;
+    $('#fund-line').textContent = fundLineText(me);
   } else $('#fund-big').textContent = fmt(G.endAnim ? G.endAnim.e.fundAtBell : s.fund.balance);
   if (s.status === 'playing') {
     const q = quotas(s);
@@ -590,6 +605,23 @@ function update() {
   if (st) st.disabled = !G.paused || s.status !== 'playing';
 }
 
+/**
+ * The boost fund in the panel. It is shared out by sharing (Jason, 2026-11-09: "according to sharing
+ * behaviour instead of equal"): in proportion to the part of what reached each player that they
+ * passed on. The line says what your part would be if the table ended now with the bonus.
+ */
+function fundLineText(me) {
+  const s = G.s;
+  const fund = G.endAnim ? G.endAnim.e.fundAtBell : s.fund.balance;
+  const rule = s.refundBy === 'equal' ? 'shared out equally' : 'shared out by how much of what reached each player they passed on';
+  const head = `Boost fund (in the hub): ${fmt(fund)} tokens, ${rule}, if the table lasts with the poorest above a tenth of the stake.`;
+  if (s.status !== 'playing' || s.refundBy === 'equal' || !(me.stats.reward + me.stats.sharesIn)) return head;
+  const w = refundWeights(s);
+  const W = w.reduce((a, x) => a + x, 0);
+  const mine = Math.floor((fund * w[s.players.indexOf(me)]) / W);
+  return `${head} So far you have passed on ${Math.round(100 * passedOn(me))}% of what reached you: if it ended now, your part would be about ${fmt(mine)}.`;
+}
+
 // ---------- what's happening ----------
 function pushEvent(text, speak = false) {
   G.events.unshift({ t: G.s.t, text });
@@ -605,13 +637,20 @@ function noteEvents() {
     const prev = s.players.find((p) => p.id === G.holder);
     const got = tok(prev.stats.reward - G.holderMark.reward);
     if (t - G.holderSince >= 3) {
-      const followed = G.focus === prev.id || (prev.id === 'you' && G.focus === 'all');
+      const followed = G.focus === 'white' || G.focus === prev.id || (prev.id === 'you' && G.focus === 'all');
       pushEvent(followed ? receipt(prev, G.holderMark, t - G.holderSince) : `${G.name[prev.id]} had the white arrow for ${t - G.holderSince} s; ${got} tokens reached ${prev.id === 'you' ? 'you' : 'them'}.`);
     }
     if (w) {
       G.holder = w; G.holderSince = t; G.holderMark = statsMark(s.players.find((p) => p.id === w));
       if (w === 'you') announce('The white arrow reaches you.');
     }
+  }
+  // the black arrow moved on: when following it (or that player), what they paid and kept meanwhile
+  const b = s.status === 'playing' ? blackId(s) : null;
+  if (b !== G.blackHolder) {
+    const prev = s.players.find((p) => p.id === G.blackHolder);
+    if (t - G.blackSince >= 3 && (G.focus === 'black' || G.focus === prev.id)) pushEvent(blackReceipt(prev, G.blackMark, t - G.blackSince));
+    if (b) { G.blackHolder = b; G.blackSince = t; G.blackMark = statsMark(s.players.find((p) => p.id === b)); }
   }
   if (!G.watch && s.status === 'playing' && blackId(s) === 'you' && blackId(G.prev) !== 'you') announce('The black arrow reaches you: you pay 9 a second.');
   // What the bots learn, in their own words (Jason, 2026-11-09: "Every bot should learn and
@@ -661,6 +700,19 @@ function receipt(p, mark, secs) {
   const they = you ? 'You' : 'They';
   const passed = out > 0 ? `${they} passed on ${passT}, and the fund added ${fmt(boost)} to it` : `${they} passed nothing on`;
   return `${who} ${secs} s at the white arrow: ${recT} reached ${them}${shIn >= 50 ? ` (${fmt(reward)} reward, ${fmt(shIn)} in shares from others)` : ''}. ${passed}; the fee took ${feeT}; ${you ? 'you' : 'they'} kept ${keptT}.`;
+}
+
+/** A receipt for a turn at the black arrow: what they paid in, and what reached them meanwhile. */
+function blackReceipt(p, mark, secs) {
+  const d = (k) => p.stats[k] - mark[k];
+  const you = p.id === 'you';
+  const who = you ? 'Your' : `${G.name[p.id]}'s`;
+  const they = you ? 'You' : 'They';
+  const recT = tok(d('reward') + d('sharesIn'));
+  const passT = tok(d('sharesOut') - d('boost'));
+  const feeT = tok(d('fees'));
+  const meanwhile = recT > 0 ? ` Meanwhile ${recT} reached ${you ? 'you' : 'them'} in shares: ${you ? 'you' : 'they'} passed on ${passT}, the fee took ${feeT}, and ${you ? 'you' : 'they'} kept ${recT - passT - feeT}.` : '';
+  return `${who} ${secs} s at the black arrow: ${they} paid ${tok(d('paid'))} into the reward.${meanwhile}`;
 }
 
 /** A player's dials in words. */
@@ -721,7 +773,7 @@ function endTable() {
   const msPerSec = clamp(tickMs(), 250, 1000);
   const lastArrive = Math.max(s.t, ...e.shares.map((x) => x.arrive));
   const aMs = (lastArrive - (s.t - 1)) * msPerSec;
-  const bMs = e.refundEach || e.topUp ? 2200 : 0;
+  const bMs = e.refunds.some((x) => x > 0) || e.topUp ? 2200 : 0;
   G.endAnim = { t0: now(), msPerSec, aMs, bMs, e, bellT: s.t };
   setPaused(true);
   update();
@@ -746,39 +798,42 @@ function drawEnding() {
   if (fl) fl.innerHTML = flowMarkup(T, e.shares.filter((x) => x.arrive > T));
   const pa = A.aMs ? clamp(el2 / A.aMs, 0, 1) : 1;
   const pb = A.bMs ? clamp((el2 - A.aMs) / A.bMs, 0, 1) : 0;
-  const each = e.refundEach + e.topUp;
+  const each = (i) => e.refunds[i] + e.topUp;
+  const refunded = e.refunds.reduce((a, x) => a + x, 0);
   // balances count up: first the shares landing, then the fund and bonus
   s.players.forEach((p, i) => {
     const g = $(`#seats .seat[data-id="${CSS.escape(p.id)}"]`);
-    const v = pb > 0 ? e.beforeSplit[i] + each * pb : e.bell[i] + (e.beforeSplit[i] - e.bell[i]) * pa;
+    const v = pb > 0 ? e.beforeSplit[i] + each(i) * pb : e.bell[i] + (e.beforeSplit[i] - e.bell[i]) * pa;
     if (g) g.querySelectorAll('tspan')[1].textContent = fmt(v);
   });
   const hub = $('#hub-fund');
-  if (hub) hub.textContent = fmt(pb > 0 ? e.fundBeforeSplit - e.refundEach * s.n * pb : e.fundAtBell + (e.fundBeforeSplit - e.fundAtBell) * pa);
+  if (hub) hub.textContent = fmt(pb > 0 ? e.fundBeforeSplit - refunded * pb : e.fundAtBell + (e.fundBeforeSplit - e.fundAtBell) * pa);
   const hubLabel = $('#hub .hub-label');
   if (hubLabel) hubLabel.textContent = pa >= 1 && !A.bMs ? 'lost' : 'fund';
   // the fund flows out of the hub to every seat; the bonus comes in from outside the wheel
   const fx = [];
   if (pb > 0 && pb < 1) {
-    for (const p of s.players) {
+    const most = Math.max(1, ...e.refunds);
+    s.players.forEach((p, i) => {
       const a = disp(p.pos);
+      const big = e.refunds[i] / most; // each seat's circles are sized by its part of the fund
       for (let k = 0; k < 5; k++) {
         const q = clamp(pb * 1.35 - k * 0.07, 0, 1);
         if (q <= 0 || q >= 1) continue;
         const [x1, y1] = polar(a, HUB_R + (SEAT_R - 26 - HUB_R) * q);
-        fx.push(`<circle cx="${x1.toFixed(1)}" cy="${y1.toFixed(1)}" r="${(4 - k * 0.5).toFixed(1)}" class="dot-refund"/>`);
+        if (e.refunds[i] > 0) fx.push(`<circle cx="${x1.toFixed(1)}" cy="${y1.toFixed(1)}" r="${((1.6 + 3.4 * Math.sqrt(big)) * (1 - k * 0.12)).toFixed(1)}" class="dot-refund"/>`);
         if (e.topUp) {
           const [x2, y2] = polar(a, 252 - (252 - SEAT_R) * q);
           fx.push(`<rect x="${(x2 - 3).toFixed(1)}" y="${(y2 - 3).toFixed(1)}" width="6" height="6" class="dot-bonus" transform="rotate(45 ${x2.toFixed(1)} ${y2.toFixed(1)})"/>`);
         }
       }
-    }
+    });
   }
   if (pb > 0) {
-    for (const p of s.players) {
+    s.players.forEach((p, i) => {
       const [x, y] = polar(disp(p.pos), SEAT_R - 44);
-      fx.push(`<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" class="end-gain" opacity="${Math.min(1, pb * 2).toFixed(2)}">+${fmt(each)}</text>`);
-    }
+      fx.push(`<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" class="end-gain" opacity="${Math.min(1, pb * 2).toFixed(2)}">+${fmt(each(i))}</text>`);
+    });
   }
   const layer = $('#endfx');
   if (layer) layer.innerHTML = fx.join('');
@@ -802,7 +857,11 @@ function showEnd() {
   const me = s.players.find((p) => p.id === 'you');
   const any = L[s.players[0].id];
   let fundLine;
-  if (s.bonus) fundLine = `The poorest player still had more than a tenth of the stake, so the boost fund was shared out: ${fmt(any.refund)} each, plus a ${s.bonus.pct}% bonus of ${fmt(any.bonus)} each from the common fund.`;
+  if (s.bonus && s.refundBy === 'equal') fundLine = `The poorest player still had more than a tenth of the stake, so the boost fund was shared out: ${fmt(any.refund)} each, plus a ${s.bonus.pct}% bonus of ${fmt(any.bonus)} each from the common fund.`;
+  else if (s.bonus) {
+    const top = [...s.players].sort((a, b) => b.refund - a.refund)[0];
+    fundLine = `The poorest player still had more than a tenth of the stake, so the boost fund (${fmt(s.ending?.fundBeforeSplit ?? s.fund.refunded)} tokens) was shared out by sharing: in proportion to how much of what reached each player they passed on. ${G.name[top.id]} passed on the most of theirs (${Math.round(100 * passedOn(top))}%) and got the biggest part, ${fmt(top.refund)}. Everyone also got a ${s.bonus.pct}% bonus of ${fmt(any.bonus)} from the common fund.`;
+  }
   else if (lasted) fundLine = `The poorest player, ${G.name[poor.id]}, had less than a tenth of the stake, so the boost fund (${fmt(fundLost)} tokens) was lost.`;
   else fundLine = `The table ended early, so the boost fund (${fmt(fundLost)} tokens) was lost.`;
   const cls = (u) => (u > 0 ? 'pos' : u < 0 ? 'neg' : '');
@@ -828,7 +887,7 @@ function showEnd() {
         ${line('Boost the fund added to your shares', m.boost, 1)}
         ${line('Fees on what you kept', m.fees, -1)}
         <tr class="subtotal"><th scope="row">Before the boost fund was shared out</th><td>${money(m.beforeSplit)}</td></tr>
-        ${s.bonus ? `${line('Your share of the boost fund', m.refund, 1)}${line(`Bonus from the common fund (${s.bonus.pct}%)`, m.bonus, 1)}` : `<tr><th scope="row">Boost fund and bonus <span class="muted note">${lasted ? 'not earned: the poorest fell below a tenth of the stake' : 'lost when the table ended early'}</span></th><td>0</td></tr>`}
+        ${s.bonus ? `${line('Your share of the boost fund', m.refund, 1, s.refundBy === 'equal' ? '' : `you passed on ${Math.round(100 * passedOn(me))}% of what reached you`)}${line(`Bonus from the common fund (${s.bonus.pct}%)`, m.bonus, 1)}` : `<tr><th scope="row">Boost fund and bonus <span class="muted note">${lasted ? 'not earned: the poorest fell below a tenth of the stake' : 'lost when the table ended early'}</span></th><td>0</td></tr>`}
         <tr class="total"><th scope="row">You end with</th><td>${money(m.balance)} <span class="${cls(m.balance - m.start)}">(${signed(tok(m.balance - m.start))})</span></td></tr>
       </tbody></table></div>`;
   })() : '';
@@ -839,10 +898,10 @@ function showEnd() {
     ${me ? `<p class="you-result">You end with <b>${fmt(me.balance)}</b>: <b class="${me.balance >= me.start ? 'pos' : 'neg'}">${signed(tok(me.balance - me.start))}</b> on your stake of ${fmt(me.start)}.</p>` : ''}
     ${myAccount}
     <div class="log-wrap" tabindex="0" role="region" aria-label="Results, scrollable"><table class="score">
-      <thead><tr><th scope="col">Seat</th><th scope="col">Strategy</th><th scope="col">Received</th><th scope="col">Shared out</th><th scope="col">Fees</th><th scope="col">Before the split</th><th scope="col">Fund + bonus</th><th scope="col">Ends with</th><th scope="col">Net</th></tr></thead>
-      <tbody>${rows.map(({ p, key, net }) => { const m = L[p.id]; return `<tr><th scope="row"><span class="who"><span class="dot" style="background:${G.hue[p.id]}"></span>${esc(G.name[p.id])}</span></th><td>${key === 'you' ? 'You' : esc(STRATEGIES[key].label)}</td><td>${fmt(m.received)}</td><td>${fmt(m.sharesOut)}</td><td>${fmt(m.fees)}</td><td>${fmt(m.beforeSplit)}</td><td>${s.bonus ? `+${fmt(m.refund + m.bonus)}` : '0'}</td><td>${fmt(p.balance)}</td><td class="${net >= 0 ? 'pos' : 'neg'}">${signed(tok(net))}</td></tr>`; }).join('')}</tbody>
+      <thead><tr><th scope="col">Seat</th><th scope="col">Strategy</th><th scope="col">Received</th><th scope="col">Shared out</th><th scope="col">Passed on</th><th scope="col">Fees</th><th scope="col">Before the split</th><th scope="col">Fund + bonus</th><th scope="col">Ends with</th><th scope="col">Net</th></tr></thead>
+      <tbody>${rows.map(({ p, key, net }) => { const m = L[p.id]; return `<tr><th scope="row"><span class="who"><span class="dot" style="background:${G.hue[p.id]}"></span>${esc(G.name[p.id])}</span></th><td>${key === 'you' ? 'You' : esc(STRATEGIES[key].label)}</td><td>${fmt(m.received)}</td><td>${fmt(m.sharesOut)}</td><td>${Math.round(100 * passedOn(p))}%</td><td>${fmt(m.fees)}</td><td>${fmt(m.beforeSplit)}</td><td>${s.bonus ? `+${fmt(m.refund + m.bonus)}` : '0'}</td><td>${fmt(p.balance)}</td><td class="${net >= 0 ? 'pos' : 'neg'}">${signed(tok(net))}</td></tr>`; }).join('')}</tbody>
     </table></div>
-    <p class="small muted">Received: rewards and shares that reached them, before they passed anything on. Before the split: what they held once the last shares had landed, before the boost fund was shared out.</p>
+    <p class="small muted">Received: rewards and shares that reached them, before they passed anything on. Shared out: what they sent to others, the fund's boost included. Passed on: the part of what reached them that they sent to others, the boost not counted, which sets their part of the boost fund. Before the split: what they held once the last shares had landed, before the boost fund was shared out.</p>
     ${learnedHtml(rows)}
     <p>Richest: <b>${esc(G.name[richest.p.id])}</b>. Gave the most to others: <b>${esc(G.name[giver.p.id])}</b>. Who was the hero?</p>
     <p><button class="btn" id="again" type="button">New table</button></p>

@@ -397,11 +397,17 @@ async function playWheel(page, label) {
   assert.equal(await page.$$eval('#split-bar .split-seg', (s) => s.length), 3, `${label}: others, fee and you in the split`);
   const receiptText = await page.$$eval('#events li', (l) => l.map((x) => x.textContent).join(' | '));
   assert.match(receiptText, /Your \d+ s at the white arrow: \d+ reached you( \(\d+ reward, \d+ in shares from others\))?\. You passed on \d+, and the fund added \d+ to it; the fee took \d+; you kept \d+\./, `${label}: a receipt for your visit (${receiptText})`);
-  // following another player's shares, from the picker
-  const other = await page.$eval('#flow-focus', (s) => s.options[2].value);
+  // the picture follows the white arrow by default (Jason, 2026-11-09), or the black arrow, or anyone
+  assert.equal(await page.$eval('#flow-focus', (s) => s.value), 'white', `${label}: follows the white arrow by default`);
+  const marked = () => page.$$eval('#seats .seat.focused', (g) => g.map((x) => x.dataset.id));
+  const holder = (cls) => page.$$eval(`#seats .seat-ring.${cls}`, (r) => r.map((x) => x.closest('.seat').dataset.id));
+  assert.deepEqual(await marked(), await holder('receiving'), `${label}: the seat at the white arrow is the one followed`);
+  await page.selectOption('#flow-focus', 'black');
+  assert.deepEqual(await marked(), await holder('paying'), `${label}: following the black arrow marks the seat paying 9`);
+  const other = await page.$eval('#flow-focus', (s) => s.options[4].value);
   await page.selectOption('#flow-focus', other);
-  assert.ok(await page.$(`#seats .seat.focused[data-id="${other}"]`), `${label}: the followed seat is marked`);
-  await page.selectOption('#flow-focus', 'you');
+  assert.deepEqual(await marked(), [other], `${label}: the followed bot is marked`);
+  await page.selectOption('#flow-focus', 'white');
   assert.match(await page.$eval('#clock', (e) => e.textContent), /^5:5\d$/, `${label}: the clock runs`);
   // Pause, then Step moves on exactly one second
   await page.click('#pause');
