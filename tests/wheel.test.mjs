@@ -5,7 +5,8 @@ import {
   createGame, step, joinPositions, quotas, feePct, transitTicks, whiteId, blackId, totalUnits, bonusPct, voteDelay, ledger, passedOn, UNIT,
 } from '../src/engine/wheel.js';
 import { STRATEGIES, botView, selectRoster, steer } from '../src/bots/wheel-bots.js';
-import { playTable, simulate } from '../tools/sim-wheel.mjs';
+import { playTable, simulate, measure } from '../tools/sim-wheel.mjs';
+import { ERAS, rosterOf } from '../tools/wheel-bots-then.mjs';
 import { mulberry32 } from '../src/engine/rng.js';
 
 const ids = ['a', 'b', 'c', 'd', 'e', 'f'];
@@ -308,6 +309,19 @@ test('every strategy has a label, family, summary and tell, and decides valid di
     assert.ok(Number.isInteger(d.vote) && Math.abs(d.vote) <= 9, k);
     assert.ok(d.share >= 0 && d.share <= 10 && d.people >= 1 && d.people <= 6, k);
   }
+});
+
+test('the simulator re-runs earlier eras: under the first rule, votes never change the wheel', () => {
+  for (const era of Object.keys(ERAS)) {
+    const keys = rosterOf(era, mulberry32(3), 6);
+    const fams = new Set(keys.map((k) => ERAS[era].strategies[k].family));
+    assert.equal(fams.size, Object.keys(ERAS[era].families).length, `${era}: one of each family`);
+  }
+  const M = measure(20, (t, rng) => rosterOf('first', rng, 6), { stake: 650, voteSpeed: 'pastMin', voteCostAgainst: null, refundBy: 'equal' }, 'first');
+  assert.ok(M.voteSecs > 0, 'the bots voted');
+  assert.equal(M.changedSecs, 0, 'and their votes changed nothing');
+  const N = measure(20, (t, rng) => rosterOf('smart', rng, 6), { stake: 650 }, 'smart');
+  assert.ok(N.changedSecs / N.voteSecs > 0.9, 'under decisions 21-23 they nearly always do');
 });
 
 test('the simulator reports every table conserved', () => {

@@ -267,13 +267,13 @@ The vote words now say what everyone's votes did last second (for example "added
 
 ### Finding: votes never change the wheel (2026-11-09)
 
-Under the current rules a vote with the wheel adds speed only once the table's votes together pass 6 (`speed = max(minSpeed, net)`), and a vote against it only cancels others' speed-ups unless the net passes 9. Over 300 bot tables at a stake of 650, bots voted in 49% of all seconds and **their votes changed the wheel's speed or direction in none of them**; they spent about 128 tokens a table on votes that did nothing (the tokens go to the boost fund, refunded when the table earns it). A lone player voting up to 6 with the wheel, or up to 9 against, changes nothing either. This is the "steering is weak" question from the first session, now measured; it goes to Jason as the next decision. Reproduce with a scratch count of seconds where any vote was cast and `speed !== minSpeed` or the direction changed.
+Under the current rules a vote with the wheel adds speed only once the table's votes together pass 6 (`speed = max(minSpeed, net)`), and a vote against it only cancels others' speed-ups unless the net passes 9. Over 300 bot tables at a stake of 650, bots voted in 49% of all seconds and **their votes changed the wheel's speed or direction in none of them**; they spent about 128 tokens a table on votes that did nothing (the tokens go to the boost fund, refunded when the table earns it). A lone player voting up to 6 with the wheel, or up to 9 against, changes nothing either. This is the "steering is weak" question from the first session, now measured; it goes to Jason as the next decision. Reproduce with `node tools/sim-wheel.mjs 300 votes` (seconds where any vote was cast and the speed was not the minimum or the direction changed).
 
 ### Votes that add and slow (Jason, 2026-11-09)
 
 Decision 21 (Jason, 2026-11-09): votes should "add speed, and slow it". Built as the engine option `voteSpeed: 'addsSlows'` (speed = 6 + the net vote, never below `slowest`; turning round still needs more than 9 together, and then starts at 6 the other way). `'adds'` (no slowing) and `'pastMin'` (the first rule) are kept for comparison. Since decisions 22-23, `'addsSlows'` is the default.
 
-Simulated: 300 tables per row. Bot tables are six random bots. "Alone" means the style in your seat against five random bots. The hard holder is `bringSelf`: it shares half, hurries the white arrow to itself at 9 and holds it back at 9. Nets are in tokens. Reproduce with a scratch runner over `createGame` options (as in `tools/sim-wheel.mjs`).
+Simulated: 300 tables per row. Bot tables are six random bots. "Alone" means the style in your seat against five random bots. The hard holder is `bringSelf`: it shares half, hurries the white arrow to itself at 9 and holds it back at 9. Nets are in tokens. Reproduce with `node tools/sim-wheel.mjs 300 floors`.
 
 | Stake 650 (the page's default) | Votes that changed the wheel | Bot tables lasted | Bonus | Self-Steerer: white arrow, net | Hard holder alone: white arrow, net, lasted |
 |---|---|---|---|---|---|
@@ -321,7 +321,7 @@ Jason's response (2026-11-09): "Shouldn't the cost of pinning the wheel outweigh
 
 ### After decisions 21-23 (2026-11-09)
 
-300 tables per row, smart bots. "Holds when it costs" is the stubborn gentle holder (shares half, hurries and holds at 3 whatever it costs); "holds if it pays" is the same with the smart rule.
+300 tables per row, smart bots. "Holds when it costs" is the stubborn gentle holder (shares half, hurries and holds at 3 whatever it costs); "holds if it pays" is the same with the smart rule. Reproduce with `node tools/sim-wheel.mjs 300 smart`.
 
 | | First rule, stake 650 | Now, stake 650 | First rule, stake 1,000 | Now, stake 1,000 |
 |---|---|---|---|---|
@@ -350,7 +350,7 @@ Jason asked why the Keeper never changes, given the fees. The agent's answer: ev
     - **The Reformed Keeper** keeps everything until either kind of feedback reaches it: the fees (its tokens fall below 7/10 of the stake), or other players' reactions (3 seconds in which the others' votes hurried the white arrow on while it had it). Then it shares with everyone, 2 tenths more every 10 seconds, up to the others' average (at least half, at most 8 tenths). You can reform it by hurrying the arrow past it.
     - **Their reasons show** in "What's happening": "the fees have cost it three tenths of its stake", "others hurried the white arrow past it", "it kept more per token of reward last lap than the lap before, so it tries further the same way".
 
-Simulated: 400 bot tables per stake, with the new roster of at least one bot from each of the four families.
+Simulated: 400 bot tables per stake, with the new roster of at least one bot from each of the four families. Reproduce with `node tools/sim-wheel.mjs 300 learning` (it plays 400 tables for this table and 300 for decision 26's).
 
 | | Stake 650 | Stake 1,000 |
 |---|---|---|
@@ -396,7 +396,7 @@ Jason's observation (2026-11-09): "the fee collection amass because players don'
 | Lifeguard | rescues the poorest | whether its help is swallowed | stops hurrying the white arrow to a poor player who keeps under a tenth of what reaches them; still hurries the black arrow past them |
 | Learner | a random share | its results | Win-Stay, Lose-Shift, 2 tenths a lap |
 
-Simulated: 300 bot tables per row, with the same seeds for the bots as they were (fixed, plus the two Learners) and for every bot learning.
+Simulated: 300 bot tables per row, with the same seeds for the bots as they were (fixed, plus the two Learners) and for every bot learning. Reproduce with `node tools/sim-wheel.mjs 300 learning`.
 
 | | Stake 650, as they were | Stake 650, every bot learns | Stake 1,000, as they were | Stake 1,000, every bot learns |
 |---|---|---|---|---|
@@ -450,6 +450,47 @@ Every bot learning. Each style alone against five random bots ("alone"), and six
 2. **The dilemma narrows to the top of the dial.** Alone, 8/10 still beats everything (+120 against +51 at 650), while six sharing everything do best together (+65 each). That is still the prisoner's dilemma order (120 > 65 > 58 > 51), but the lone cooperator no longer loses.
 3. **The bots don't see it.** They learn lap by lap, and the share-out comes only at the end, so their play, how long tables last and the bonus rate are unchanged; the Learner still settles near 6/10. A person who knows the rule can do better than the bots.
 4. **Stewarding costs more than it did** (+10 against +58 alone at 650 for a half-sharer), because a steward's votes feed the fund that sharers take more of. Stewarding while sharing everything still pays (+21).
+
+## Reproducing the tables (2026-11-09)
+
+The simulations behind decisions 21-26 ran as scratch scripts. They are now modes of `tools/sim-wheel.mjs`, each playing the bots of its time from `tools/wheel-bots-then.mjs` (`first`: decisions 12-20, fixed bots that hold whatever it costs; `smart`: decisions 21-23; `twoLearners`: decision 24; `now`: every bot learns):
+
+| Mode | Rebuilds | Command |
+|---|---|---|
+| `votes` | votes never changed the wheel under the first rule | `node tools/sim-wheel.mjs 300 votes` |
+| `floors` | votes that add and slow: floors and the pinned-player protection, stakes 650 and 1,000 | `node tools/sim-wheel.mjs 300 floors` |
+| `smart` | after decisions 21-23: first rule against now, with the alone styles | `node tools/sim-wheel.mjs 300 smart` |
+| `learning` | decision 24's table (400 tables) and decision 26's, with how often each lesson comes | `node tools/sim-wheel.mjs 300 learning` |
+| `split` | decision 27: equal shares against shares by sharing | `node tools/sim-wheel.mjs 300 split` |
+| `stake` | the stake with every bot learning (below) | `node tools/sim-wheel.mjs 300 stake` |
+
+The modes use `simulate()`'s seeds (table t: 5000 + t). The scratch scripts' seeds were lost with that session, so the re-runs match the logged figures within sampling noise rather than exactly (agent's check, 2026-11-09):
+
+- **votes:** bots voted in 50% of seconds (logged 49%), their votes changed the wheel in none (none), costing 129 tokens a table (128).
+- **floors:** every logged pattern holds; shares of seconds at the white arrow within 1 point (4 points for the hard holder at floor 0: 89% against 93%), lasting and bonus within 7 points, nets within 30 tokens (the Self-Steerer at 1,000 with floor 2: +108 against +91).
+- **smart:** within 4 points and 26 tokens. One small finding doesn't hold: at stake 650 the steward and the plain sharer end level (-155 against -153), not "a little better off" (-137 against -142); the steward's tables still last longer (93% against 85%) and earn the bonus more (58% against 52%).
+- **learning:** within 2 points for lasting and bonus, 0.1 for the dials, 41 tokens for nets (the Self-Steerer as it was at 650: -170 against -210), and 7 points for how the Reformed Keeper reformed (81% by the fees against 74%).
+
+Tables logged before decision 21 that name a `tools/sim-wheel.mjs` command reproduce exactly when it is run at the commit that logged them, with its own bots: the first findings table, re-run at 0dee34d, matches every figure.
+
+## The stake with every bot learning (2026-11-09)
+
+Every bot learning, the fund shared out by sharing (decision 27). Bot tables, and each style alone against five random bots, 300 tables each. "Lowest point": the poorest player's lowest balance during the table, as a share of the stake (median, and the worst tenth of tables). Reproduce with `node tools/sim-wheel.mjs 300 stake`.
+
+| Stake | Bot tables: lasted, bonus | Lowest point (worst tenth) | Keeps: net, bonus | Half: net, bonus | 8/10: net, bonus | Everything: net, bonus | Half + steward: net, bonus | Everything + steward: net, bonus |
+|---|---|---|---|---|---|---|---|---|
+| 450 | 75%, 46% | 7% (0%) | -445, 0% | -179, 36% | -84, 59% | -237, 43% | -179, 53% | -282, 35% |
+| 500 | 89%, 73% | 16% (1%) | -497, 0% | -98, 65% | -22, 74% | -160, 62% | -106, 76% | -232, 51% |
+| 550 | 96%, 88% | 22% (8%) | -535, 5% | -31, 84% | +43, 85% | -74, 77% | -51, 89% | -141, 70% |
+| 600 | 100%, 95% | 29% (15%) | -553, 32% | +22, 96% | +100, 94% | +3, 89% | -4, 99% | -45, 86% |
+| 650 | 100%, 99% | 34% (21%) | -558, 61% | +41, 99% | +120, 97% | +51, 95% | +10, 100% | +21, 96% |
+| 800 | 100%, 100% | 43% (33%) | -552, 100% | +61, 100% | +157, 100% | +108, 100% | +38, 100% | +59, 100% |
+| 1,000 | 100%, 100% | 52% (44%) | -539, 100% | +83, 100% | +184, 100% | +143, 100% | +60, 100% | +82, 100% |
+
+1. **650 is no longer a tight stake.** With every bot learning, bot tables last and earn the bonus at 650 almost every time (99%), and the poorest never comes near the line (lowest point 34% of the stake, 21% in the worst tenth). Only a keeper in your seat puts it at risk (bonus 61%). Learning moved the tight band down to about **500-550**.
+2. **At 500-550 both dials count, as decision 12 hoped.** The bonus rate for your table runs from 0-5% if you keep, through 65-84% sharing half, to 76-89% sharing half and stewarding: stewarding adds 5 to 11 points over the same sharing without it. Sharing 8/10 still pays you best (+43 at 550), and a steward pays a little for the table's sake (-51 against -31).
+3. **Lone styles at 650-1,000:** keeping always loses heavily (-540 to -560) now that its fees go to the sharers; 8/10 is the best lone style at every stake; sharing everything and stewarding while sharing everything both come out ahead from 650 up.
+4. **Below 500 the table is mostly luck:** at 450 a quarter of bot tables go bust, and even the best lone style earns the bonus only 59% of the time.
 
 ## Open for the next session (2026-11-09)
 

@@ -35,7 +35,9 @@ const bundled = await build({
 const js = bundled.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 
 const flag = unlocked ? '<script>globalThis.TRUNK_PREVIEW = true;</script>\n' : '';
-const out = `${title}\n${fitMeta}\n${fonts}\n<style>\n${css}\n</style>\n${body}\n${flag}<script>\n${js}\n</script>\n`;
+const viewport = pick(/<meta name="viewport"[^>]*>/);
+// A whole document (claude.ai artifacts must read as HTML from the first line).
+const out = `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n${viewport}\n${title}\n${fitMeta}\n${fonts}\n<style>\n${css}\n</style>\n</head>\n<body>\n${body}\n${flag}<script>\n${js}\n</script>\n</body>\n</html>\n`;
 await mkdir(join(root, 'dist'), { recursive: true });
 const outPath = join(root, 'dist', `${game}.html`);
 await writeFile(outPath, out);
