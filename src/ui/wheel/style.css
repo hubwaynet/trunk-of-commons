@@ -1,0 +1,58 @@
+/* The Wheel (Game 3, working title). Loaded after site.css and games.css. Content: CC BY-SA 4.0 / code: AGPL-3.0-only */
+
+.rim-track { fill: none; stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 5; }
+.wheel-face { stroke: var(--line); stroke-width: 2; }
+.arrow-white { fill: #ffffff; stroke: #16302a; stroke-width: 1.5; }
+.arrow-black { fill: #101414; stroke: #c6d3cd; stroke-width: 1.5; }
+.arrow-grey { fill: #8a918e; stroke: #4d5552; stroke-width: 1; }
+.hub { fill: var(--surface); stroke: var(--line); stroke-width: 2; }
+
+/* Parcels: rewards cross the middle of the wheel, shares run round the rim (position is the cue) */
+.dot-reward { fill: var(--brass); }
+.dot-share { fill: var(--flow); }
+
+/* Seats */
+.seat-disc { stroke: var(--surface); stroke-width: 2; }
+.seat-initial { font-family: var(--font-body); font-weight: 700; font-size: 13px; fill: #ffffff; paint-order: stroke; stroke: rgba(0, 0, 0, 0.55); stroke-width: 3px; stroke-linejoin: round; }
+.seat-label { font-size: 11px; }
+.seat-label .seat-name { font-family: var(--font-body); font-weight: 700; font-size: 12px; }
+.seat-label .seat-tokens { font-family: var(--font-data); font-size: 13px; font-weight: 500; }
+.seat-label .seat-dials, .seat-label .seat-state { font-family: var(--font-data); fill: var(--muted); }
+.seat-label tspan { paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+/* Who receives and who pays: line style plus a word beside the seat, never colour alone */
+.seat-ring { fill: none; stroke: transparent; stroke-width: 3; }
+.seat-ring.receiving { stroke: var(--flow); stroke-width: 4; }
+.seat-ring.paying { stroke: var(--low); stroke-width: 4; stroke-dasharray: 5 4; }
+.seat-ring.paying-light { stroke: var(--low); stroke-width: 1.5; stroke-dasharray: 2 4; }
+.seat.bust .seat-disc { opacity: 0.35; }
+
+/* Panel */
+.status-card .big { font-size: 26px; }
+.arrows-now, #poorest, #fund-line { margin: 0; }
+.clock-ctl { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.clock-ctl select, .test-setting select { font: inherit; padding: 4px 6px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); }
+.dials { gap: 10px; }
+.dial { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 2px 10px; align-items: center; }
+.dial label { font-weight: 700; }
+.dial input[type="range"] { width: 100%; accent-color: var(--flow); min-height: 28px; }
+.dial output { grid-column: 2; font-family: var(--font-data); font-size: 13px; }
+.dials p { margin: 0; }
+.events { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+.ev-time { font-family: var(--font-data); font-size: 12px; color: var(--muted); margin-right: 4px; }
+.test-setting { font-weight: 700; margin-right: 8px; }
+.score td, .score th { text-align: right; }
+.score th:first-child, .score td:first-child { text-align: left; }
+.end-card h3 { font-size: 22px; }
+.end-card p { margin: 0; }
+.you-result { font-size: 17px; }
+@media (max-width: 480px) {
+  .dial { grid-template-columns: minmax(0, 1fr); }
+  .dial output { grid-column: 1; }
+}
+@media (max-width: 480px) {
+  .seat-label { font-size: 12.5px; }
+  .seat-label .seat-name { font-size: 13.5px; }
+  .seat-label .seat-tokens { font-size: 14.5px; }
+}
+.end-card { grid-column: 1 / -1; }
+.score th[scope="row"] { font-family: var(--font-body); font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0; color: var(--ink); }

@@ -25,7 +25,8 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
  * minSpeed: the wheel never turns slower than this, in degrees a second (2017: 6).
  * minVote: 0 lets a player not vote (core, 2026-11-09); 1 is 2017's "no neutral position".
  * maxVote: the strongest vote, in degrees a second (2017: 9).
- * voteCost: tokens a second for each degree of vote (2017: 1).
+ * voteCost: tokens a second for each degree of vote. 0.25 (default, Jason 2026-11-09: "Cheaper votes"),
+ *   a quarter of 2017's price of 1, so steering can help the table without bankrupting the steerer.
  * reverseAbove: the net vote against the wheel's direction must be more than this to turn it round.
  *   9 (default, Jason 2026-11-09: "Make momentum too difficult for one player to hold back"): more
  *   than one player's strongest vote, so momentum carries the arrow round to every seat and only
@@ -65,7 +66,7 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
  * record: keep a per-tick history for the page and the round log (simulations turn it off).
  */
 export function createGame({
-  players, seed = 0, stake = 1000, maxTicks = MAX_TICKS, minSpeed = 6, minVote = 0, maxVote = 9, voteCost = 1, reverseAbove = 9, blackRun = Infinity,
+  players, seed = 0, stake = 1000, maxTicks = MAX_TICKS, minSpeed = 6, minVote = 0, maxVote = 9, voteCost = 0.25, reverseAbove = 9, blackRun = Infinity,
   collect = { black: 9, grey: 1 }, greyReach = 90, rewardTransit = 2, shareSpeed = 45, minParcel = 0.1, boostMax = 10,
   selfShare = 'kept', boostStart = 0, endBonus = 'refund', delays = false, maxDepth = 40, record = true,
 }) {

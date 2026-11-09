@@ -88,7 +88,8 @@ test('votes: zero allowed; momentum needs more than one player can vote to turn 
   let s = step(fresh({}, { a: { vote: -9 } }));
   assert.equal(s.dir, 1); // one player's strongest vote can't turn it back (Jason, 2026-11-09)
   assert.equal(s.speed, 6);
-  assert.equal(bal(s, 'a'), s.stake - 9 * UNIT); // and it still costs
+  assert.equal(bal(s, 'a'), s.stake - 9 * UNIT * s.voteCost); // and it still costs: a quarter token a degree
+  assert.equal(s.voteCost, 0.25);
   s = step(fresh({}, { a: { vote: -5 }, b: { vote: -5 } }));
   assert.equal(s.dir, -1); // two together can
   assert.equal(s.speed, 10);
@@ -98,7 +99,7 @@ test('votes: zero allowed; momentum needs more than one player can vote to turn 
   assert.equal(m.dir, -1); // ...but one player alone can do it
   assert.equal(step(fresh({ reverseAbove: 0 }, { a: { vote: -1 } })).dir, -1); // the first core
   const forced = step(fresh({ minVote: 1 }));
-  assert.equal(forced.fund.votes, 6 * UNIT); // 2017: no neutral, everyone pays 1
+  assert.equal(forced.fund.votes, 6 * UNIT * forced.voteCost); // 2017: no neutral, everyone pays for 1
 });
 
 test('a player who cannot pay ends the table; rewards still crossing go to the boost fund', () => {

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Wheel (play-test) · Trunk of Commons</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A turning wheel collects from some players and rewards others. Share what you receive, steer the wheel, and see whether the table lasts six minutes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../src/ui/site.css">
+<link rel="stylesheet" href="../../src/ui/games.css">
+<link rel="stylesheet" href="../../src/ui/wheel/style.css">
+</head>
+<body>
+<!-- BODY:START -->
+<main class="wrap">
+  <header class="site-bar">
+    <a class="wordmark" href="../../" aria-label="Trunk of Commons: home">
+      <svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="11" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.35"/><circle cx="17" cy="17" r="4.2" fill="#a06f17"/><circle cx="17" cy="4" r="3.2" fill="#6fa52a"/><circle cx="28.3" cy="10.5" r="3.2" fill="#1f9c66"/><circle cx="28.3" cy="23.5" r="3.2" fill="#2f78cc"/><circle cx="17" cy="30" r="3.2" fill="#7650c8"/><circle cx="5.7" cy="23.5" r="3.2" fill="#d1386f"/><circle cx="5.7" cy="10.5" r="3.2" fill="#d9741c"/></svg>
+      <span class="wm-text"><span class="wm-main">TRUN<span class="k">K</span></span><span class="wm-sub">of Commons</span></span>
+    </a>
+    <nav class="site-nav" aria-label="Site"><a href="../../">Home</a><a href="../../games/rising-pool/">Rising Pool</a><a href="../../games/centipede-ultimatum/">Centipede &amp; Ultimatum</a><a href="../../games/wheel/" aria-current="page">The Wheel</a><a href="https://github.com/hubwaynet/trunk-of-commons">Source</a></nav>
+  </header>
+
+  <header class="top">
+    <div>
+      <div class="eyebrow">Game 3 · Level 3 · Play-test</div>
+      <h1>The Wheel</h1>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost" id="new-game" type="button">New table</button>
+      <button class="btn ghost" id="watch-toggle" type="button" aria-pressed="false">Watch the bots</button>
+    </div>
+  </header>
+
+  <details class="fold" id="how-it-works" open>
+    <summary><h2>How it works</h2></summary>
+    <section class="rules" aria-label="How it works">
+      <p><b>Six seats round a turning wheel.</b> You start at the white arrow. The wheel turns at least 6° a second, so both arrows travel round the table.</p>
+      <p><b>The black side pays.</b> Each second, whoever has the black arrow pays 9 tokens, and their two neighbours pay 1 each.</p>
+      <p><b>The white arrow collects.</b> What's paid crosses the wheel in 2 seconds and goes to whoever has the white arrow when it arrives.</p>
+      <p><b>Share what you receive.</b> Choose how much to pass on, and to how many of the people nearest you. Shares travel round the rim to them. The boost fund adds up to 10% to what you share.</p>
+      <p><b>Keeping costs.</b> A fee goes to the boost fund on whatever you keep: 95% if you share nothing, half if you share half. Sharing more keeps the fee down.</p>
+      <p><b>Steer the wheel.</b> A vote costs ¼ token a second for each degree. With the wheel's turn it speeds it up; against, it holds others back. Turning it round takes more than 9, so nobody can do it alone.</p>
+      <p><b>Last six minutes.</b> The table ends early if anyone can't pay. If it lasts and the poorest player still has a tenth of the stake, the boost fund is shared out equally, with a bonus.</p>
+      <p class="fold-end"><label class="test-setting">Play-test stake <select id="stake"><option value="650">650 tokens each</option><option value="800">800 tokens each</option><option value="1000">1,000 tokens each</option></select></label> <span class="muted small">Lower stakes make the six minutes harder to reach.</span> <button class="btn ghost" type="button" data-collapse="how-it-works">Collapse and play</button></p>
+    </section>
+  </details>
+
+  <div class="game">
+    <div class="left-col">
+      <div class="table-wrap" id="table-wrap"><svg id="table" viewBox="-24 0 508 480" role="img" aria-labelledby="table-title"><title id="table-title">The wheel and the six seats</title></svg></div>
+    </div>
+    <div class="panel" id="panel"></div>
+  </div>
+
+  <div class="extras" id="extras"></div>
+  <section class="card" id="scoreboard" aria-labelledby="score-h"></section>
+
+  <details class="fold" id="strategy-key">
+    <summary><h2>Strategy key</h2></summary>
+    <div id="key"></div>
+  </details>
+
+  <footer class="site-foot">
+    <details class="foot-more" open>
+      <summary><span class="foot-title">TRUNK OF COMMONS</span><span class="foot-hint">About &amp; credits</span></summary>
+      <div class="foot-body">
+      <p>Educational social dilemma games about trust, cooperation, reputation and the commons. Designed by Jason Lee Lasky at <a href="https://hubway.net">hubway.net</a>, Northern Rivers, NSW, from his design notes <i>TrunK of Commons</i> (2018) and the <i>Wheel of Fortune Sharing Game</i> (2017).</p>
+      <p>Draws on Robert Axelrod's iterated prisoner's dilemma tournaments and Elinor Ostrom's work on governing the commons.</p>
+      <p>Built with AI agents under human direction: code co-written with Claude (Anthropic), every change reviewed and published by Jason.</p>
+      </div>
+    </details>
+    <p class="licences">Content <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> · Code <a href="https://www.gnu.org/licenses/agpl-3.0.html">AGPL-3.0</a> · <a href="https://github.com/hubwaynet/trunk-of-commons">Source on GitHub</a></p>
+  </footer>
+</main>
+<!-- BODY:END -->
+<script type="module" src="../../src/ui/wheel/main.js"></script>
+</body>
+</html>

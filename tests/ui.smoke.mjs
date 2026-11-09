@@ -126,7 +126,7 @@ async function finish(t, { ctx, page, errors }, label) {
 test('home page loads and shows unlocked levels from this browser', async (t) => {
   const run = await open('/', DESKTOP, { init: () => localStorage.setItem('trunk.unlocked.centipede', '1') });
   assert.match(await run.page.textContent('#level2-status'), /Unlocked/);
-  assert.match(await run.page.textContent('#level3-status'), /In design/);
+  assert.match(await run.page.textContent('#level3-status'), /Play-test/);
   await finish(t, run, 'home');
 });
 
@@ -363,4 +363,71 @@ test('Centipede & Ultimatum: watching six bots runs to the end', { timeout: 120_
   for (let i = 0; i < 3000 && !(await page.$('#again')); i++) await page.clock.runFor(700);
   assert.ok(await page.$('#again'), 'the watched table ends');
   await finish(t, run, 'centipede-watch');
+});
+
+// ---------- The Wheel (Game 3, play-test) ----------
+async function playWheel(page, label) {
+  await page.clock.install();
+  await page.goto(page.url()); // reload so the page's timers run on the test clock
+  await page.waitForSelector('#pause');
+  assert.equal(await page.$eval('#clock', (e) => e.textContent), '6:00', `${label}: the clock waits for Start`);
+  // the dials work from the keyboard, and keep focus while the clock runs
+  await page.focus('#d-share');
+  await page.keyboard.press('ArrowRight');
+  assert.match(await page.$eval('#o-share', (o) => o.textContent), /6\/10/, `${label}: the share dial moved`);
+  await page.click('#pause'); // Start
+  await page.focus('#d-vote');
+  await page.keyboard.press('ArrowRight');
+  assert.match(await page.$eval('#o-vote', (o) => o.textContent), /clockwise 1/, `${label}: the vote dial moved`);
+  await page.clock.runFor(5000);
+  assert.equal(await focusId(page), 'd-vote', `${label}: focus stays on the vote dial as the clock runs`);
+  assert.match(await page.$eval('#clock', (e) => e.textContent), /^5:5\d$/, `${label}: the clock runs`);
+  // Pause, then Step moves on exactly one second
+  await page.click('#pause');
+  const before = await page.$eval('#clock', (e) => e.textContent);
+  await page.click('#step');
+  const after = await page.$eval('#clock', (e) => e.textContent);
+  const secs = (x) => Number(x.split(':')[0]) * 60 + Number(x.split(':')[1]);
+  assert.equal(secs(before) - secs(after), 1, `${label}: Step moves on one second`);
+  await page.click('#pause'); // Play
+  await page.selectOption('#speed', '8');
+  for (let i = 0; i < 100 && !(await page.$('#again')); i++) await page.clock.runFor(5000);
+  assert.ok(await page.$('#again'), `${label}: the table ends`);
+  const end = await page.$eval('.end-card', (e) => e.textContent);
+  assert.doesNotMatch(end, /undefined|NaN/, `${label}: end card`);
+  assert.match(end, /Who was the hero/, `${label}: end card asks the hero question`);
+  const rows = await page.$$eval('#scoreboard tbody tr', (r) => r.length);
+  assert.equal(rows, 6, `${label}: six seats on the scoreboard`);
+}
+
+for (const setup of [DESKTOP, PHONE]) {
+  test(`The Wheel: a whole table at ${setup.name}`, { timeout: 180_000 }, async (t) => {
+    const label = `wheel-${setup.name}`;
+    const run = await open('/games/wheel/?preview', setup);
+    await playWheel(run.page, label);
+    await noSidewaysScroll(run.page, label);
+    await axeCheck(run.page, label);
+    await clickBringsUpTable(run.page, '#again', `${label} New table`);
+    await finish(t, run, label);
+  });
+}
+
+test('The Wheel: locked without the Game 2 achievements, open with ?preview', async (t) => {
+  const run = await open('/games/wheel/', DESKTOP);
+  assert.ok(await run.page.$('.locked-card'), 'locked without achievements');
+  await finish(t, run, 'wheel-locked');
+});
+
+test('The Wheel: watching six bots runs to the end', { timeout: 120_000 }, async (t) => {
+  const run = await open('/games/wheel/?preview', PHONE);
+  const { page } = run;
+  await page.clock.install();
+  await page.goto(page.url());
+  await page.click('#watch-toggle');
+  assert.equal(await page.$('#d-share'), null, 'no dials when watching');
+  await page.click('#pause');
+  await page.selectOption('#speed', '8');
+  for (let i = 0; i < 100 && !(await page.$('#again')); i++) await page.clock.runFor(5000);
+  assert.ok(await page.$('#again'), 'the watched table ends');
+  await finish(t, run, 'wheel-watch');
 });

@@ -22,7 +22,7 @@
       <svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="11" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.35"/><circle cx="17" cy="17" r="4.2" fill="#a06f17"/><circle cx="17" cy="4" r="3.2" fill="#6fa52a"/><circle cx="28.3" cy="10.5" r="3.2" fill="#1f9c66"/><circle cx="28.3" cy="23.5" r="3.2" fill="#2f78cc"/><circle cx="17" cy="30" r="3.2" fill="#7650c8"/><circle cx="5.7" cy="23.5" r="3.2" fill="#d1386f"/><circle cx="5.7" cy="10.5" r="3.2" fill="#d9741c"/></svg>
       <span class="wm-text"><span class="wm-main">TRUN<span class="k">K</span></span><span class="wm-sub">of Commons</span></span>
     </a>
-    <nav class="site-nav" aria-label="Site"><a href="./" aria-current="page">Home</a><a href="./games/rising-pool/">Rising Pool</a><a href="./games/centipede-ultimatum/">Centipede &amp; Ultimatum</a><a href="https://github.com/hubwaynet/trunk-of-commons">Source</a></nav>
+    <nav class="site-nav" aria-label="Site"><a href="./" aria-current="page">Home</a><a href="./games/rising-pool/">Rising Pool</a><a href="./games/centipede-ultimatum/">Centipede &amp; Ultimatum</a><a href="./games/wheel/">The Wheel</a><a href="https://github.com/hubwaynet/trunk-of-commons">Source</a></nav>
   </header>
 
   <header class="top"><div>
@@ -42,8 +42,8 @@
       <p class="muted">Keep building the pool, or grab it and decide how to divide it, then face the table's judgement.</p>
     </div>
     <div class="card level" id="level-3">
-      <span class="eyebrow" id="level3-status">Level 3 · In design</span>
-      <h2>The Wheel</h2>
+      <span class="eyebrow" id="level3-status">Level 3 · Play-test</span>
+      <h2><a href="games/wheel/?preview">The Wheel</a></h2>
       <p class="muted">A turning wheel collects from some and rewards others. Can a table turn a trickle into a cascade?</p>
     </div>
   </section>
@@ -69,7 +69,7 @@
   import * as Game2 from './src/ui/centipede-ultimatum/achievements.js';
   const done = (g) => achievementStore({ key: g.STORAGE_KEY, celebratedKey: g.CELEBRATED_KEY, all: g.ACHIEVEMENTS }).complete();
   if (isUnlocked('centipede') || done(Game1)) document.getElementById('level2-status').textContent = 'Level 2 · Unlocked';
-  if (isUnlocked('wheel') || done(Game2)) document.getElementById('level3-status').textContent = 'Level 3 · Unlocked · In design';
+  if (isUnlocked('wheel') || done(Game2)) document.getElementById('level3-status').textContent = 'Level 3 · Unlocked · Play-test';
 </script>
 </body>
 </html>
