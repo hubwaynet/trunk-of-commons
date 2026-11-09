@@ -17,7 +17,7 @@ import { isUnlocked, resetControl } from '../progress-store.js';
 import { announce } from '../announce.js';
 import {
   NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, h, signed, toast, rememberToggle, wireCollapse, showTable,
-  achievementStore, progressHtml, achievementsCardHtml, achievementsListHtml, showAchievementsButton, momentsCardHtml,
+  achievementStore, progressHtml, achievementsCardHtml, achievementsListHtml, showAchievementsButton, momentsCardHtml, roadmapHtml,
 } from '../common.js';
 import { pickMoments } from '../ideas.js';
 import { tableMoments } from './moments.js';
@@ -94,19 +94,8 @@ function renderProgress() {
     },
   }));
 }
-/**
- * On earning all six (Jason, 2026-11-10): an invitation to give feedback and follow what comes next,
- * and the roadmap. Both links go to the project on GitHub for now (agent's assumption; a hubway.net
- * page or a form can replace them).
- */
-const REPO = 'https://github.com/hubwaynet/trunk-of-commons';
-const ROADMAP_HTML = `<div class="roadmap"><h4>What's next</h4><ol class="roadmap-steps">
-    <li><b>Now:</b> CommonWeal with one seat for you and five bots that learn.</li>
-    <li><b>Next:</b> your reputation and points carried from table to table.</li>
-    <li><b>Then:</b> invitations to tables with other people, by reputation.</li>
-    <li><b>Later:</b> a platform for more games, with commons connected between tables and games.</li>
-  </ol>
-  <p>Help shape it: <a href="${REPO}/issues/new?title=${encodeURIComponent('CommonWeal feedback')}" target="_blank" rel="noopener">tell us what you think</a>, and <a href="${REPO}" target="_blank" rel="noopener">follow further developments</a> (on GitHub; Watch, then Releases, sends you news of each new version).</p></div>`;
+/** On earning all six (Jason, 2026-11-10): what's next, and ways to give feedback, follow and talk to Jason. */
+const ROADMAP_HTML = `<div class="roadmap">${roadmapHtml({ now: 'CommonWeal with one seat for you and five bots that learn.', topic: 'CommonWeal feedback' })}</div>`;
 
 /** The achievements card under the end card, and the mastered card once all six are earned. */
 function achievementsCards() {

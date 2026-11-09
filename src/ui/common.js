@@ -173,3 +173,23 @@ export function momentsCardHtml(moments) {
     }).join('')}
   </section>`;
 }
+
+// ---------- what's next ----------
+// The roadmap, with ways to give feedback, follow the project and talk to Jason (Jason, 2026-11-10).
+// Shown on the home page and on CommonWeal's mastered card.
+export const LINKS = {
+  feedback: 'https://github.com/hubwaynet/trunk-of-commons/issues/new?title=Feedback',
+  follow: 'https://github.com/hubwaynet/trunk-of-commons',
+  contact: 'https://www.hubway.net/contact/',
+};
+export function roadmapHtml({ heading = 'h4', now = 'three games played against strategy bots; in CommonWeal the bots learn as they play.', topic = 'Feedback' } = {}) {
+  const feedback = LINKS.feedback.replace(/title=[^&]*/, `title=${encodeURIComponent(topic)}`);
+  return `<${heading} class="roadmap-h">What's next</${heading}>
+  <ol class="roadmap-steps">
+    <li><b>Now:</b> ${now}</li>
+    <li><b>Next:</b> your reputation and points carried from table to table.</li>
+    <li><b>Then:</b> invitations to tables with other people, by reputation.</li>
+    <li><b>Later:</b> a platform for more games, with commons connected between tables and games.</li>
+  </ol>
+  <p class="roadmap-links">Help shape it: <a href="${feedback}" target="_blank" rel="noopener">tell us what you think</a> or <a href="${LINKS.follow}" target="_blank" rel="noopener">follow further developments</a> on GitHub (Watch, then Releases, sends news of each new version), or <a href="${LINKS.contact}" target="_blank" rel="noopener">talk to Jason</a> at hubway.net.</p>`;
+}

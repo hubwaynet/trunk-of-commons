@@ -128,6 +128,12 @@ test('home page loads and shows unlocked levels from this browser', async (t) =>
   assert.match(await run.page.textContent('#level2-status'), /Unlocked/);
   assert.match(await run.page.textContent('#level3-status'), /Level 3 · Locked until all six Centipede/);
   assert.equal(await run.page.getAttribute('#level-3 h2 a', 'href'), 'games/wheel/', 'CommonWeal is out of preview: no ?preview on the home page');
+  // the roadmap card at the bottom, with links to GitHub and to Jason (Jason, 2026-11-10)
+  assert.match(await run.page.textContent('#roadmap'), /What's next[\s\S]*Now:[\s\S]*Next:[\s\S]*Then:[\s\S]*Later:/, 'the roadmap');
+  const hrefs = await run.page.$$eval('#roadmap a', (a) => a.map((x) => x.href));
+  assert.ok(hrefs.some((h) => h.includes('github.com/hubwaynet/trunk-of-commons/issues/new')), 'a feedback link');
+  assert.ok(hrefs.includes('https://github.com/hubwaynet/trunk-of-commons'), 'a follow link');
+  assert.ok(hrefs.includes('https://www.hubway.net/contact/'), 'a link to talk to Jason');
   await finish(t, run, 'home');
 });
 
@@ -452,6 +458,7 @@ async function playWheel(page, label) {
     const mastered = await page.$eval('#extras .unlocked', (e) => e.textContent);
     assert.match(mastered, /What's next[\s\S]*Next:[\s\S]*Then:[\s\S]*Later:/, `${label}: the roadmap`);
     assert.ok(await page.$('#extras .roadmap a[href*="issues/new"]'), `${label}: a feedback link`);
+    assert.ok(await page.$('#extras .roadmap a[href="https://www.hubway.net/contact/"]'), `${label}: a link to talk to Jason`);
   }
   // the common fund carries between tables, and says so
   assert.match(await page.$eval('#common-line', (e) => e.textContent), /Common fund, outside the table \(kept in this browser\): [\d,]+ tokens/, `${label}: the common fund`);

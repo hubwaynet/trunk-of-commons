@@ -47,6 +47,7 @@
       <p class="muted">A turning wheel collects from some and rewards others. Can a table turn a trickle into a cascade?</p>
     </div>
   </section>
+  <section class="card roadmap-card" id="roadmap" aria-label="What's next"></section>
   <!-- SITE FOOTER: same on every page -->
   <footer class="site-foot">
     <details class="foot-more" open>
@@ -64,9 +65,11 @@
   // Show levels as unlocked from progress stored in this browser. The achievement lists come from
   // each game's own module, so renaming an achievement can't silently break this page.
   import { isUnlocked } from './src/ui/progress-store.js';
-  import { achievementStore } from './src/ui/common.js';
+  import { achievementStore, roadmapHtml } from './src/ui/common.js';
   import * as Game1 from './src/ui/rising-pool/achievements.js';
   import * as Game2 from './src/ui/centipede-ultimatum/achievements.js';
+  // What's next, with links to GitHub and to Jason (Jason, 2026-11-10)
+  document.getElementById('roadmap').innerHTML = roadmapHtml({ heading: 'h2' });
   const done = (g) => achievementStore({ key: g.STORAGE_KEY, celebratedKey: g.CELEBRATED_KEY, all: g.ACHIEVEMENTS }).complete();
   if (isUnlocked('centipede') || done(Game1)) document.getElementById('level2-status').textContent = 'Level 2 · Unlocked';
   if (isUnlocked('wheel') || done(Game2)) document.getElementById('level3-status').textContent = 'Level 3 · Unlocked';
