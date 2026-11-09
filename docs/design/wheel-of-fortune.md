@@ -131,6 +131,7 @@ These were the prompts for the first session. Questions 1-5 are answered (see "D
 6. **Scoring** (Jason): your own tokens at the end against your stake, with the table's results beside it (did it last, the poorest player, how much you shared). The debrief asks 2017's question: who was the hero? Jason: "make this an evolution on game 2 and focus on looking for the dilemma, to optimise the game rules to make it an educational & fun experience ... start with your suggestions and iterate as we learn."
 7. **Invitations come later, after reputation** (agent's proposal, accepted in passing by Jason, who raised it: "Players gain a reputation. Sharing players would invite like minded players. So too exploiters might to gang up?"). For the first version you start the table and sit at the white arrow, and the bots join in a seeded order. Later: you invite one bot from a short line-up showing reputations, and each bot invites the next by its leanings, so sharers draw sharers and exploiters gangs. This needs a decision against the 2026-11-06 rule "no choosing the bots".
 8. **Sharing rewards is Game 3's main lesson** (Jason): "Sharing rewards is an extended lesson in game 3, for the common good, compared to game 2, which had it a little to last the distance."
+9. **The self-share loophole is closed** (Jason, 2026-11-09: "close the self-share loop hole"). The slice a player shares with themselves counts as kept (`selfShare: 'kept'` is now the default), so the fee and the boost follow only what reaches other people, and sharing only with yourself is keeping. 2017 as written stays available as `selfShare: 'cascade'`.
 
 ## The core as built (2026-11-09)
 
@@ -148,7 +149,7 @@ These were the prompts for the first session. Questions 1-5 are answered (see "D
 
 ## Simulation findings (2026-11-09)
 
-Stake 600, 6 minutes, `selfShare: 'kept'` unless marked. 1,000 tables per style unless marked. Nets are tokens at the end minus the stake. Reproduce with `node tools/sim-wheel.mjs 1000 dilemma '{"selfShare":"kept"}'`.
+Stake 600, 6 minutes, `selfShare: 'kept'` (now the default) unless marked. 1,000 tables per style unless marked. Nets are tokens at the end minus the stake. Reproduce with `node tools/sim-wheel.mjs 1000 dilemma`.
 
 | Your style | You vs five random bots: your net | Table lasted | Six of this style: net each | Lasted | Mean length |
 |---|---|---|---|---|---|
@@ -173,6 +174,6 @@ Stake 600, 6 minutes, `selfShare: 'kept'` unless marked. 1,000 tables per style 
 
 ## Proposals waiting for Jason (2026-11-09)
 
-1. Close the self-share loophole: make `selfShare: 'kept'` the rule.
+1. ~~Close the self-share loophole~~: done (decision 9).
 2. The economy: the refund version of the end bonus, with a stake of about 1,000, so a cooperative table can come out ahead and keeping the poorest alive is worth something to everyone.
 3. Steering: what should stop a player holding the white arrow? Options to simulate: bots that counter-steer together against a holder (a coalition), the 2017 position delays (privilege as latency, which help the holder), or a rising cost for holding. The 2017 momentum rule alone is not recommended.

@@ -36,8 +36,10 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
  * boostMax: the boost, in % of the amount shared, for sharing with everyone (2017: 10). Sharing
  *   with fewer people boosts in proportion.
  * selfShare: what happens to the slice a player shares with themselves.
+ *   'kept' (default, Jason 2026-11-09): it counts as kept, so the fee and the boost follow only what
+ *     goes to other people, and sharing only with yourself is keeping.
  *   'cascade' (2017 as written): it comes back as incoming and is shared again by their settings.
- *   'kept': it counts as kept, so the fee and the boost follow only what goes to other people.
+ *     A loophole: sharing everything with only yourself was the best style of all (+622).
  * boostStart: tokens in the boost fund when the table starts (2017 doesn't say; 0).
  * endBonus: what finishing the full six minutes earns, when the poorest player still holds at least
  *   10% of the stake. The bonus is 2% (poorest holds 10-20% of the stake) up to 10% (90% or more).
@@ -52,7 +54,7 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
 export function createGame({
   players, seed = 0, stake = 600, maxTicks = MAX_TICKS, minSpeed = 6, minVote = 0, maxVote = 9, reverseAbove = 0,
   collect = { black: 9, grey: 1 }, greyReach = 90, rewardTransit = 2, shareSpeed = 45, minParcel = 0.1, boostMax = 10,
-  selfShare = 'cascade', boostStart = 0, endBonus = 'none', maxDepth = 40, record = true,
+  selfShare = 'kept', boostStart = 0, endBonus = 'none', maxDepth = 40, record = true,
 }) {
   if (!players || players.length < 3) throw new Error('Need at least 3 players');
   const n = players.length;

@@ -58,15 +58,18 @@ test('a reward lands on whoever is at the white arrow when it arrives', () => {
   assert.notEqual(r[0], 'a');
 });
 
-test('sharing half with everyone keeps a quarter and sends equal parcels with travel times', () => {
+test('sharing half with everyone sends equal parcels to the five others, with travel times', () => {
   let s = fresh({}, { all: { share: 0, people: 1 }, a: { share: 5, people: 6 } });
   s = run(s, 1);
   s = step(s); s = step(s); // second 2: the first reward reaches a (the wheel has moved 12 degrees)
   const a = s.players.find((p) => p.id === 'a');
   assert.equal(a.stats.reward, 11 * UNIT);
   const out = s.transit.filter((x) => x.kind === 'share' && x.from === 'a');
-  assert.equal(out.length, 5); // a's own slice was settled straight away (cascade)
+  assert.equal(out.length, 5); // a's own slice counts as kept
   assert.deepEqual(out.map((x) => x.arrive - x.depart).sort(), [2, 2, 3, 3, 4]);
+  // Of 11 tokens, a passes on five sixths of half (4.58) and keeps the rest, less a 58% fee.
+  const shared = Math.floor(11 * UNIT * (25 / 60));
+  assert.equal(a.stats.fees, Math.floor(((11 * UNIT - shared) * 58) / 100));
 });
 
 test('sharing only with yourself: a loophole as written, ordinary keeping with selfShare kept', () => {
@@ -126,7 +129,7 @@ test('the end bonus: 2% to 10% by the poorest player, paid only at full time wit
 });
 
 test('every token is accounted for, under every rule variant', () => {
-  const variants = [{}, { selfShare: 'kept' }, { reverseAbove: 6, minVote: 1 }, { endBonus: 'refund', stake: 2000 }, { endBonus: '2017', stake: 2000 }];
+  const variants = [{}, { selfShare: 'cascade' }, { reverseAbove: 6, minVote: 1 }, { endBonus: 'refund', stake: 2000 }, { endBonus: '2017', stake: 2000 }];
   for (const opts of variants) {
     for (let t = 0; t < 40; t++) {
       const s = playTable(selectRoster(mulberry32(t), 6), 100 + t, opts);
@@ -171,6 +174,6 @@ test('every strategy has a label, family, summary and tell, and decides valid di
 });
 
 test('the simulator reports every table conserved', () => {
-  const st = simulate(30, (t, rng) => selectRoster(rng, 6), { selfShare: 'kept' });
+  const st = simulate(30, (t, rng) => selectRoster(rng, 6));
   assert.equal(st.conserved, 30);
 });
