@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createGame, step, joinPositions, quotas, feePct, transitTicks, whiteId, blackId, totalUnits, bonusPct, voteDelay, UNIT,
+  createGame, step, joinPositions, quotas, feePct, transitTicks, whiteId, blackId, totalUnits, bonusPct, voteDelay, ledger, UNIT,
 } from '../src/engine/wheel.js';
 import { STRATEGIES, botView, selectRoster, steer } from '../src/bots/wheel-bots.js';
 import { playTable, simulate } from '../tools/sim-wheel.mjs';
@@ -151,6 +151,29 @@ test('tables replay exactly from their seed', () => {
   const b = playTable(keys, 42);
   assert.deepEqual(a.players.map((p) => p.balance), b.players.map((p) => p.balance));
   assert.equal(a.t, b.t);
+});
+
+test('each player\'s ledger closes exactly, and the ending is recorded for the page', () => {
+  let lasted = 0, busted = 0;
+  for (let seed = 1; seed <= 24; seed++) {
+    const keys = selectRoster(mulberry32(seed), 6);
+    for (const stake of [600, 1000]) {
+      const s = playTable(keys, seed, { record: true, stake });
+      if (s.endReason === 'time') lasted++; else busted++;
+      const e = s.ending;
+      assert.ok(e && e.bell.length === 6 && e.beforeSplit.length === 6, 'ending recorded');
+      for (const [i, p] of s.players.entries()) {
+        const L = ledger(s, p.id);
+        assert.equal(L.start - L.paid - L.voted + L.received - L.sharesOut + L.boost - L.fees, L.beforeSplit, `${p.id} before the split`);
+        assert.equal(L.beforeSplit, e.beforeSplit[i], `${p.id} matches the recorded balance before the split`);
+        assert.equal(L.beforeSplit + L.refund + L.bonus, p.balance, `${p.id} ends with`);
+      }
+      if (s.bonus) assert.ok(e.refundEach > 0 && e.topUp > 0); else assert.equal(e.refundEach + e.topUp, 0);
+      // the flows the page draws after the bell: shares that were still travelling all land
+      assert.ok(e.shares.every((x) => x.arrive > s.t - 1 && x.kind === 'share'));
+    }
+  }
+  assert.ok(lasted > 0 && busted > 0, `both endings covered (${lasted} lasted, ${busted} busted)`);
 });
 
 // The old holding logic (pay just enough to keep the arrow in your segment), and the Self-Steerer bot.

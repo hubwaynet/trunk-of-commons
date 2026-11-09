@@ -56,3 +56,83 @@
 }
 .end-card { grid-column: 1 / -1; }
 .score th[scope="row"] { font-family: var(--font-body); font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0; color: var(--ink); }
+
+/* After Jason's first play (2026-11-09) */
+/* The hub shows the boost fund */
+.hub-fund { font-family: var(--font-data); font-size: 15px; font-weight: 500; fill: var(--ink); text-anchor: middle; }
+.hub-label { font-family: var(--font-body); font-size: 10px; fill: var(--muted); text-anchor: middle; }
+/* Share flows: one lane per sender, a band from sender to receiver (position and the arrowhead are the cues) */
+.flow-band { fill: none; stroke-linecap: butt; opacity: 0.55; }
+.flow-head { opacity: 0.75; }
+.flow-band.focus { opacity: 0.95; }
+.flow-head.focus { opacity: 1; }
+.flow-band.dim { opacity: 0.12; }
+.flow-head.dim { opacity: 0.18; }
+.dot-share { stroke: var(--surface); stroke-width: 0.9; }
+.dot-share.dim { opacity: 0.3; }
+.flow-label { font-family: var(--font-data); font-size: 12px; font-weight: 700; fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: var(--surface); stroke-width: 3.5px; stroke-linejoin: round; }
+.flow-ctl { display: grid; gap: 4px; padding: 6px 6px 2px; }
+.flow-ctl select { font: inherit; padding: 4px 6px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); }
+.flow-legend { line-height: 1.35; }
+.seat { cursor: pointer; }
+.seat.focused .seat-disc { stroke: var(--ink); stroke-width: 3; }
+/* Votes: a curved arrow beside each seat; dashed when against the wheel's turn */
+.vote-arc { fill: none; stroke: var(--ink); stroke-linecap: butt; }
+.vote-arc.against { stroke-dasharray: 5 3.5; }
+.vote-head { fill: var(--ink); }
+.vote-num { font-family: var(--font-data); font-size: 14px; font-weight: 700; fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+/* The ending: the fund flows out of the hub (circles), the bonus comes in from outside (diamonds) */
+.dot-refund { fill: var(--flow); stroke: var(--surface); stroke-width: 1; }
+.dot-bonus { fill: var(--brass); stroke: var(--surface); stroke-width: 1; }
+.end-gain { font-family: var(--font-data); font-size: 14px; font-weight: 700; fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+
+/* Your dials: round knobs with strength bars */
+#dials-box:empty { display: none; }
+.knobs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.knob-wrap { display: grid; justify-items: center; gap: 2px; min-width: 0; }
+.knob-label { font-weight: 700; font-size: 14px; text-align: center; }
+.knob { width: 100%; max-width: 128px; aspect-ratio: 1; border-radius: 50%; touch-action: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.knob svg { display: block; width: 100%; height: 100%; }
+.knob-bar { fill: none; stroke: var(--muted); stroke-width: 1; opacity: 0.7; }
+.knob-bar.on { fill: var(--flow); stroke: var(--flow); opacity: 1; }
+.knob-mark { fill: var(--muted); }
+.knob-cap { fill: var(--paper); stroke: var(--line); stroke-width: 1.5; }
+.knob-pointer { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.knob-text { font-family: var(--font-data); font-size: 13px; font-weight: 500; fill: var(--ink); text-anchor: middle; }
+.knob-sub { font-family: var(--font-body); font-size: 8.5px; fill: var(--muted); text-anchor: middle; }
+.dial-line output { font-family: var(--font-data); font-size: 13px; }
+
+/* The end card: your account in full */
+.account h4 { margin: 0 0 4px; font-size: 16px; }
+.ledger { border-collapse: collapse; width: 100%; max-width: 520px; font-size: 14px; }
+.ledger th, .ledger td { padding: 3px 0; border-bottom: 1px solid var(--line); }
+.ledger th { white-space: normal; padding-right: 0; text-align: left; font-weight: 400; font-family: var(--font-body); text-transform: none; letter-spacing: 0; color: var(--ink); font-size: 14px; }
+.ledger td { text-align: right; font-family: var(--font-data); white-space: nowrap; padding-left: 12px; padding-right: 0; vertical-align: top; }
+.ledger .note { display: block; font-size: 12.5px; }
+.ledger .subtotal th, .ledger .subtotal td, .ledger .total th, .ledger .total td { font-weight: 700; }
+.ledger .total th, .ledger .total td { border-bottom: 0; border-top: 2px solid var(--ink); }
+
+/* The clock under the picture */
+.transport { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; padding: 6px 6px 0; }
+.transport select { font: inherit; padding: 4px 6px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); }
+.transport .btn { padding: 8px 16px; }
+.clock-wrap { margin-left: auto; display: flex; align-items: baseline; gap: 6px; }
+.clock { font-family: var(--font-data); font-size: 22px; font-weight: 500; }
+.flow-legend summary { cursor: pointer; color: var(--muted); }
+.flow-legend p { margin: 4px 0 0; line-height: 1.4; }
+@media (min-width: 821px) { .table-wrap svg { max-height: min(74vh, 660px); } }
+@media (max-width: 480px) { .transport .btn { padding: 8px 12px; } .clock { font-size: 20px; } }
+
+/* The end card's columns can't be widened by the results table: it scrolls inside its region */
+.end-card, .dials { grid-template-columns: minmax(0, 1fr); }
+.end-card .log-wrap { max-width: 100%; }
+
+/* Layout: the wheel with its clock, your dials beside it (below it on a phone), then the status and
+   what's happening. The two columns' contents join one grid so the dials can sit by the wheel. */
+.wheel-game .left-col, .wheel-game .panel { display: contents; }
+.wheel-game { grid-template-areas: "table status" "table dials" "table events"; grid-template-rows: auto auto 1fr; row-gap: 16px; }
+.wheel-game .table-wrap { grid-area: table; }
+.wheel-game #dials-box { grid-area: dials; min-width: 0; }
+.wheel-game .status-card { grid-area: status; }
+.wheel-game .events-card { grid-area: events; }
+@media (max-width: 820px) { .wheel-game { grid-template-areas: "table" "dials" "status" "events"; grid-template-rows: none; } }

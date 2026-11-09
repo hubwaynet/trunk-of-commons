@@ -332,20 +332,48 @@ function receive(st, p, x, round, t, flush, add, rec) {
  * still travelling complete their journeys with everyone's settings frozen.
  */
 function endTable(st, reason) {
+  // With record on, keep what the page needs to draw the ending (Jason, 2026-11-09: "The end game
+  // flows shut off immediately, and bonus boost is not seen"). Recording changes no rule.
+  const ending = st.record ? {
+    shares: st.transit.filter((y) => y.kind === 'share').map((y) => ({ ...y })), // still travelling at the bell
+    rewards: st.transit.filter((y) => y.kind === 'reward').map((y) => ({ ...y })), // still crossing: forfeited
+    bell: st.players.map((p) => p.balance), // balances at the bell
+    fundAtBell: st.fund.balance,
+  } : null;
   for (const x of st.transit.filter((y) => y.kind === 'reward')) { st.fund.balance += x.amount; st.fund.forfeits += x.amount; }
   st.transit = st.transit.filter((y) => y.kind !== 'reward');
   const pct = reason === 'time' ? bonusPct(st) : 0;
   if (pct && st.endBonus !== 'none') st.bonus = { pct, poorest: Math.min(...st.players.map((p) => p.balance)) };
   if (pct && st.endBonus === '2017') st.boostMax += pct;
   deliver(st, st.t, true, null);
+  if (ending) Object.assign(ending, { beforeSplit: st.players.map((p) => p.balance), fundBeforeSplit: st.fund.balance, refundEach: 0, topUp: 0 });
   if (pct && st.endBonus === 'refund') {
     const each = Math.floor(st.fund.balance / st.n);
     const topUp = Math.floor((st.stake * pct) / 100);
     for (const p of st.players) p.balance += each + topUp;
     st.fund.balance -= each * st.n; st.fund.refunded += each * st.n;
     st.commonIn += topUp * st.n;
+    if (ending) Object.assign(ending, { refundEach: each, topUp });
   }
-  return { ...st, status: 'ended', endReason: reason };
+  return { ...st, status: 'ended', endReason: reason, ending };
+}
+
+/**
+ * Each player's account for the table, in hundredths: where every token came from and went. It
+ * closes exactly: start - paid - voted + received - sharesOut + boost - fees = beforeSplit, and
+ * beforeSplit + refund + bonus = balance. `received` is rewards plus shares in, before sharing.
+ */
+export function ledger(s, id) {
+  const p = s.players.find((x) => x.id === id);
+  const st = p.stats;
+  const refund = s.ending?.refundEach ?? (s.fund.refunded / s.n);
+  const bonus = s.ending?.topUp ?? (s.commonIn / s.n);
+  const received = st.reward + st.sharesIn;
+  return {
+    start: p.start, paid: st.paid, voted: st.voted, reward: st.reward, sharesIn: st.sharesIn, received,
+    sharesOut: st.sharesOut, boost: st.boost, fees: st.fees,
+    beforeSplit: p.balance - refund - bonus, refund, bonus, balance: p.balance,
+  };
 }
 
 /** The 2017 end bonus, in %: 0 unless the poorest player holds at least 10% of the stake. */

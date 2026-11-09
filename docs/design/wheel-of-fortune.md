@@ -6,7 +6,7 @@
 - *Wheel of Fortune Sharing Game*, 2017-11-19, in the claude.ai project.
 - Game 3 ("multiplayer iterated") in *TrunK of Commons*, 2018-08-07.
 
-**Status, 2026-11-09: core rules settled and simulated; a first play-test page is up** (`games/wheel/?preview`) so Jason can give feedback from play. The first five questions are answered (see "Decisions" below). A pure engine (`src/engine/wheel.js`), eight bots (`src/bots/wheel-bots.js`), a simulator (`tools/sim-wheel.mjs`) and tests (`tests/wheel.test.mjs`) are on main. The first findings and the proposals waiting for Jason are at the end of this file. As in the other design logs, each decision has its date and who decided.
+**Status, 2026-11-09: core rules settled and simulated; a play-test page is up** (`games/wheel/?preview`), revised after Jason's first play (decisions 14-20). The first five questions are answered (see "Decisions" below). A pure engine (`src/engine/wheel.js`), eight bots (`src/bots/wheel-bots.js`), a simulator (`tools/sim-wheel.mjs`) and tests (`tests/wheel.test.mjs`) are on main. The first findings and the proposals waiting for Jason are at the end of this file. As in the other design logs, each decision has its date and who decided.
 
 ## The idea (2017)
 
@@ -239,6 +239,8 @@ So far, sharing decides whether a table reaches six minutes with the bonus; stee
 
 ## The play-test page (2026-11-09)
 
+As first built; the dials, picture, ending and end card were revised after Jason's first play (decisions 14-20 below).
+
 - **Where:** `games/wheel/index.html`, `src/ui/wheel/main.js` and `style.css`. Linked from the home page ("Level 3 · Play-test") and the site nav. `npm run preview` with `node tools/build-preview.mjs wheel --unlocked` bundles it for a claude.ai artifact.
 - **The picture:** the wheel turns smoothly between seconds. The white arrow (reward) and black arrow (pays) are on the face, which fades from white to black. Rewards cross the middle as gold dots and shares run round the rim as blue dots; each stream of four dots arrives on the second the engine settles it. Seats show name, tokens, dials ("5/10 → 5" or "keeps all"), and "pays 9", "pays 1" or "receives", with a ring whose line style matches: dashed for paying, solid for receiving, so colour is never the only cue.
 - **The panel:** time left, your tokens and net, who has each arrow and how fast the wheel turns, the poorest player against the bonus line (a tenth of the stake), the boost fund, Start/Pause, Step and speed. Three range dials (Pass on, Share with, Turn the wheel) with words beside them: what you keep after the fee, and what a vote costs and does. "What's happening" lists the white arrow's visits, bots' dial changes and votes, the wheel turning round, and the bonus coming under threat.
@@ -247,9 +249,29 @@ So far, sharing decides whether a table reaches six minutes with the bonus; stee
 - **Tests:** `npm run test:ui` now plays a whole Wheel table at desktop/light and phone/dark (keyboard dials, focus kept while the clock runs, Step moves one second, no sideways scroll, axe), checks the lock, and watches six bots to the end.
 - **Not built yet:** achievements and what they unlock, "What this table showed", reputation discs, invitations, points between tables.
 
+## Jason's first play (2026-11-09)
+
+Jason's feedback from playing the play-test page, and what was built:
+
+> "The 3 dials should be dials with strength indicators to select from. The direction dial strength should decay strength back to neutral. Place You player at bottom. Increase size of the directional vote indicators for players in order for them to cooperate or go against. Separate the player share flows so we can see where they flow, how much, how far. The end game flows shut off immediately, and bonus boost is not seen. The end point tally ignores pre-split and boost numbers."
+
+14. **Round dials with strength bars** (Jason). Pass on, Share with and Turn the wheel are knobs (`src/ui/wheel/knob.js`): a ring of bars that grow with strength, lit bars filled and unlit bars outlined. Tap a bar or drag round; the keyboard still works (they are sliders to assistive technology); a tap on the vote dial's cap stops voting. They sit beside the wheel on a desktop and under it on a phone, with Start, Step, speed and the clock in a bar under the picture.
+15. **Your vote fades back to 0** (Jason). Agent's choice of rate, for Jason to judge in play: one step a second, so a 9 fades over 9 seconds and costs 11¼ tokens in all. It is a page rule for the human seat; bots choose their vote every second anyway.
+16. **You sit at the bottom** (Jason). Seat 0 (you, or the first to join when watching) is drawn at the bottom; the white arrow starts there.
+17. **Big vote arrows** (Jason). Each seat's vote is a curved arrow beside it along the circle of seats, longer and thicker for a stronger vote, with the number on it; solid when it goes with the wheel's turn, dashed when against it.
+18. **Separate share flows** (Jason). Each sender's shares run in their own lane (seat 0 outermost), in their colour, as a band from sender to receiver, thicker for more on the way, with an arrowhead at the receiver and the parcels moving along it. "Shares shown" (or tapping a seat) follows one player: their bands come forward, the rest fade, and the amount on its way is written on each band. Yours are followed by default.
+19. **The ending plays out** (Jason). At the bell, shares still travelling finish their trips, rewards still crossing drop into the boost fund, which now sits in the hub throughout; then, if the table earned it, the fund flows out of the hub to every seat (circles) and the common fund's bonus comes in from outside (diamonds), the balances count up, and only then the end card appears. A fund that isn't earned shows as "lost". The engine records what the page needs (`s.ending`, when `record` is on); recording changes no rule.
+20. **Your account in full** (Jason). The end card shows your ledger: stake, paid in, votes, received before sharing (rewards and shares in), shared out (boost included), the boost the fund added, fees, before the split, your share of the fund, the bonus, and what you end with. Each line is the change in the rounded running total, so the whole tokens shown add up exactly. The results table adds Received, Fees, Before the split and Fund + bonus for every seat. `ledger(s, id)` in the engine closes exactly for every player (tested over 48 tables, both endings).
+
+The vote words now say what everyone's votes did last second (for example "added up to ↻4, with the wheel's turn. That's not past 6, so it still turned at its minimum 6° a second").
+
+### Finding: votes never change the wheel (2026-11-09)
+
+Under the current rules a vote with the wheel adds speed only once the table's votes together pass 6 (`speed = max(minSpeed, net)`), and a vote against it only cancels others' speed-ups unless the net passes 9. Over 300 bot tables at a stake of 650, bots voted in 49% of all seconds and **their votes changed the wheel's speed or direction in none of them**; they spent about 128 tokens a table on votes that did nothing (the tokens go to the boost fund, refunded when the table earns it). A lone player voting up to 6 with the wheel, or up to 9 against, changes nothing either. This is the "steering is weak" question from the first session, now measured; it goes to Jason as the next decision. Reproduce with a scratch count of seconds where any vote was cast and `speed !== minSpeed` or the direction changed.
+
 ## Open for the next session (2026-11-09)
 
-1. **Jason's feedback from play** comes first. Questions the page is meant to answer: does steering feel worth doing; is the stake right (650, 800, 1,000); is the picture readable on a phone; does the share-dial temptation show?
+1. **Jason's feedback from play** comes first. Questions the page is meant to answer: does steering feel worth doing; is the stake right (650, 800, 1,000); is the picture readable on a phone; does the share-dial temptation show? (First play done, decisions 14-20; the votes finding above waits for Jason.)
 2. **Give steering more leverage**, if play confirms it's weak (decision 12). Options to simulate, one at a time: letting votes slow the wheel as well as speed it (a lower minimum speed), with the pinned player protected (`blackRun`) if holding returns; a tighter stake; tuning the steering bots so their wishes don't bankrupt them.
 3. **Sharpening the sharing temptation**, if wanted: the fee and boost tables, or how the refund is shared.
 4. **For the page:** achievements (ordered by simulated odds, as in Games 1 and 2), "What this table showed" (question 9: check each source first), reputation discs (question 6).

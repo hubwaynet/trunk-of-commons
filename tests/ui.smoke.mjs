@@ -381,6 +381,22 @@ async function playWheel(page, label) {
   assert.match(await page.$eval('#o-vote', (o) => o.textContent), /clockwise 1/, `${label}: the vote dial moved`);
   await page.clock.runFor(5000);
   assert.equal(await focusId(page), 'd-vote', `${label}: focus stays on the vote dial as the clock runs`);
+  // your vote fades back to 0, one step a second (Jason, 2026-11-09)
+  assert.match(await page.$eval('#o-vote', (o) => o.textContent), /no vote/, `${label}: the vote faded back to 0`);
+  assert.equal(await page.$eval('#d-vote', (k) => k.getAttribute('aria-valuenow')), '0', `${label}: the vote dial shows 0`);
+  // the dials are round: a tap picks the bar under it (top of the Pass on dial is 5/10; the cap of the vote dial is 0)
+  const tap = async (sel, fx, fy) => { const b = await page.locator(sel).boundingBox(); await page.mouse.click(b.x + b.width * fx, b.y + b.height * fy); };
+  await tap('#d-share', 0.5, 0.06);
+  assert.match(await page.$eval('#o-share', (o) => o.textContent), /^5\/10/, `${label}: tapping the top of the Pass on dial picks 5/10`);
+  await tap('#d-vote', 0.94, 0.5);
+  assert.match(await page.$eval('#o-vote', (o) => o.textContent), /clockwise [56]/, `${label}: tapping the right of the vote dial votes clockwise`);
+  await tap('#d-vote', 0.5, 0.5);
+  assert.match(await page.$eval('#o-vote', (o) => o.textContent), /no vote/, `${label}: tapping the vote dial's cap stops voting`);
+  // following another player's shares, from the picker
+  const other = await page.$eval('#flow-focus', (s) => s.options[2].value);
+  await page.selectOption('#flow-focus', other);
+  assert.ok(await page.$(`#seats .seat.focused[data-id="${other}"]`), `${label}: the followed seat is marked`);
+  await page.selectOption('#flow-focus', 'you');
   assert.match(await page.$eval('#clock', (e) => e.textContent), /^5:5\d$/, `${label}: the clock runs`);
   // Pause, then Step moves on exactly one second
   await page.click('#pause');
@@ -396,6 +412,15 @@ async function playWheel(page, label) {
   const end = await page.$eval('.end-card', (e) => e.textContent);
   assert.doesNotMatch(end, /undefined|NaN/, `${label}: end card`);
   assert.match(end, /Who was the hero/, `${label}: end card asks the hero question`);
+  // your account in full: the lines add up to what you end with (Jason, 2026-11-09)
+  const acct = await page.$$eval('.ledger tbody tr td', (tds) => tds.map((td) => td.textContent));
+  const num = (x) => Number(x.replace(/\u2212/g, '-').replace(/[^0-9+-]/g, '').replace(/^\+/, ''));
+  const total = num(acct.at(-1).split('(')[0]);
+  const sub = acct.findIndex((x, i) => i > 0 && !/^[+\u2212]/.test(x) && x !== '0');
+  const sum = (a) => a.reduce((x, y) => x + num(y), 0);
+  assert.equal(sum(acct.slice(0, sub)), num(acct[sub]), `${label}: the account adds up before the split (${acct.join(' | ')})`);
+  assert.equal(num(acct[sub]) + sum(acct.slice(sub + 1, -1)), total, `${label}: the account adds up to what you end with`);
+  assert.equal(total, num(await page.$eval('#mine', (e) => e.textContent)), `${label}: the account ends with your tokens`);
   const rows = await page.$$eval('#scoreboard tbody tr', (r) => r.length);
   assert.equal(rows, 6, `${label}: six seats on the scoreboard`);
 }
