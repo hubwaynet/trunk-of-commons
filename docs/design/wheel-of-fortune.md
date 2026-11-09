@@ -269,6 +269,43 @@ The vote words now say what everyone's votes did last second (for example "added
 
 Under the current rules a vote with the wheel adds speed only once the table's votes together pass 6 (`speed = max(minSpeed, net)`), and a vote against it only cancels others' speed-ups unless the net passes 9. Over 300 bot tables at a stake of 650, bots voted in 49% of all seconds and **their votes changed the wheel's speed or direction in none of them**; they spent about 128 tokens a table on votes that did nothing (the tokens go to the boost fund, refunded when the table earns it). A lone player voting up to 6 with the wheel, or up to 9 against, changes nothing either. This is the "steering is weak" question from the first session, now measured; it goes to Jason as the next decision. Reproduce with a scratch count of seconds where any vote was cast and `speed !== minSpeed` or the direction changed.
 
+### Votes that add and slow (Jason, 2026-11-09)
+
+Decision 21 (Jason, 2026-11-09): votes should "add speed, and slow it". Built as the engine option `voteSpeed: 'addsSlows'` (speed = 6 + the net vote, never below `slowest`; turning round still needs more than 9 together, and then starts at 6 the other way). `'adds'` (no slowing) and `'pastMin'` (the first rule, still the default until the floor is settled) are kept for comparison.
+
+Simulated: 300 tables per row. Bot tables are six random bots. "Alone" means the style in your seat against five random bots. The hard holder is `bringSelf`: it shares half, hurries the white arrow to itself at 9 and holds it back at 9. Nets are in tokens. Reproduce with a scratch runner over `createGame` options (as in `tools/sim-wheel.mjs`).
+
+| Stake 650 (the page's default) | Votes that changed the wheel | Bot tables lasted | Bonus | Self-Steerer: white arrow, net | Hard holder alone: white arrow, net, lasted |
+|---|---|---|---|---|---|
+| First rule (`pastMin`) | 0% | 100% | 39% | 17%, -263 | 18%, -449, 59% |
+| Adds, no slowing | 55% | 80% | 36% | 18%, -289 | 19%, -460, 46% |
+| Adds and slows, floor 4 | 95% | 62% | 30% | 22%, -252 | 25%, -432, 27% |
+| Floor 3 | 94% | 50% | 23% | 24%, -247 | 29%, -376, 1% |
+| Floor 2 | 94% | 50% | 23% | 24%, -247 | 38%, -243, 0% |
+| Floor 0 | 94% | 50% | 23% | 24%, -246 | 93%, +29, 0% |
+| Floor 2 + pinned-player protection (`blackRun: 10`) | 98% | 96% | 55% | 26%, -120 | 37%, -215, 95% |
+| Floor 0 + protection | 98% | 96% | 55% | 26%, -120 | 99%, -224, 100% |
+
+| Stake 1,000 | Votes that changed the wheel | Bot tables lasted | Bonus | Self-Steerer: white arrow, net | Hard holder alone: white arrow, net, lasted |
+|---|---|---|---|---|---|
+| First rule | 0% | 100% | 100% | 17%, +50 | 18%, -87, 99% |
+| Adds, no slowing | 48% | 100% | 100% | 18%, +31 | 19%, -101, 99% |
+| Floor 2 | 97% | 97% | 95% | 25%, +91 | 37%, -309, 29% |
+| Floor 2 + protection | 100% | 100% | 100% | 26%, +83 | 37%, -75, 100% |
+| Floor 0 + protection | 100% | 100% | 100% | 26%, +83 | 100%, -189, 100% |
+
+What it shows:
+
+1. **Votes count.** Votes change the wheel in 94-100% of the seconds they're cast, up from 0%.
+2. **Gentle holding pays; hard holding doesn't.**
+   - The Self-Steerer (votes of 3) holds the white arrow a quarter of the time and becomes the best-off bot at a stake of 1,000 (+91, against +50 under the first rule).
+   - A hard holder gains the arrow (37% to 93% of the time) but mostly loses, because the seat it pins at the black arrow goes bust and the table loses the refund.
+   - The cost of hard pinning falls on everyone, while the pinner pays about 1 a second against the pinned player's 9.
+3. **The floor matters only for strong votes.** Bots vote 2 or 3, so floors 0 to 3 give the same bot tables.
+4. **The pinned-player protection keeps tables alive.** After 10 seconds in a row at the black arrow, a seat pays 1 instead of 9. With it, 96% of tables last at a stake of 650, against 50% without. A hard holder loses even while holding the arrow all the time, since the pinned seat pays so little.
+
+Jason's response (2026-11-09): "Shouldn't the cost of pinning the wheel outweigh the benefits?" Not yet settled; see the next section's options.
+
 ## Open for the next session (2026-11-09)
 
 1. **Jason's feedback from play** comes first. Questions the page is meant to answer: does steering feel worth doing; is the stake right (650, 800, 1,000); is the picture readable on a phone; does the share-dial temptation show? (First play done, decisions 14-20; the votes finding above waits for Jason.)

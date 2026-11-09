@@ -176,6 +176,23 @@ test('each player\'s ledger closes exactly, and the ending is recorded for the p
   assert.ok(lasted > 0 && busted > 0, `both endings covered (${lasted} lasted, ${busted} busted)`);
 });
 
+test('voteSpeed: the first rule ignores small votes; adds speeds up; addsSlows also slows, to a floor', () => {
+  const one = (opts, vote) => step(fresh(opts), { a: { vote } }).speed;
+  assert.equal(one({}, 4), 6, 'pastMin: a lone 4 with the wheel changes nothing');
+  assert.equal(one({}, 8), 8);
+  assert.equal(one({}, -4), 6, 'pastMin: a lone 4 against changes nothing');
+  assert.equal(one({ voteSpeed: 'adds' }, 4), 10);
+  assert.equal(one({ voteSpeed: 'adds' }, -4), 6, 'adds: votes against cancel down to the minimum');
+  assert.equal(one({ voteSpeed: 'addsSlows' }, 4), 10);
+  assert.equal(one({ voteSpeed: 'addsSlows' }, -3), 3);
+  assert.equal(one({ voteSpeed: 'addsSlows', slowest: 2 }, -9), 2, 'never below the floor');
+  assert.equal(one({ voteSpeed: 'addsSlows', slowest: 0 }, -9), 0);
+  // turning round still needs more than 9 together, and starts at the minimum the other way
+  const s = step(fresh({ voteSpeed: 'addsSlows' }), { a: { vote: -6 }, b: { vote: -5 } });
+  assert.equal(s.dir, -1);
+  assert.equal(s.speed, 6);
+});
+
 // The old holding logic (pay just enough to keep the arrow in your segment), and the Self-Steerer bot.
 const holder = { create: () => ({ decide: (v) => ({ vote: steer(v, v.id, 9), share: 5, people: v.n }) }) };
 const heldBy = (who, opts) => {

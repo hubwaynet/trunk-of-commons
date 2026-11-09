@@ -32,6 +32,16 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
  *   than one player's strongest vote, so momentum carries the arrow round to every seat and only
  *   two or more players together can turn it back. 6 is 2017's rule, which one player could beat
  *   alone; 0 lets any net vote turn it (the first core).
+ * voteSpeed: how the net vote sets the wheel's speed.
+ *   'pastMin' (the first rules): speed = the larger of minSpeed and the net vote with the wheel, so
+ *     votes with it count only once they pass minSpeed together, and votes against only cancel them.
+ *     Measured 2026-11-09: in 300 bot tables, votes changed the wheel in no second at all.
+ *   'adds': speed = minSpeed + the net vote with the wheel; votes against cancel down to minSpeed.
+ *   'addsSlows' (Jason, 2026-11-09: votes "add speed, and slow it"): speed = minSpeed + the net vote,
+ *     with the wheel or against it, never below `slowest`.
+ *   In every mode, turning the wheel round needs a net vote against of more than reverseAbove; on
+ *   the second it turns round, it turns at minSpeed the new way.
+ * slowest: with 'addsSlows', the slowest the wheel turns, in degrees a second.
  * blackRun: the most seconds in a row a player pays the black arrow's amount; after that they pay
  *   the grey amount until the black arrow moves on (Infinity: no limit). An experiment
  *   (2026-11-09) against one player pinning another; not needed while momentum is above one
@@ -66,7 +76,7 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
  * record: keep a per-tick history for the page and the round log (simulations turn it off).
  */
 export function createGame({
-  players, seed = 0, stake = 1000, maxTicks = MAX_TICKS, minSpeed = 6, minVote = 0, maxVote = 9, voteCost = 0.25, reverseAbove = 9, blackRun = Infinity,
+  players, seed = 0, stake = 1000, maxTicks = MAX_TICKS, minSpeed = 6, minVote = 0, maxVote = 9, voteCost = 0.25, reverseAbove = 9, voteSpeed = 'pastMin', slowest = 2, blackRun = Infinity,
   collect = { black: 9, grey: 1 }, greyReach = 90, rewardTransit = 2, shareSpeed = 45, minParcel = 0.1, boostMax = 10,
   selfShare = 'kept', boostStart = 0, endBonus = 'refund', delays = false, maxDepth = 40, record = true,
 }) {
@@ -75,7 +85,7 @@ export function createGame({
   const pos = joinPositions(n);
   const start = Math.round(stake * UNIT);
   return {
-    seed, n, maxTicks, minSpeed, minVote, maxVote, voteCost, reverseAbove, blackRun, greyReach, rewardTransit, shareSpeed, boostMax, selfShare, endBonus, delays, maxDepth, record,
+    seed, n, maxTicks, minSpeed, minVote, maxVote, voteCost, reverseAbove, voteSpeed, slowest, blackRun, greyReach, rewardTransit, shareSpeed, boostMax, selfShare, endBonus, delays, maxDepth, record,
     collect: { black: Math.round(collect.black * UNIT), grey: Math.round(collect.grey * UNIT) },
     minParcel: Math.round(minParcel * UNIT),
     stake: start,
@@ -220,9 +230,16 @@ export function step(s, decisions = {}) {
     net += v;
     if (rec) rec.votes.push(v);
   }
-  if (net * st.dir >= 0) st.speed = Math.max(st.minSpeed, Math.abs(net));
-  else if (Math.abs(net) > st.reverseAbove) { st.dir = -st.dir; st.speed = Math.max(st.minSpeed, Math.abs(net)); }
-  else st.speed = st.minSpeed; // momentum holds: votes against it only cancel out
+  if (st.voteSpeed === 'pastMin') {
+    if (net * st.dir >= 0) st.speed = Math.max(st.minSpeed, Math.abs(net));
+    else if (Math.abs(net) > st.reverseAbove) { st.dir = -st.dir; st.speed = Math.max(st.minSpeed, Math.abs(net)); }
+    else st.speed = st.minSpeed; // momentum holds: votes against it only cancel out
+  } else if (net * st.dir < 0 && Math.abs(net) > st.reverseAbove) {
+    st.dir = -st.dir; st.speed = st.minSpeed; // turned round: fresh momentum the other way
+  } else {
+    const floor = st.voteSpeed === 'addsSlows' ? st.slowest : st.minSpeed;
+    st.speed = Math.max(floor, st.minSpeed + net * st.dir);
+  }
 
   // 2. Collection from the black side, at the wheel's position at the start of the second.
   const q = quotas(st);

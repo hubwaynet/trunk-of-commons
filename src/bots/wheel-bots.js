@@ -28,6 +28,8 @@ export function botView(s, id) {
     speed: s.speed,
     minSpeed: s.minSpeed,
     reverseAbove: s.reverseAbove,
+    voteSpeed: s.voteSpeed,
+    slowest: s.slowest,
     white: whiteId(s),
     heldFor: s.t - s.holderSince, // seconds the current player has had the white arrow in their segment
     black: blackId(s),
