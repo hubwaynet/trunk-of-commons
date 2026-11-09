@@ -6,7 +6,7 @@
 - *Wheel of Fortune Sharing Game*, 2017-11-19, in the claude.ai project.
 - Game 3 ("multiplayer iterated") in *TrunK of Commons*, 2018-08-07.
 
-**Status, 2026-11-08: nothing is decided.** This file holds the 2017 rules in brief and the questions to settle with Jason. As CLAUDE.md says, the rules are tested in headless simulation before any page is built. Record each decision below with its date and who decided, as in the other design logs.
+**Status, 2026-11-09: core rules settled and simulated; no page yet.** The first five questions are answered (see "Decisions" below). A pure engine (`src/engine/wheel.js`), eight bots (`src/bots/wheel-bots.js`), a simulator (`tools/sim-wheel.mjs`) and tests (`tests/wheel.test.mjs`) are on main. The first findings and the proposals waiting for Jason are at the end of this file. As in the other design logs, each decision has its date and who decided.
 
 ## The idea (2017)
 
@@ -100,7 +100,7 @@ With many players at many tables, the commons may need connecting between tables
 
 ## Questions to settle with Jason
 
-These are prompts for the first session, not decisions. Put them one at a time, each with a recommendation and the reason for it.
+These were the prompts for the first session. Questions 1-5 are answered (see "Decisions"). The others wait until the simulator has something to show (Jason, 2026-11-09: "start with your suggestions and iterate as we learn").
 
 1. **Time.** Continuous seconds, as in 2017, or discrete ticks the engine steps through while the page animates them? The engine must stay pure and deterministic, so ticks fit naturally. One tick could stand for one 2017 second.
 2. **How much of 2017 to keep at first.** The core is collection, reward, rotation votes, the two share dials, and the fee and boost. The extras are the position and vote delays, dial speed limits, momentum, transit times and the end bonus. Jason suspects the 2018 framework went too far with gamification. Simulate the core first, then add one mechanic at a time and keep only those that change how players behave.
@@ -120,3 +120,59 @@ These are prompts for the first session, not decisions. Put them one at a time, 
    - the opportunist, who shares until it holds the white arrow
 9. **Lessons to name later,** on the "What this table showed" card. Candidates are the Matthew effect, trickle-down economics, Ponzi and pyramid dynamics, Rawls's difference principle (the end bonus follows the poorest player), and privilege as latency. Check each source before using it.
 10. **The name,** before launch.
+
+## Decisions (2026-11-09)
+
+1. **Time** (Jason). The engine works in ticks of one second for the accounting. Every token movement is a parcel with a departure and an arrival tick, so the page can draw it as a smooth stream that arrives on time. Jason: "Tick is fine for accounting but more movement than 1 per second is required for moving rewards & shared points ... a smooth animation requiring more steps to appear as a stream." Whether the page's clock runs by itself (with Pause and Step) or waits is for the page session; the agent's leaning is a running clock with Pause and Step.
+2. **A small core first** (Jason), "for observation with automated settings": the wheel and seats, collection on the black side, the reward to the white arrow, the two share dials with shares passing on, the fee and the boost, rotation votes with **0 allowed**, a minimum wheel speed and transit times. The rest of 2017 is added one mechanic at a time and kept only if it changes behaviour.
+3. **The stake is raised** (Jason: "why not increase minimum starting tokens/points for a longer lasting table?"), to a value the simulation sets. The 2017 stake of 100 can't last: the seat at the black arrow pays 9 a second, 90 tokens per pass.
+4. **Six seats** for now, you and five bots, or six bots to watch (Jason). The engine takes any number. **The people dial counts people** (just me, me and the nearest one, ... everyone), because 10% of six is 0.6 of a person; the boost stays proportional, 10% for everyone (Jason).
+5. **Length and ending** (Jason): at most 6 minutes (360 ticks), or the moment a player can't pay what the black side collects. Jason also asked for the completion bonus to be considered (see the findings: as written it does nothing).
+6. **Scoring** (Jason): your own tokens at the end against your stake, with the table's results beside it (did it last, the poorest player, how much you shared). The debrief asks 2017's question: who was the hero? Jason: "make this an evolution on game 2 and focus on looking for the dilemma, to optimise the game rules to make it an educational & fun experience ... start with your suggestions and iterate as we learn."
+7. **Invitations come later, after reputation** (agent's proposal, accepted in passing by Jason, who raised it: "Players gain a reputation. Sharing players would invite like minded players. So too exploiters might to gang up?"). For the first version you start the table and sit at the white arrow, and the bots join in a seeded order. Later: you invite one bot from a short line-up showing reputations, and each bot invites the next by its leanings, so sharers draw sharers and exploiters gangs. This needs a decision against the 2026-11-06 rule "no choosing the bots".
+8. **Sharing rewards is Game 3's main lesson** (Jason): "Sharing rewards is an extended lesson in game 3, for the common good, compared to game 2, which had it a little to last the distance."
+
+## The core as built (2026-11-09)
+
+- **Seats** by join order: the initiator at the white arrow, then alternating sides, the last to join at the black arrow (six players sit at seats 0, 1, 5, 2, 4, 3).
+- **Each second:** votes are paid into the boost fund and their sum sets the direction (any net vote turns the wheel round) and speed (at least 6° a second); the seat holding the black arrow pays 9 and its two neighbours 1 each into the reward; the wheel turns; parcels due arrive.
+- **The reward** takes 2 seconds to cross and lands on whoever is at the white arrow when it arrives.
+- **Receiving:** each player's arrivals for the second are added up and settled once. They pass on (share dial) tenths to the nearest people (people dial), keep the rest and pay the 2017 fee on what they keep (95% when keeping everything, otherwise 100% minus the share). The boost fund adds up to 10% to what's shared, in proportion to the people reached. Shares travel 45° a second round the rim: 2, 3 or 4 seconds at six seats.
+- **Ending:** at 360 seconds, or when anyone can't pay. Rewards still crossing are forfeited to the boost fund; shares still travelling complete with settings frozen (2017).
+- **Accounting** is in hundredths of a token, and every test table conserves every token exactly.
+- **Options kept for comparison:** `minVote: 1` (2017's no neutral), `reverseAbove: 6` (2017 momentum), `selfShare: 'cascade' | 'kept'`, `endBonus: 'none' | '2017' | 'refund'`, and the collection amounts, speeds, stake and length.
+
+**Bots** (the roster from question 8, as a starting point): Sharer (8/10 to everyone), Keeper (keeps all), Free Rider (shares half, but only with itself), Self-Steerer (pays to hold the white arrow on itself, shares half), Patron (steers towards whoever else shares most, shares 7/10), Lifeguard (steers towards the poorest, shares 7/10), Reciprocator (matches the others' average sharing), Opportunist (9/10, dropping to half while it holds the white arrow). Steerers pay only when the wheel would carry the arrow out of the target's segment, and only as much as it takes; they don't pay for a vote that can't win.
+
+**Learner styles** for the human seat (`LEARNERS` in the simulator) play fixed settings, so results compare cleanly. The `dilemma` mode plays each style alone against five random bots, and at a table of six of the same style.
+
+## Simulation findings (2026-11-09)
+
+Stake 600, 6 minutes, `selfShare: 'kept'` unless marked. 1,000 tables per style unless marked. Nets are tokens at the end minus the stake. Reproduce with `node tools/sim-wheel.mjs 1000 dilemma '{"selfShare":"kept"}'`.
+
+| Your style | You vs five random bots: your net | Table lasted | Six of this style: net each | Lasted | Mean length |
+|---|---|---|---|---|---|
+| Shares half, steers to self (up to 9 a second) | +139 | 0% | -224 | 0% | 101 s |
+| Shares half, steers to self (up to 3) | +105 | 0% | -107 | 0% | 81 s |
+| Shares everything with everyone | -141 | 13% | 0 | 100% | 360 s |
+| Shares 8/10 with everyone | -151 | 16% | -108 | 100% | 360 s |
+| 9/10, half while at the white arrow | -152 | 17% | -220 | 100% | 360 s |
+| Shares half with everyone | -226 | 14% | -354 | 100% | 360 s |
+| Shares 7/10, steers to the poorest | -359 | 20% | -213 | 100% | 360 s |
+| Keeps everything | -290 | 7% | -542 | 0% | 314 s |
+
+1. **There is a real dilemma, and it is in steering.** Steering the white arrow to yourself pays you alone (+105 to +139), while a table where everyone does it goes bust within two minutes and everyone loses (-107 to -224). Sharing everything with everyone breaks even when everyone does it (0) but loses against the bots (-141). In prisoner's dilemma terms: temptation +105, reward 0, punishment -107, sucker -141.
+2. **How steering wins.** The steerer collects while the white arrow is anywhere in its segment, so holding it costs about one token per reversal, every 10 seconds or so, against a reward of 11 a second. The black arrow is held on the seat opposite, which pays 9 a second until it goes bust, about a minute at a stake of 600. Every bot table with a Self-Steerer went bust (728 of 1,000); without one, 24% lasted the six minutes.
+3. **The share dials are not a dilemma.** Sharing more pays you more as well, against the bots and among equals. The 2017 fee makes keeping simply a bad move. The Opportunist's trick (generous except at the white arrow) doesn't beat plain generosity.
+4. **Loophole: sharing only with yourself.** As written (`selfShare: 'cascade'`), sharing everything with only yourself was the best style of all: +622 alone (400 tables). The slice for yourself comes back as incoming, earns a boost and pays no fee. With `selfShare: 'kept'`, your own slice counts as kept, and the same style is plain keeping (-204).
+5. **The fee is a sink.** Over a full table the boost fund takes a third to over half of all stakes unless everyone shares nearly everything. When everyone shares half, each player loses 354 of 600 even though the table lasts. Nobody can come out ahead together, only at someone else's expense.
+6. **The 2017 end bonus as written does nothing** (nets moved by 3 tokens at most), because it only boosts the few seconds of shares still travelling at the end. **A refund version works when it triggers:** at full time, the boost fund is shared equally, and the common fund adds the bonus as a % of each stake. Then cooperative tables come out ahead (six sharing everything +60 each, 8/10 +48, half +30). In mixed tables it rarely triggers, because the poorest usually ends below 10% of the stake. At a stake of 1,000 with the refund, bot tables without a Self-Steerer lasted 87% of the time, earned the bonus 86% of the time and lost nothing on average; tables with one lasted 9%.
+7. **2017's momentum rule** (`reverseAbove: 6`) stops modest steerers altogether. Bots willing to pay 2-3 a second never vote again, because a reversal needs 7. A determined steerer (up to 9) still holds the arrow: +136 alone, and every table it sits at goes bust. So it takes steering out of most of the game without taking away the temptation.
+8. **The stake** changes how long tables last, not who wins. Bot tables lasted the full time 0% (300), 1% (500), 7% (600), 22% (800) and 30% (1,000) of the time. The Self-Steerer gains more with a bigger stake (+66 at 300, +213 at 1,000), because the seat opposite lasts longer.
+9. **Join order matters little.** The last to join starts at the black arrow and pays first, but the wheel brings everyone round within a minute. Over 1,000 bot tables: initiator -204, last to join -222.
+
+## Proposals waiting for Jason (2026-11-09)
+
+1. Close the self-share loophole: make `selfShare: 'kept'` the rule.
+2. The economy: the refund version of the end bonus, with a stake of about 1,000, so a cooperative table can come out ahead and keeping the poorest alive is worth something to everyone.
+3. Steering: what should stop a player holding the white arrow? Options to simulate: bots that counter-steer together against a holder (a coalition), the 2017 position delays (privilege as latency, which help the holder), or a rising cost for holding. The 2017 momentum rule alone is not recommended.
