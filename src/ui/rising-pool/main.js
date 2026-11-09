@@ -11,7 +11,7 @@ import { keepFocus } from '../focus.js';
 import { announce } from '../announce.js';
 import {
   NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, frag, signed, toast,
-  achievementStore, progressHtml, achievementsCardHtml, rememberToggle, momentsCardHtml, wireCollapse, showTable,
+  achievementStore, progressHtml, achievementsCardHtml, achievementsListHtml, showAchievementsButton, rememberToggle, momentsCardHtml, wireCollapse, showTable,
 } from '../common.js';
 import { tableMoments } from './moments.js';
 import { pickMoments } from '../ideas.js';
@@ -561,6 +561,9 @@ function renderProgress() {
   if (store.complete(have)) unlock('centipede'); // players who finished before unlocks were stored
   const box = document.getElementById('ach-progress');
   box.innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(ACHIEVEMENTS, have, UNLOCK())}`;
+  box.append(showAchievementsButton());
+  const list = document.getElementById('ach-list');
+  if (list) list.innerHTML = achievementsListHtml(ACHIEVEMENTS, have, G?.earned ?? new Set(), { note: 'Easiest first.', ...UNLOCK() });
   box.append(resetControl({
     game: 'risingPool', keys: store.keys, count: ACHIEVEMENTS.filter((a) => have.has(a.id)).length,
     onChange: (reset) => { if (reset) { store.forget(); G.earned = new Set(); toast('Rising Pool achievements reset.', 6000); } render(); },
@@ -673,6 +676,7 @@ function render() {
 document.getElementById('new-game').addEventListener('click', () => newSession({ watch: G.watch }));
 document.getElementById('watch-toggle').addEventListener('click', () => newSession({ watch: !G.watch }));
 rememberToggle('how-it-works', 'trunk.risingPool');
+rememberToggle('achievements-list', 'trunk.risingPool');
 wireCollapse();
 rememberToggle('strategy-key', 'trunk.risingPool');
 newSession();

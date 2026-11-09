@@ -14,7 +14,7 @@ import { keepFocus } from '../focus.js';
 import { announce, listNames } from '../announce.js';
 import {
   NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, h, signed, toast,
-  achievementStore, progressHtml, achievementsCardHtml, momentsCardHtml, rememberToggle, wireCollapse, showTable,
+  achievementStore, progressHtml, achievementsCardHtml, achievementsListHtml, showAchievementsButton, momentsCardHtml, rememberToggle, wireCollapse, showTable,
 } from '../common.js';
 import { tableMoments } from './moments.js';
 import { pickMoments, cap } from '../ideas.js';
@@ -56,6 +56,9 @@ function renderProgress() {
   const have = store.load();
   if (store.complete(have)) unlock('wheel');
   box.innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(ACHIEVEMENTS, have, UNLOCK())}`;
+  box.append(showAchievementsButton());
+  const list = document.getElementById('ach-list');
+  if (list) list.innerHTML = achievementsListHtml(ACHIEVEMENTS, have, G?.earned ?? new Set(), { note: 'Easiest first, judged from simulated tables.', ...UNLOCK() });
   if (G.watch) return;
   box.append(resetControl({
     game: 'centipede', keys: store.keys, count: ACHIEVEMENTS.filter((a) => have.has(a.id)).length,
@@ -819,6 +822,7 @@ function showLock() {
 
 renderKey();
 rememberToggle('how-it-works', 'trunk.centipede');
+rememberToggle('achievements-list', 'trunk.centipede');
 wireCollapse();
 if (game1Done() || previewMode()) {
   if (previewMode() && !game1Done()) document.querySelector('.eyebrow').textContent = 'Game 2 · Level 2 · Preview';

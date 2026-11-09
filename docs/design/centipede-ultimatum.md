@@ -507,3 +507,7 @@ The end card had said the Commons "rarely runs out here". It now says whether th
 "As this is an educational game, I think it should spell out what happened." When the Commons runs dry, "What this table showed" always leads with it. For example: "The Commons ran dry in round 39. You, Moss and Banksia kept the table going: every lap the Commons paid a point to each giver, and a bonus for each welcomed split, until it couldn't pay any more. The players took all 120 points it started with, and the three of you finished holding every point in the game." The idea it names is "Rules for what may be taken" (Ostrom's design principles 2 and 3: rules for appropriation suited to local conditions, made with the people who use them).
 
 Games 1 and 2 are done for now (Jason, 2026-11-08). Next is Game 3.
+
+## Achievements section (Jason, 2026-11-09)
+
+A collapsible **Achievements** section sits below How it works, listing every achievement with what it asks and whether it is done (DONE, NEW or TO DO), plus the progress bar. It starts closed and remembers being opened. The header strip has a **Show ▾** button that opens the section and scrolls to it. It is built once in `src/ui/common.js` (`achievementsListHtml`, `showAchievementsButton`) and shared by both games. The end-of-table card is unchanged.

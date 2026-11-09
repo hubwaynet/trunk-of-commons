@@ -106,3 +106,9 @@ th { font-family: var(--font-data); font-weight: 500; font-size: 11px; letter-sp
 .ring-legend svg { width: 22px; height: 22px; flex: none; }
 .ring-legend .seat-rep { fill: none; }
 .ring-legend .ring-help { flex-basis: 100%; font-size: 13px; }
+
+/* Achievements section below How it works, and the strip's Show button */
+.ach-list { display: grid; gap: 8px; padding-top: 4px; }
+.ach-list p { margin: 0; }
+.ach-show { justify-self: start; }
+.ach-list .badge { flex: none; min-width: 5ch; white-space: nowrap; }

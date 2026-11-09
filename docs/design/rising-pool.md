@@ -96,3 +96,7 @@ From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai pro
     - The table picture's spoken label describes each ring as "gives medium or more on average" or "gives less than medium on average".
 - **Reputation rings.** Explained on the page, with a legend and a text alternative. The threshold is unchanged. *Built 2026-11-06:* the rings are thicker, and "gives less than medium" is dashed as well as magenta, so colour is never the only cue (Jason). The legend says "solid" and "dashed", and the spoken label gives each player's ring in words. *Moved 2026-11-08 (Jason):* the legend now sits at the end of How it works, followed by a **Collapse and play** button, as in Game 2 (see `centipede-ultimatum.md`).
 - **Order of work, and review flow.** See the same section in `centipede-ultimatum.md`.
+
+## Achievements section (Jason, 2026-11-09)
+
+A collapsible **Achievements** section sits below How it works, listing every achievement with what it asks and whether it is done (DONE, NEW or TO DO), plus the progress bar. It starts closed and remembers being opened. The header strip has a **Show ▾** button that opens the section and scrolls to it. It is built once in `src/ui/common.js` (`achievementsListHtml`, `showAchievementsButton`) and shared by both games. The end-of-table card is unchanged.

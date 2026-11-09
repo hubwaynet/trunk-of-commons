@@ -85,6 +85,37 @@ export function achievementsCardHtml(all, have, newNow, { note, unlocked, unlock
   </ul></section>`;
 }
 
+/**
+ * The Achievements section below How it works (Jason, 2026-11-09): every achievement, what it
+ * asks and whether it's done, in its own collapsible section. Same list as the end-of-table card.
+ */
+export function achievementsListHtml(all, have, newNow, { note, unlocked, unlockLabel }) {
+  const n = all.filter((a) => have.has(a.id)).length;
+  return `${progressHtml(all, have, { unlocked, unlockLabel })}<p class="muted small">${n === all.length ? 'All done.' : `${all.length - n} still to earn.`} ${note}</p><ul class="achievements">
+    ${all.map((a) => `<li class="${have.has(a.id) ? '' : 'locked'}"><span class="badge">${have.has(a.id) ? (newNow.has(a.id) ? 'NEW' : 'DONE') : 'TO DO'}</span>
+      <span><b>${esc(a.name)}</b> ${esc(a.text)}</span></li>`).join('')}
+  </ul>`;
+}
+
+/** The "Show" button on the achievements strip: opens the Achievements section and scrolls to it. */
+export function showAchievementsButton() {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'linkish ach-show';
+  b.id = 'ach-show';
+  b.textContent = 'Show ▾';
+  b.setAttribute('aria-controls', 'achievements-list');
+  b.setAttribute('aria-label', 'Show the achievements list');
+  b.addEventListener('click', () => {
+    const d = document.getElementById('achievements-list');
+    if (!d) return;
+    d.open = true;
+    d.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+    d.querySelector('summary')?.focus({ preventScroll: true });
+  });
+  return b;
+}
+
 /** True when the whole table picture is on screen. */
 export function tableInView() {
   const t = document.querySelector('.table-wrap')?.getBoundingClientRect();
