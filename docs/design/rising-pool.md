@@ -104,3 +104,5 @@ A collapsible **Achievements** section sits below How it works, listing every ac
 The header strip has only **Show ▾**. **Reset** sits inside the Achievements section, at the end of the progress line (after "Game 2/3 unlocked"), so it can't be tapped by accident from the strip (Jason, 2026-11-09). Reset still asks for confirmation.
 
 In the section, the progress bar, "n of n · Game N unlocked" and Reset sit together on one line, joined by a slim underline, so Reset no longer floats at the far right on desktop (Jason, 2026-11-09).
+
+"Game N unlocked" in the achievements strip, section and card links to that game (Jason, 2026-11-09): Game 2 opens Centipede & Ultimatum. Game 3 has no page yet, so it links to the Wheel card on the home page (`#level-3`); point it at the Game 3 page once one exists. Only the progress bar is marked as a picture for screen readers now, so the link and Reset beside it stay reachable.

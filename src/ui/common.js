@@ -70,16 +70,19 @@ export function achievementStore({ key, celebratedKey, all }) {
 }
 
 /** The segmented strip: n of N, plus the unlock it leads to. */
-export function progressHtml(all, have, { unlocked = false, unlockLabel = '' } = {}) {
+// unlockHref makes "Game N unlocked" a link to that game (Jason, 2026-11-09). Only the bar is a
+// picture for screen readers, so the link and Reset beside it stay reachable.
+export function progressHtml(all, have, { unlocked = false, unlockLabel = '', unlockHref = '' } = {}) {
   const n = all.filter((a) => have.has(a.id)).length;
-  return `<div class="progress" role="img" aria-label="${n} of ${all.length} achievements">
-    <div class="progress-segs">${all.map((a) => `<span class="seg ${have.has(a.id) ? 'on' : ''}" title="${esc(a.name)}${have.has(a.id) ? ' (done)' : ''}"></span>`).join('')}</div>
-    <span class="progress-label">${n} of ${all.length}${n === all.length || unlocked ? ` · ${unlockLabel}` : ''}</span></div>`;
+  const label = unlockHref ? `<a class="unlock-link" href="${unlockHref}">${esc(unlockLabel)}</a>` : esc(unlockLabel);
+  return `<div class="progress">
+    <div class="progress-segs" role="img" aria-label="${n} of ${all.length} achievements">${all.map((a) => `<span class="seg ${have.has(a.id) ? 'on' : ''}" title="${esc(a.name)}${have.has(a.id) ? ' (done)' : ''}"></span>`).join('')}</div>
+    <span class="progress-label">${n} of ${all.length}${n === all.length || unlocked ? ` · ${label}` : ''}</span></div>`;
 }
 
 /** The achievements card shown below a finished table. newNow: ids earned since the page opened. */
-export function achievementsCardHtml(all, have, newNow, { note, unlocked, unlockLabel }) {
-  return `<section class="card extra" aria-labelledby="ach-h"><h3 id="ach-h">Achievements</h3>${progressHtml(all, have, { unlocked, unlockLabel })}<p class="muted small">${note}</p><ul class="achievements">
+export function achievementsCardHtml(all, have, newNow, { note, unlocked, unlockLabel, unlockHref }) {
+  return `<section class="card extra" aria-labelledby="ach-h"><h3 id="ach-h">Achievements</h3>${progressHtml(all, have, { unlocked, unlockLabel, unlockHref })}<p class="muted small">${note}</p><ul class="achievements">
     ${all.map((a) => `<li class="${have.has(a.id) ? '' : 'locked'}"><span class="badge">${have.has(a.id) ? (newNow.has(a.id) ? 'NEW' : 'DONE') : '····'}</span>
       <span><b>${esc(a.name)}</b> ${esc(a.text)}</span></li>`).join('')}
   </ul></section>`;
@@ -89,9 +92,9 @@ export function achievementsCardHtml(all, have, newNow, { note, unlocked, unlock
  * The Achievements section below How it works (Jason, 2026-11-09): every achievement, what it
  * asks and whether it's done, in its own collapsible section. Same list as the end-of-table card.
  */
-export function achievementsListHtml(all, have, newNow, { note, unlocked, unlockLabel }) {
+export function achievementsListHtml(all, have, newNow, { note, unlocked, unlockLabel, unlockHref }) {
   const n = all.filter((a) => have.has(a.id)).length;
-  return `${progressHtml(all, have, { unlocked, unlockLabel })}<p class="muted small">${n === all.length ? 'All done.' : `${all.length - n} still to earn.`} ${note}</p><ul class="achievements">
+  return `${progressHtml(all, have, { unlocked, unlockLabel, unlockHref })}<p class="muted small">${n === all.length ? 'All done.' : `${all.length - n} still to earn.`} ${note}</p><ul class="achievements">
     ${all.map((a) => `<li class="${have.has(a.id) ? '' : 'locked'}"><span class="badge">${have.has(a.id) ? (newNow.has(a.id) ? 'NEW' : 'DONE') : 'TO DO'}</span>
       <span><b>${esc(a.name)}</b> ${esc(a.text)}</span></li>`).join('')}
   </ul>`;

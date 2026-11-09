@@ -21,7 +21,7 @@ const START_BALANCE = 20;
 const COMMONS_RESERVE = 120;
 const WALLET_KEY = 'trunk.risingPool.wallet';
 const store = achievementStore({ key: STORAGE_KEY, celebratedKey: CELEBRATED_KEY, all: ACHIEVEMENTS });
-const UNLOCK = () => ({ unlocked: isUnlocked('centipede'), unlockLabel: 'Game 2 unlocked' });
+const UNLOCK = () => ({ unlocked: isUnlocked('centipede'), unlockLabel: 'Game 2 unlocked', unlockHref: '../centipede-ultimatum/' });
 
 // Your points carry from table to table. A table needs START_BALANCE to join.
 let walletMemory = START_BALANCE;

@@ -116,3 +116,5 @@ th { font-family: var(--font-data); font-weight: 500; font-size: 11px; letter-sp
 .ach-list .progress { display: inline-flex; width: fit-content; max-width: 100%; gap: 6px 14px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 .ach-list .progress .reset-ach { margin-left: 0; }
 .ach-list .badge { flex: none; min-width: 5ch; white-space: nowrap; }
+.unlock-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.unlock-link:hover, .unlock-link:focus-visible { color: var(--ink); }

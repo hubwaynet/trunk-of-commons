@@ -36,7 +36,8 @@ let G = null;
 
 // ---------- achievements (checks in ./achievements.js, stored in this browser) ----------
 const store = achievementStore({ key: STORAGE_KEY, celebratedKey: CELEBRATED_KEY, all: ACHIEVEMENTS });
-const UNLOCK = () => ({ unlocked: isUnlocked('wheel'), unlockLabel: 'Game 3 unlocked' });
+// Game 3 has no page yet: link to its card on the home page until it does.
+const UNLOCK = () => ({ unlocked: isUnlocked('wheel'), unlockLabel: 'Game 3 unlocked', unlockHref: '../../#level-3' });
 function earn(ids) {
   const fresh = store.add(ids);
   if (!fresh.length) return;
