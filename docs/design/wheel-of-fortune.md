@@ -6,7 +6,7 @@
 - *Wheel of Fortune Sharing Game*, 2017-11-19, in the claude.ai project.
 - Game 3 ("multiplayer iterated") in *TrunK of Commons*, 2018-08-07.
 
-**Status, 2026-11-09: core rules settled and simulated; a play-test page is up** (`games/wheel/?preview`), revised after Jason's first play (decisions 14-24). The first five questions are answered (see "Decisions" below). A pure engine (`src/engine/wheel.js`), eight bots (`src/bots/wheel-bots.js`), a simulator (`tools/sim-wheel.mjs`) and tests (`tests/wheel.test.mjs`) are on main. The first findings and the proposals waiting for Jason are at the end of this file. As in the other design logs, each decision has its date and who decided.
+**Status, 2026-11-09: core rules settled and simulated; a play-test page is up** (`games/wheel/?preview`), revised after Jason's first play (decisions 14-25). The first five questions are answered (see "Decisions" below). A pure engine (`src/engine/wheel.js`), eight bots (`src/bots/wheel-bots.js`), a simulator (`tools/sim-wheel.mjs`) and tests (`tests/wheel.test.mjs`) are on main. The first findings and the proposals waiting for Jason are at the end of this file. As in the other design logs, each decision has its date and who decided.
 
 ## The idea (2017)
 
@@ -367,6 +367,18 @@ Simulated: 400 bot tables per stake, with the new roster of at least one bot fro
 1. **The Learner finds the selfish optimum, not the cooperative one.** No Learner ends keeping (0 to 2 tenths), and the most common end is 6 tenths to everyone: passing on half of what it receives, which keeps the most per token of reward (a quarter, after the fee). It rarely learns to share everything, because the payoff for that is spread across the table rather than coming back to it. That is the share dial's temptation, made visible.
 2. **Reforming roughly halves the Keeper's loss** at 650 and turns it into a gain at 1,000. At the bigger stake the fees take longer to bite, so it reforms later.
 3. **Learning helps the table:** with a Learner or a Reformed Keeper at every table, more tables last and earn the bonus at the tight stake.
+
+### Seeing the fee and the boost (2026-11-09)
+
+Jason asked: "How could players learn about the fees & boosts that occur according to their choices while playing? Is there a way to show those fee & boost changes more clearly?" Before this, fees and boosts were all but invisible in play. The fee went into the hub without any visible flow, and the boost was folded into the shares. Players saw only a sentence of percentages, the hub's number and, at the end, the account.
+
+25. **Three ways to see them** (Jason: "I like all three"):
+    - **Where every 100 tokens go.** A bar under your dials splits 100 received tokens into to others (with the boost the fund adds), the fee, and what you keep, and changes as you turn the dials. The sentence beside it gives the same numbers.
+    - **A receipt after each white-arrow visit,** in What's happening, for the player you follow (you by default): "Your 10 s at the white arrow: 98 reached you. You passed on 41, and the fund added 4 to it; the fee took 33; you kept 24." The whole tokens add up.
+    - **Fee and boost flows in the picture,** for the player you follow. Squares carry the fee from their seat into the hub, and diamonds carry the fund's boost out to their lane, each labelled with this second's amount. The shapes and labels carry it in greyscale.
+    - **Agent's choice, open to Jason:** no comparisons ("at 6/10 you'd have kept 25"). Players discover the better settings by trying, in line with decision 24's principle of learning from experience. A comparison line is easy to add.
+
+Jason's observation (2026-11-09): "the fee collection amass because players don't learn the fee rules are to encourage sharing, punish selfishness. Free Rider did not learn to change, even though it had feedback & time ... a longer game would suggest adjustments if representing a human player." Open: whether every bot should learn (see Open below).
 
 ## Open for the next session (2026-11-09)
 

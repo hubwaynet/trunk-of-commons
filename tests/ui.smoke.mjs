@@ -392,6 +392,11 @@ async function playWheel(page, label) {
   assert.match(await page.$eval('#o-vote', (o) => o.textContent), /clockwise [56]/, `${label}: tapping the right of the vote dial votes clockwise`);
   await tap('#d-vote', 0.5, 0.5);
   assert.match(await page.$eval('#o-vote', (o) => o.textContent), /no vote/, `${label}: tapping the vote dial's cap stops voting`);
+  // the fee and the boost made visible: where every 100 tokens go, and a receipt after your visit
+  assert.match(await page.$eval('#fee-note', (e) => e.textContent), /Of every 100 that reach you, 42 go to the others/, `${label}: the split follows the Pass on dial`);
+  assert.equal(await page.$$eval('#split-bar .split-seg', (s) => s.length), 3, `${label}: others, fee and you in the split`);
+  const receiptText = await page.$$eval('#events li', (l) => l.map((x) => x.textContent).join(' | '));
+  assert.match(receiptText, /Your \d+ s at the white arrow: \d+ reached you\. You passed on \d+, and the fund added \d+ to it; the fee took \d+; you kept \d+\./, `${label}: a receipt for your visit (${receiptText})`);
   // following another player's shares, from the picker
   const other = await page.$eval('#flow-focus', (s) => s.options[2].value);
   await page.selectOption('#flow-focus', other);

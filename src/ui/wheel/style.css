@@ -136,3 +136,15 @@
 .wheel-game .status-card { grid-area: status; }
 .wheel-game .events-card { grid-area: events; }
 @media (max-width: 820px) { .wheel-game { grid-template-areas: "table" "dials" "status" "events"; grid-template-rows: none; } }
+
+/* The fee and the boost (Jason, 2026-11-09): where every 100 tokens go, and the flows in the picture */
+.split { display: grid; gap: 4px; }
+.split-bar { display: flex; height: 28px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+.split-seg { display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden; white-space: nowrap; font-family: var(--font-data); font-size: 12px; color: var(--ink); }
+.seg-others { background: color-mix(in srgb, var(--flow) 28%, var(--surface)); }
+.seg-fee { background: color-mix(in srgb, var(--low) 24%, var(--surface)); background-image: repeating-linear-gradient(45deg, transparent 0 5px, color-mix(in srgb, var(--low) 22%, transparent) 5px 8px); }
+.seg-keep { background: color-mix(in srgb, var(--brass) 26%, var(--surface)); }
+.split-seg + .split-seg { border-left: 1.5px solid var(--surface); }
+.dot-fee { fill: var(--low); stroke: var(--surface); stroke-width: 0.8; }
+.dot-boost { fill: var(--flow); stroke: var(--surface); stroke-width: 0.8; }
+.fx-label { font-family: var(--font-data); font-size: 11.5px; font-weight: 700; fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: var(--surface); stroke-width: 3.5px; stroke-linejoin: round; }

@@ -66,7 +66,7 @@ function newTable({ watch = G?.watch ?? false } = {}) {
     name: Object.fromEntries(ids.map((id, i) => [id, id === 'you' ? 'You' : names[i]])),
     hue: Object.fromEntries(ids.map((id, i) => [id, id === 'you' ? HUMAN_HUE : HUES[i % HUES.length]])),
     paused: true, started: false, speed: Number($('#speed')?.value) || 1, lastStep: now(), timer: null,
-    events: [], holder: whiteId(s), holderSince: 0, holderReward: 0, last: settingsOf(s), warned: false,
+    events: [], holder: whiteId(s), holderSince: 0, holderMark: statsMark(s.players[0]), last: settingsOf(s), warned: false, fx: {},
     focus: watch ? 'all' : 'you', knobs: null, endAnim: null, endTimer: null,
   };
   drawTable();
@@ -84,6 +84,7 @@ function newTable({ watch = G?.watch ?? false } = {}) {
 let animating = false; // one animation loop for the page, whichever table is showing
 
 const settingsOf = (s) => Object.fromEntries(s.players.map((p) => [p.id, { ...p.settings }]));
+const statsMark = (p) => ({ ...p.stats });
 const player = (id) => G.s.players.find((p) => p.id === id);
 const disp = (pos) => seatAngle(G.s, pos) + OFFSET; // where a seat is drawn
 const laneR = (pos) => LANE_OUT - pos * LANE_GAP;
@@ -105,6 +106,8 @@ function tick() {
   G.prev = G.s;
   G.s = step(G.s, d);
   G.lastStep = now();
+  // what each player paid in fees and drew in boost this second, for the picture
+  G.fx = Object.fromEntries(G.s.players.map((p, i) => [p.id, { fee: p.stats.fees - G.prev.players[i].stats.fees, boost: p.stats.boost - G.prev.players[i].stats.boost }]));
   // Your vote fades back to 0, one step a second (Jason, 2026-11-09: "The direction dial strength
   // should decay strength back to neutral"). Turn it again to keep pushing.
   if (!G.watch && G.dials.vote) {
@@ -348,7 +351,47 @@ function drawMoving(frac) {
   const rw = $('#rewards');
   if (rw) rw.innerHTML = rewardDots(theta, T, s.transit.filter((x) => x.kind === 'reward'));
   const fl = $('#flows');
-  if (fl) fl.innerHTML = flowMarkup(T, s.transit);
+  if (fl) fl.innerHTML = flowMarkup(T, s.transit) + feeMarkup(frac);
+}
+
+/**
+ * The fee and the boost, for the player you follow: squares run from their seat into the hub (the
+ * boost fund) as the fee is taken, and diamonds run out of the hub to their lane as the fund adds
+ * its boost to what they share. Each is labelled with the amount this second.
+ */
+function feeMarkup(frac) {
+  const id = G.focus === 'all' ? null : G.focus;
+  const fx = id && G.fx?.[id];
+  if (!fx || G.s.status !== 'playing') return '';
+  const p = player(id);
+  const a = disp(p.pos);
+  const out = [];
+  if (fx.fee >= 5) {
+    const r0 = SEAT_R - 28;
+    const r1 = HUB_R + 3;
+    for (let k = 0; k < 4; k++) {
+      const q = clamp(frac * 1.15 - k * 0.1, 0, 1);
+      if (q <= 0 || q >= 1) continue;
+      const [x, y] = polar(a - 5, r0 + (r1 - r0) * q);
+      const z = clamp(1.6 + Math.sqrt(fx.fee / UNIT) * 0.8, 1.6, 4.2);
+      out.push(`<rect x="${(x - z).toFixed(1)}" y="${(y - z).toFixed(1)}" width="${(2 * z).toFixed(1)}" height="${(2 * z).toFixed(1)}" class="dot-fee"/>`);
+    }
+    const [lx, ly] = polar(a - 10, SEAT_R - 50);
+    out.push(`<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" class="fx-label">fee ${f1(fx.fee / UNIT)}</text>`);
+  }
+  if (fx.boost >= 5) {
+    const r0 = HUB_R + 3;
+    const r1 = laneR(p.pos);
+    for (let k = 0; k < 3; k++) {
+      const q = clamp(frac * 1.15 - k * 0.12, 0, 1);
+      if (q <= 0 || q >= 1) continue;
+      const [x, y] = polar(a + 5, r0 + (r1 - r0) * q);
+      out.push(`<rect x="${(x - 2.6).toFixed(1)}" y="${(y - 2.6).toFixed(1)}" width="5.2" height="5.2" class="dot-boost" transform="rotate(45 ${x.toFixed(1)} ${y.toFixed(1)})"/>`);
+    }
+    const [lx, ly] = polar(a + 16, HUB_R + 20);
+    out.push(`<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" class="fx-label">boost +${f1(fx.boost / UNIT)}</text>`);
+  }
+  return out.join('');
 }
 
 function frame() {
@@ -372,7 +415,7 @@ function renderFlowControl() {
   const opts = [['all', "Everyone's"], ...G.s.players.map((p) => [p.id, p.id === 'you' ? 'Yours' : `${G.name[p.id]}'s`])];
   box.innerHTML = `<label class="small"><b>Shares shown:</b> <select id="flow-focus">${opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('')}</select></label>
     <details class="flow-legend small" id="picture-key"><summary>What the picture shows</summary>
-      <p class="muted">Gold dots: the reward, crossing from the black arrow to the white. Each player's shares run in their own lane, in their colour, from them to each person they share with: thicker for more on the way, with the amount on its way written on the band for the player you follow. Tap a seat to follow it, or pick above. Curved arrows beside the seats are votes: longer and thicker for stronger, dashed when against the wheel's turn. The hub shows the boost fund. Rings: solid for the seat receiving, dashed for the seats paying.</p></details>`;
+      <p class="muted">Gold dots: the reward, crossing from the black arrow to the white. Each player's shares run in their own lane, in their colour, from them to each person they share with: thicker for more on the way, with the amount on its way written on the band for the player you follow. Tap a seat to follow it, or pick above. Curved arrows beside the seats are votes: longer and thicker for stronger, dashed when against the wheel's turn. The hub shows the boost fund: for the player you follow, squares carry the fee from their seat into it and diamonds carry its boost out to their shares, each with the amount. Rings: solid for the seat receiving, dashed for the seats paying.</p></details>`;
   const sel = $('#flow-focus');
   sel.value = G.focus;
   sel.addEventListener('change', (e) => setFocus(e.target.value));
@@ -396,6 +439,7 @@ function renderDials() {
     <h2 id="dials-h">Your dials</h2>
     <div class="knobs" id="knobs"></div>
     <p class="small dial-line"><b>Pass on</b> <output id="o-share" for="d-share"></output>, <b>to</b> <output id="o-people" for="d-people"></output>.</p>
+    <div class="split" aria-hidden="true"><div class="split-cap small muted">Of every 100 tokens that reach you</div><div class="split-bar" id="split-bar"></div></div>
     <p class="small muted" id="fee-note"></p>
     <p class="small dial-line"><b>Turn the wheel:</b> <output id="o-vote" for="d-vote"></output></p>
     <p class="small muted" id="vote-note"></p>
@@ -440,12 +484,20 @@ function updateDials() {
   const others = Math.min(people, s.n) - 1;
   const f = others ? (share * others) / (10 * (others + 1)) : 0;
   const fee = feePct(f);
-  const net = Math.round((1 - f) * (1 - fee / 100) * 100);
   $('#o-share').textContent = share === 0 ? 'nothing: keep it all' : `${share}/10 of what you receive`;
   $('#o-people').textContent = peopleText(people);
+  // Where every 100 tokens that reach you go, at your settings (Jason, 2026-11-09: show the fee and
+  // boost "more clearly to help the human player understand the consequences of choices").
+  const toOthers = Math.round(100 * f);
+  const held = 100 - toOthers;
+  const feeOf100 = Math.round((held * fee) / 100);
+  const keep100 = held - feeOf100;
+  const boost100 = Math.round(100 * f * (s.boostMax / 100) * (others / (s.n - 1)));
+  const seg = (w, cls, label) => (w > 0 ? `<span class="split-seg ${cls}" style="flex:${w} 0 0">${w >= 14 ? label : ''}</span>` : '');
+  $('#split-bar').innerHTML = seg(toOthers, 'seg-others', `others ${toOthers}${boost100 ? ` +${boost100}` : ''}`) + seg(feeOf100, 'seg-fee', `fee ${feeOf100}`) + seg(keep100, 'seg-keep', `you ${keep100}`);
   $('#fee-note').textContent = f === 0
-    ? `You keep everything, and the fee takes 95% of it: you end up with 5% of what you receive.${share && people === 1 ? ' Sharing only with yourself counts as keeping.' : ''}`
-    : `${Math.round(f * 100)}% goes to the others. On the ${Math.round((1 - f) * 100)}% you keep, the fee takes ${fee}%: you end up with ${net}% of what you receive, plus whatever comes back.`;
+    ? `You keep everything, and the fee takes 95 of every 100 into the boost fund: you end up with 5.${share && people === 1 ? ' Sharing only with yourself counts as keeping.' : ''}`
+    : `Of every 100 that reach you, ${toOthers} go to the others, and the boost fund adds ${boost100} to them. The fee takes ${feeOf100} of the ${held} you hold back (${fee}%) into the boost fund. You keep ${keep100}, plus whatever comes back to you.`;
   const cost = (Math.abs(vote) * voteCostOf(s, vote)).toFixed(2).replace(/\.?0+$/, '');
   const withWheel = Math.sign(vote) === s.dir;
   $('#o-vote').textContent = vote === 0 ? 'no vote'
@@ -550,10 +602,13 @@ function noteEvents() {
   const w = s.status === 'playing' ? whiteId(s) : null;
   if (w !== G.holder) {
     const prev = s.players.find((p) => p.id === G.holder);
-    const got = tok(prev.stats.reward - G.holderReward);
-    if (t - G.holderSince >= 3) pushEvent(`${G.name[prev.id]} had the white arrow for ${t - G.holderSince} s; ${got} tokens reached ${prev.id === 'you' ? 'you' : 'them'}.`);
+    const got = tok(prev.stats.reward - G.holderMark.reward);
+    if (t - G.holderSince >= 3) {
+      const followed = G.focus === prev.id || (prev.id === 'you' && G.focus === 'all');
+      pushEvent(followed ? receipt(prev, G.holderMark, t - G.holderSince) : `${G.name[prev.id]} had the white arrow for ${t - G.holderSince} s; ${got} tokens reached ${prev.id === 'you' ? 'you' : 'them'}.`);
+    }
     if (w) {
-      G.holder = w; G.holderSince = t; G.holderReward = s.players.find((p) => p.id === w).stats.reward;
+      G.holder = w; G.holderSince = t; G.holderMark = statsMark(s.players.find((p) => p.id === w));
       if (w === 'you') announce('The white arrow reaches you.');
     }
   }
@@ -575,6 +630,32 @@ function noteEvents() {
   }
   if (s.status === 'playing' && t % 60 === 0 && t > 0) announce(`${(s.maxTicks - t) / 60} minute${s.maxTicks - t === 60 ? '' : 's'} left.`);
 }
+/**
+ * A receipt for a white-arrow visit (Jason, 2026-11-09: "How could players learn about the fees &
+ * boosts that occur according to their choices while playing?"): what reached the player, what they
+ * passed on, the boost the fund added, the fee, and what they kept. Only what happened, no
+ * comparisons, so players discover the better settings by trying (agent's choice, open to Jason).
+ */
+function receipt(p, mark, secs) {
+  const d = (k) => p.stats[k] - mark[k];
+  const reward = d('reward');
+  const shIn = d('sharesIn');
+  const out = d('sharesOut');
+  const boost = d('boost');
+  const fee = d('fees');
+  // whole tokens that add up: kept = received - passed on - fee
+  const recT = tok(reward + shIn);
+  const passT = tok(out - boost);
+  const feeT = tok(fee);
+  const keptT = recT - passT - feeT;
+  const you = p.id === 'you';
+  const who = you ? 'Your' : `${G.name[p.id]}'s`;
+  const them = you ? 'you' : 'them';
+  const they = you ? 'You' : 'They';
+  const passed = out > 0 ? `${they} passed on ${passT}, and the fund added ${fmt(boost)} to it` : `${they} passed nothing on`;
+  return `${who} ${secs} s at the white arrow: ${recT} reached ${them}${shIn >= 50 ? ` (${fmt(reward)} reward, ${fmt(shIn)} in shares from others)` : ''}. ${passed}; the fee took ${feeT}; ${you ? 'you' : 'they'} kept ${keptT}.`;
+}
+
 /** Why a learning bot moved its dial (Jason, 2026-11-09: players adjust from feedback, the rules
  * and fees on one side, other players' reactions on the other). Empty for the fixed strategies. */
 function whyMoved(id, was) {
