@@ -74,6 +74,10 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
  *   '2017'   as written: the bonus is added to the boost on shares still travelling at the end.
  *            Simulated: it changes nothing (nets moved by 3 tokens at most).
  *   'none'   no bonus (the first core)
+ * commonFund: tokens in the common fund outside the table, which pays the bonus (Jason, 2026-11-10:
+ *   a finite common fund). If it can't cover the full bonus, each player gets an equal part of what
+ *   it holds. Infinity (default): it never runs short. What it takes back from a table (a lost boost
+ *   fund, or a share-out's odd hundredths: `s.fund.balance` at the end) is the page's to record.
  * refundBy: with endBonus 'refund', how the boost fund is shared out at full time.
  *   'rate'   (default; Jason, 2026-11-09, after playing: "I'd like the end-game fund split to be
  *            according to sharing behaviour instead of equal"). In proportion to the part of what
@@ -94,7 +98,7 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
 export function createGame({
   players, seed = 0, stake = 1000, maxTicks = MAX_TICKS, minSpeed = 6, minVote = 0, maxVote = 9, voteCost = 0.25, voteCostAgainst = 1, reverseAbove = 9, voteSpeed = 'addsSlows', slowest = 2, blackRun = Infinity,
   collect = { black: 9, grey: 1 }, greyReach = 90, rewardTransit = 2, shareSpeed = 45, minParcel = 0.1, boostMax = 10,
-  selfShare = 'kept', boostStart = 0, endBonus = 'refund', refundBy = 'rate', delays = false, maxDepth = 40, record = true,
+  selfShare = 'kept', boostStart = 0, endBonus = 'refund', refundBy = 'rate', commonFund = Infinity, delays = false, maxDepth = 40, record = true,
 }) {
   if (!players || players.length < 3) throw new Error('Need at least 3 players');
   const n = players.length;
@@ -102,6 +106,7 @@ export function createGame({
   const start = Math.round(stake * UNIT);
   return {
     seed, n, maxTicks, minSpeed, minVote, maxVote, voteCost, voteCostAgainst: voteCostAgainst ?? voteCost, reverseAbove, voteSpeed, slowest, blackRun, greyReach, rewardTransit, shareSpeed, boostMax, selfShare, endBonus, refundBy, delays, maxDepth, record,
+    commonFund: commonFund === Infinity ? Infinity : Math.round(commonFund * UNIT),
     collect: { black: Math.round(collect.black * UNIT), grey: Math.round(collect.grey * UNIT) },
     minParcel: Math.round(minParcel * UNIT),
     stake: start,
@@ -390,14 +395,15 @@ function endTable(st, reason) {
     const w = refundWeights(st);
     const W = w.reduce((a, x) => a + x, 0);
     const fund = st.fund.balance;
-    const topUp = Math.floor((st.stake * pct) / 100);
+    const full = Math.floor((st.stake * pct) / 100);
+    const topUp = Math.min(full, Math.floor(st.commonFund / st.n)); // the common fund pays what it can
     st.players = st.players.map((p, i) => {
       const refund = Math.floor((fund * w[i]) / W);
       st.fund.balance -= refund; st.fund.refunded += refund;
       return { ...p, refund, balance: p.balance + refund + topUp };
     });
     st.commonIn += topUp * st.n;
-    if (ending) Object.assign(ending, { refunds: st.players.map((p) => p.refund), topUp });
+    if (ending) Object.assign(ending, { refunds: st.players.map((p) => p.refund), topUp, topUpFull: full });
   }
   return { ...st, status: 'ended', endReason: reason, ending };
 }

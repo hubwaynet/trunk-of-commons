@@ -447,6 +447,14 @@ async function playWheel(page, label) {
   const showed = await page.$eval('.showed', (e) => e.textContent);
   assert.doesNotMatch(showed, /undefined|NaN/, `${label}: what this table showed`);
   assert.ok((await page.$$('.showed .moment')).length >= 1, `${label}: at least one moment`);
+  // with all six earned: the mastered card invites feedback and shows what's next (Jason, 2026-11-10)
+  if ((await page.$eval('#ach-progress', (e) => e.textContent)).includes('6 of 6')) {
+    const mastered = await page.$eval('#extras .unlocked', (e) => e.textContent);
+    assert.match(mastered, /What's next[\s\S]*Next:[\s\S]*Then:[\s\S]*Later:/, `${label}: the roadmap`);
+    assert.ok(await page.$('#extras .roadmap a[href*="issues/new"]'), `${label}: a feedback link`);
+  }
+  // the common fund carries between tables, and says so
+  assert.match(await page.$eval('#common-line', (e) => e.textContent), /Common fund, outside the table \(kept in this browser\): [\d,]+ tokens/, `${label}: the common fund`);
   // achievements: the card under the end card, and the strip at the top
   assert.match(await page.$eval('#extras', (e) => e.textContent), /Achievements[\s\S]*Six minutes, bonus and all[\s\S]*Who was the hero\?/, `${label}: the achievements card`);
   assert.match(await page.$eval('#ach-progress', (e) => e.textContent), /\d of 6/, `${label}: the achievements strip`);
@@ -474,7 +482,9 @@ async function playWheel(page, label) {
 for (const setup of [DESKTOP, PHONE]) {
   test(`The Wheel: a whole table at ${setup.name}`, { timeout: 180_000 }, async (t) => {
     const label = `wheel-${setup.name}`;
-    const run = await open('/games/wheel/?preview', setup);
+    // the phone run starts with all six achievements earned, to see the mastered card and its roadmap
+    const all = () => { localStorage.setItem('trunk.wheel.achievements', JSON.stringify(['bonus', 'most-passed', 'lifeline', 'changed-mind', 'ahead', 'hero'])); localStorage.setItem('trunk.wheel.celebrated', '1'); };
+    const run = await open('/games/wheel/?preview', setup, setup === PHONE ? { init: all } : {});
     await playWheel(run.page, label);
     await noSidewaysScroll(run.page, label);
     await axeCheck(run.page, label);

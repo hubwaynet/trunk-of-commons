@@ -611,6 +611,37 @@ Jason: "Let's stick with 500 tokens each for the game start. Take the game out o
     - The reputation discs moved to each seat's outer side, so the numbers towards the hub stay clear (agent's choice).
 41. **New table where Play was** (Jason, 2026-11-10). After the finale, the dead Play button under the picture becomes "New table", and focus stays on it as the new table opens.
 
+## The common fund, small amounts, and what's next (2026-11-10)
+
+Jason: "Is there a common fund tracker? Does it receive from games that don't collect 100% from fund." ... "In the dials section, when fees are less than 16 no text shows the amount. Similarly when you & others are too small, the amount does not show. Can small amounts drop labels, then smaller float above?" ... "On reaching full achievements of game 3, how about an invitation to give feedback & subscribe to further developments? How about a roadmap for game 3, carry over reputations & points, invitations for multi player games and eventually a platform for more games."
+
+There was no tracker: the bonus came from an endless common fund, and a lost boost fund simply vanished. Asked, Jason chose a finite fund: "1 but simulate a starting amount likely to still pay out in game 3. Do games 1 & 2 contribute to the common fund?" They don't: Rising Pool and Centipede & Ultimatum each keep their own Commons for a table or season. Connecting them is part of "commons connected between tables and games" on the roadmap.
+
+42. **A finite common fund that carries between tables** (Jason, 2026-11-10). It's kept in this browser (`trunk.wheel.commonFund`) and starts at 3,000 (the agent's choice, from the simulation below).
+    - **What it pays:** each table's bonus. If it can't cover the full bonus, each seat gets an equal part of what it holds (`commonFund` in the engine; the finale and end card say so).
+    - **What it takes in:** the whole boost fund of any table that loses it (it ends early, or the poorest falls below a tenth), as 2017 had it, and the odd hundredths left after a share-out.
+    - **On the page:** the panel shows the common fund. In the finale its corner marker shows the balance, counting down as the bonus goes out seat by seat. A lost fund flows from the hub into the marker, which counts up. The end card says what the common fund now holds.
+    - Watching the bots doesn't touch it: those tables aren't yours.
+43. **Every amount on the split bar shows** (Jason, 2026-11-10). A label sits inside its part when there's room, measured against the bar's width on the screen. A small part's label drops below the bar, and a smaller one floats above it, in the part's own colour and pattern. Two outside labels never share a row, and a label near an end lines up with that end.
+44. **On earning all six: an invitation and the roadmap** (Jason, 2026-11-10). The "CommonWeal mastered" card adds "What's next", then a feedback link and a follow link.
+    - What's next: now, CommonWeal with learning bots; next, reputation and points carried from table to table; then, invitations to tables with other people, by reputation; later, a platform for more games with commons connected between tables and games.
+    - Jason didn't pick where the links go. The agent assumed GitHub for both for now: feedback opens a new issue, and follow points to the repository (Watch, then Releases). A hubway.net page or a form can replace them.
+    - Jason didn't pick where the roadmap shows either. The agent assumed the mastered card, the README and this doc.
+
+How big should the common fund start? 60 players of each style, 30 tables each at stake 500, against five random learning bots. The bots don't react to the common fund, so each table was played once and the fund replayed from each starting amount. Reproduce with `node tools/sim-wheel-commons.mjs 60 30`.
+
+| Your style | Bonus tables | Bonus paid per bonus table | Lost fund per table | Start 1,000: bonus paid in full through table 10 / 20 / 30 | Start 2,000 | **Start 3,000** | Start 5,000 |
+|---|---|---|---|---|---|---|---|
+| Keeps everything | 0% | 0 | 2,229 | 100% / 100% / 100% | 100% / 100% / 100% | 100% / 100% / 100% | 100% / 100% / 100% |
+| Shares half | 72% | 79 | 598 | 100% / 98% / 98% | 100% / 100% / 100% | 100% / 100% / 100% | 100% / 100% / 100% |
+| Shares 8/10 | 81% | 97 | 408 | 98% / 98% / 98% | 100% / 98% / 98% | 100% / 100% / 100% | 100% / 100% / 100% |
+| Shares everything | 67% | 90 | 650 | 100% / 97% / 97% | 100% / 100% / 98% | 100% / 100% / 100% | 100% / 100% / 100% |
+| 8/10 and nudging (the best play found) | 96% | 109 | 97 | 42% / 37% / 28% | 100% / 62% / 60% | 100% / 100% / 75% | 100% / 100% / 100% |
+| A mix of styles, table by table | 64% | 95 | 786 | 100% / 98% / 98% | 100% / 100% / 100% | 100% / 100% / 100% | 100% / 100% / 100% |
+
+1. **Most players fill the common fund.** A table that loses its boost fund gives back far more (1,500 to 2,500) than a bonus table takes (80 to 110), so ordinary play builds it up (a mixed player's common fund ends near 25,000 after 30 tables).
+2. **Only near-perfect play drains it:** sharing 8/10 and nudging earns the bonus 96% of the time and gives little back. At a start of 3,000, every player's bonus was paid in full for 20 tables, and the best player's for 30 in 3 cases out of 4; at 5,000, always. 3,000 keeps the fund finite enough that a long run of perfect tables can feel it, as Rising Pool's Commons does.
+
 ## Open for the next session (2026-11-10)
 
 1. **Jason's play of this build** comes first: the slower finale and celebrations (decisions 35-36), stake 500, the fund shared out by sharing, following the white arrow, the what-if, achievements, What this table showed, and the reputation discs with the Patron reacting. Questions it should answer: does 500 feel tight but fair; do the discs and the Patron's reactions read clearly; are the achievements in the right order for a person (the odds are from simulated styles); do the moments say something worth knowing?

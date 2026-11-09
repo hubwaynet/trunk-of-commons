@@ -173,6 +173,20 @@ test('relative reputation: above, about or below the table average part passed o
   assert.equal(r.c, 'about', 'sharing half, as most do');
 });
 
+test('a finite common fund pays what it can of the bonus (Jason, 2026-11-10)', () => {
+  const settings = { all: { share: 8, people: 6 } };
+  const rich = run(fresh({ stake: 2000 }, settings), 400);
+  assert.equal(rich.ending.topUp, 200 * UNIT, 'unlimited: 10% of 2,000 each');
+  const poor = run(fresh({ stake: 2000, commonFund: 300 }, settings), 400);
+  assert.equal(poor.commonIn, 300 * UNIT, 'a common fund of 300 pays 50 each');
+  assert.equal(poor.ending.topUp, 50 * UNIT);
+  assert.equal(poor.ending.topUpFull, 200 * UNIT);
+  assert.equal(totalUnits(poor), startTotal(poor));
+  const empty = run(fresh({ stake: 2000, commonFund: 0 }, settings), 400);
+  assert.ok(empty.bonus, 'the bonus is still earned');
+  assert.equal(empty.commonIn, 0, 'but an empty common fund pays nothing');
+});
+
 test('every token is accounted for, under every rule variant', () => {
   const variants = [{}, { selfShare: 'cascade' }, { reverseAbove: 6, minVote: 1 }, { endBonus: 'none', stake: 600 }, { endBonus: '2017', stake: 2000 }, { refundBy: 'equal' }, { refundBy: 'tokens' }];
   for (const opts of variants) {

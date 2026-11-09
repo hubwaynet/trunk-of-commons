@@ -50,6 +50,14 @@ let G = null;
 
 // Your reputation carries to your next table (Jason, 2026-11-10: "react and carry"), in this browser.
 const REP_KEY = 'trunk.wheel.reputation';
+// The common fund, outside every table, in this browser (Jason, 2026-11-10: a finite common fund).
+// It pays each table's bonus and takes the boost fund of any table that loses it (2017). It starts
+// at 3,000: in simulation that paid every player's bonus in full for 20 tables, and the very best
+// player's for 30 in 3 cases of 4 (tools/sim-wheel-commons.mjs).
+const COMMON_KEY = 'trunk.wheel.commonFund';
+const COMMON_START = 3000;
+const loadCommon = () => { try { const v = Number(localStorage.getItem(COMMON_KEY)); return localStorage.getItem(COMMON_KEY) != null && Number.isFinite(v) ? v : COMMON_START * UNIT; } catch { return COMMON_START * UNIT; } };
+const saveCommon = (u) => { try { localStorage.setItem(COMMON_KEY, String(Math.max(0, Math.round(u)))); } catch { /* storage unavailable */ } };
 const loadRep = () => { try { const r = localStorage.getItem(REP_KEY); return ['above', 'about', 'below'].includes(r) ? r : null; } catch { return null; } };
 const saveRep = (r) => { try { if (r) localStorage.setItem(REP_KEY, r); } catch { /* storage unavailable */ } };
 
@@ -86,6 +94,20 @@ function renderProgress() {
     },
   }));
 }
+/**
+ * On earning all six (Jason, 2026-11-10): an invitation to give feedback and follow what comes next,
+ * and the roadmap. Both links go to the project on GitHub for now (agent's assumption; a hubway.net
+ * page or a form can replace them).
+ */
+const REPO = 'https://github.com/hubwaynet/trunk-of-commons';
+const ROADMAP_HTML = `<div class="roadmap"><h4>What's next</h4><ol class="roadmap-steps">
+    <li><b>Now:</b> CommonWeal with one seat for you and five bots that learn.</li>
+    <li><b>Next:</b> your reputation and points carried from table to table.</li>
+    <li><b>Then:</b> invitations to tables with other people, by reputation.</li>
+    <li><b>Later:</b> a platform for more games, with commons connected between tables and games.</li>
+  </ol>
+  <p>Help shape it: <a href="${REPO}/issues/new?title=${encodeURIComponent('CommonWeal feedback')}" target="_blank" rel="noopener">tell us what you think</a>, and <a href="${REPO}" target="_blank" rel="noopener">follow further developments</a> (on GitHub; Watch, then Releases, sends you news of each new version).</p></div>`;
+
 /** The achievements card under the end card, and the mastered card once all six are earned. */
 function achievementsCards() {
   const have = store.load();
@@ -94,6 +116,7 @@ function achievementsCards() {
     const card = h(`<section class="card extra unlocked" aria-labelledby="all-h"><div class="eyebrow">All achievements</div>
       <h3 id="all-h">CommonWeal mastered</h3>
       <p>You've kept a table going to the bell with the bonus, passed on more than anyone, thrown a lifeline, changed a keeper's mind, come out ahead, and been the sharer and the winner at once.</p>
+      ${ROADMAP_HTML}
       <div class="btn-row"><button class="btn ghost" type="button" id="celebrate-again">Celebrate again</button></div></section>`);
     card.querySelector('#celebrate-again').addEventListener('click', () => celebrate(5200));
     parts.push(card);
@@ -119,13 +142,15 @@ function newTable({ watch = G?.watch ?? false } = {}) {
   const stake = ACHIEVEMENT_STAKE; // every table starts at 500 (Jason, 2026-11-10, decision 38)
   const dials = { vote: 0, share: 5, people: 6 }; // you start passing on half, to everyone
   const carried = watch ? null : loadRep(); // your reputation from your last table, if any
+  const common = watch ? Infinity : loadCommon(); // hundredths in the common fund (watching: not yours)
+  const commonFund = common === Infinity ? Infinity : common / UNIT;
   const who = (id) => ({ id, carried: id === 'you' ? carried : null });
   // The bots set their dials before the clock starts, so the table shows them from the first look.
-  const blank = createGame({ players: ids.map(who), seed, stake });
+  const blank = createGame({ players: ids.map(who), seed, stake, commonFund });
   const players = ids.map((id, i) => ({ ...who(id), settings: inst[i] ? inst[i].decide(botView(blank, id)) : dials }));
-  const s = createGame({ players, seed, stake });
+  const s = createGame({ players, seed, stake, commonFund });
   G = {
-    seed, keys, ids, inst, watch, s, prev: s, dials: { ...dials }, carried,
+    seed, keys, ids, inst, watch, s, prev: s, dials: { ...dials }, carried, common, commonAfter: null,
     name: Object.fromEntries(ids.map((id, i) => [id, id === 'you' ? 'You' : names[i]])),
     hue: Object.fromEntries(ids.map((id, i) => [id, id === 'you' ? HUMAN_HUE : HUES[i % HUES.length]])),
     paused: true, started: false, speed: Number($('#speed')?.value) || 1, lastStep: now(), timer: null, myLog: [],
@@ -551,7 +576,7 @@ function renderDials() {
     <h2 id="dials-h">Your dials</h2>
     <div class="knobs" id="knobs"></div>
     <p class="small dial-line"><b>Pass on</b> <output id="o-share" for="d-share"></output>, <b>to</b> <output id="o-people" for="d-people"></output>.</p>
-    <div class="split" aria-hidden="true"><div class="split-cap small muted">Of every 100 tokens that reach you</div><div class="split-bar" id="split-bar"></div></div>
+    <div class="split" aria-hidden="true"><div class="split-cap small muted">Of every 100 tokens that reach you</div><div class="split-out above" id="split-above"></div><div class="split-bar" id="split-bar"></div><div class="split-out below" id="split-below"></div></div>
     <p class="small muted" id="fee-note"></p>
     <p class="small dial-line"><b>Turn the wheel:</b> <output id="o-vote" for="d-vote"></output></p>
     <p class="small muted" id="vote-note"></p>
@@ -605,8 +630,36 @@ function updateDials() {
   const feeOf100 = Math.round((held * fee) / 100);
   const keep100 = held - feeOf100;
   const boost100 = Math.round(100 * f * (s.boostMax / 100) * (others / (s.n - 1)));
-  const seg = (w, cls, label) => (w > 0 ? `<span class="split-seg ${cls}" style="flex:${w} 0 0">${w >= 14 ? label : ''}</span>` : '');
-  $('#split-bar').innerHTML = seg(toOthers, 'seg-others', `others ${toOthers}${boost100 ? ` +${boost100}` : ''}`) + seg(feeOf100, 'seg-fee', `fee ${feeOf100}`) + seg(keep100, 'seg-keep', `you ${keep100}`);
+  // A label sits inside its part when there's room; a small part's label drops below the bar, and a
+  // smaller one floats above it, so every amount shows (Jason, 2026-11-10). Two outside labels
+  // never share a row.
+  const parts = [
+    { w: toOthers, cls: 'seg-others', label: `others ${toOthers}${boost100 ? ` +${boost100}` : ''}` },
+    { w: feeOf100, cls: 'seg-fee', label: `fee ${feeOf100}` },
+    { w: keep100, cls: 'seg-keep', label: `you ${keep100}` },
+  ].filter((x) => x.w > 0);
+  const rows = { above: [], below: [] };
+  const barPx = $('#split-bar')?.clientWidth || 300;
+  const fits = (x) => (barPx * x.w) / 100 >= x.label.length * 7.4 + 8; // room for the label inside
+  let left = 0;
+  for (const x of parts) {
+    x.start = left;
+    x.mid = left + x.w / 2;
+    left += x.w;
+    if (fits(x)) continue;
+    let row = x.w >= 7 ? 'below' : 'above';
+    if (rows[row].length) row = row === 'below' ? 'above' : 'below';
+    rows[row].push(x);
+  }
+  const inside = new Set([...rows.above, ...rows.below]);
+  $('#split-bar').innerHTML = parts.map((x) => `<span class="split-seg ${x.cls}" style="flex:${x.w} 0 0">${inside.has(x) ? '' : x.label}</span>`).join('');
+  for (const r of ['above', 'below']) {
+    const box = $(`#split-${r}`);
+    box.classList.toggle('has', rows[r].length > 0);
+    // near an end, a label lines up with that end so it never runs off the card
+    const place = (x) => (x.mid < 22 ? `left:${x.start.toFixed(1)}%;transform:none` : x.mid > 78 ? `right:${(100 - x.start - x.w).toFixed(1)}%;transform:none` : `left:${x.mid.toFixed(1)}%`);
+    box.innerHTML = rows[r].map((x) => `<span class="split-tag ${x.cls}" style="${place(x)}">${x.label}</span>`).join('');
+  }
   $('#fee-note').textContent = f === 0
     ? `You keep everything, and the fee takes 95 of every 100 into the boost fund: you end up with 5.${share && people === 1 ? ' Sharing only with yourself counts as keeping.' : ''}`
     : `Of every 100 that reach you, ${toOthers} go to the others, and the boost fund adds ${boost100} to them. The fee takes ${feeOf100} of the ${held} you hold back (${fee}%) into the boost fund. You keep ${keep100}, plus whatever comes back to you.`;
@@ -656,7 +709,7 @@ function renderPanel() {
     </div>
     <p class="small arrows-now" id="arrows-now"></p>
     <p class="small" id="poorest"></p>
-    ${watch ? '' : '<p class="small muted" id="fund-line"></p>'}
+    ${watch ? '' : '<p class="small muted" id="fund-line"></p><p class="small muted" id="common-line"></p>'}
   </div>`));
   panel.append(h(`<div class="card events-card" aria-labelledby="events-h"><h2 id="events-h">What's happening</h2><ul class="events" id="events"></ul></div>`));
   $('#speed').value = String(G.speed);
@@ -688,6 +741,8 @@ function update() {
     const net = tok(b - me.start);
     $('#mine-net').textContent = `${net === 0 ? '±0' : signed(net)} on your stake`;
     $('#fund-line').textContent = fundLineText(me);
+    const cfShown = G.commonAfter != null && !G.endAnim ? G.commonAfter : G.common;
+    $('#common-line').textContent = `Common fund, outside the table (kept in this browser): ${fmt(cfShown)} tokens. It pays the bonus, and takes the boost fund of any table that loses it.`;
   } else $('#fund-big').textContent = fmt(G.endAnim ? G.endAnim.e.fundAtBell : s.fund.balance);
   if (s.status === 'playing') {
     const q = quotas(s);
@@ -895,6 +950,7 @@ function endTable() {
   pushEvent(lasted
     ? 'Six minutes: the bell. Shares still on their way land; rewards still crossing go to the boost fund.'
     : `${s.bust.map((id) => G.name[id]).join(' and ')} couldn't pay: the table ends. Shares still on their way land; rewards still crossing go to the boost fund.`);
+  recordCommon();
   if (reduceMotion || !e) { update(); return showEnd(); }
   const got = G.tracker ? endAchievements(s, G.tracker.facts) : new Set();
   const lastArrive = Math.max(s.t, ...e.shares.map((x) => x.arrive));
@@ -913,8 +969,8 @@ function endTable() {
   update();
   const at = (ms, fn) => G.endTimers.push(setTimeout(fn, ms));
   const verdict = shared ? `The poorest player kept more than a tenth of the stake: the boost fund of ${fmt(e.fundBeforeSplit)} is shared out by sharing.`
-    : lasted ? `The poorest player fell below a tenth of the stake: the boost fund of ${fmt(e.fundBeforeSplit)} is lost.`
-      : `The table ended early: the boost fund of ${fmt(e.fundBeforeSplit)} is lost.`;
+    : lasted ? `The poorest player fell below a tenth of the stake: the boost fund of ${fmt(e.fundBeforeSplit)} is lost to this table and goes to the common fund.`
+      : `The table ended early: the boost fund of ${fmt(e.fundBeforeSplit)} is lost to this table and goes to the common fund.`;
   at(T.a, () => { finaleBar(verdict); announce(verdict); });
   if (shared) {
     at(T.b, () => finaleBar('The biggest part goes to whoever passed on the most of what reached them.'));
@@ -923,7 +979,8 @@ function endTable() {
       announce(`${p.id === 'you' ? 'You get' : `${G.name[p.id]} gets`} ${fmt(e.refunds[i])}.`);
     }));
     if (e.topUp) {
-      const bonusText = `Now a bonus from the common fund, which sits outside this table (the diamond in the corner): ${s.bonus.pct}% of the stake, ${fmt(e.topUp)}, to each seat in turn. It rewards the whole table for keeping its poorest player above a tenth of the stake; the better off the poorest, the bigger the bonus, from 2% to 10%.`;
+      const short = e.topUp < e.topUpFull ? ` (the full bonus would be ${fmt(e.topUpFull)}, but the common fund can only pay ${fmt(e.topUp)})` : '';
+      const bonusText = `Now a bonus from the common fund, which sits outside this table (the diamond in the corner): ${s.bonus.pct}% of the stake, ${fmt(e.topUp)}${short}, to each seat in turn. It rewards the whole table for keeping its poorest player above a tenth of the stake; the better off the poorest, the bigger the bonus, from 2% to 10%.`;
       at(T.c, () => { finaleBar(bonusText); announce(bonusText); });
     }
   }
@@ -936,6 +993,13 @@ function endTable() {
   fire('ahead', T.d + 300);
   fire('hero', T.d + 1100);
   at(T.end, finishFinale);
+}
+/** The common fund after this table: less the bonus it paid, plus what came back (a lost boost
+ * fund, or a share-out's odd hundredths). Recorded once, at the bell. */
+function recordCommon() {
+  if (G.common === Infinity || G.commonAfter != null) return;
+  G.commonAfter = G.common - G.s.commonIn + G.s.fund.balance;
+  saveCommon(G.commonAfter);
 }
 function finishFinale() {
   for (const t of G.endTimers) clearTimeout(t);
@@ -981,17 +1045,20 @@ function gainLabels(e, partDone, bonusOf) {
   return out.join('');
 }
 /** The common fund's marker, outside the wheel: where the bonus comes from. */
-function commonMarker(e, a, pct) {
+function commonMarker(a, balance, pct) {
   const [x, y] = COMMON;
+  const lines = [balance == null ? null : fmt(balance), pct ? `${pct}% bonus` : null].filter(Boolean);
   return `<g class="common-fund" opacity="${a.toFixed(2)}"><rect x="${x - 11}" y="${y - 11}" width="22" height="22" class="common-diamond" transform="rotate(45 ${x} ${y})"/>`
-    + `<text x="${x - 20}" y="${y + 1}" class="common-label">common fund</text><text x="${x - 20}" y="${y + 14}" class="common-label common-sub">${pct}% bonus</text></g>`;
+    + `<text x="${x - 20}" y="${y + 1}" class="common-label">common fund</text>${lines.map((l, k) => `<text x="${x - 20}" y="${y + 14 + 13 * k}" class="common-label common-sub">${l}</text>`).join('')}</g>`;
 }
 /** The picture once the finale is over (or skipped, or with reduced motion): the numbers stay. */
 function finalFx() {
   const e = G.s.ending;
   const layer = $('#endfx');
   if (!layer || !e) return;
-  layer.innerHTML = G.s.bonus ? gainLabels(e, (i) => (e.refunds[i] > 0 ? 1 : 0), () => 1) + (e.topUp ? commonMarker(e, 1, G.s.bonus.pct) : '') : '';
+  const balance = G.commonAfter;
+  const marker = balance != null || (G.s.bonus && e.topUp) ? commonMarker(1, balance, G.s.bonus ? G.s.bonus.pct : null) : '';
+  layer.innerHTML = (G.s.bonus ? gainLabels(e, (i) => (e.refunds[i] > 0 ? 1 : 0), () => 1) : '') + marker;
 }
 
 function drawEnding() {
@@ -1031,8 +1098,10 @@ function drawEnding() {
     const v = el2 < T.a ? e.bell[i] + (e.beforeSplit[i] - e.bell[i]) * pa : e.beforeSplit[i] + e.refunds[i] * q + e.topUp * bonusDone(i);
     if (g) g.querySelectorAll('tspan')[1].textContent = fmt(v);
   });
+  // a lost fund flows from the hub to the common fund during the verdict
+  const lostGone = !A.shared ? easeOut(stage(el2, T.a + 400, T.b - 200)) : 0;
   const hub = $('#hub-fund');
-  if (hub) hub.textContent = fmt(el2 < T.a ? e.fundAtBell + (e.fundBeforeSplit - e.fundAtBell) * pa : e.fundBeforeSplit - given);
+  if (hub) hub.textContent = fmt(el2 < T.a ? e.fundAtBell + (e.fundBeforeSplit - e.fundAtBell) * pa : A.shared ? e.fundBeforeSplit - given : e.fundBeforeSplit * (1 - lostGone));
   const hubLabel = $('#hub .hub-label');
   if (hubLabel) hubLabel.textContent = el2 < T.a ? 'fund' : !A.shared ? 'lost' : el2 >= T.c ? 'shared out' : 'sharing';
   // 2. the verdict: the hub pulses while it is decided
@@ -1056,7 +1125,8 @@ function drawEnding() {
     });
     // 4. the bonus: one seat at a time, from the common fund's marker outside the wheel
     if (e.topUp && el2 >= T.c) {
-      fx.push(commonMarker(e, Math.min(1, (el2 - T.c) / 600), s.bonus.pct));
+      const paidSoFar = A.bonusOrder.reduce((a, i) => a + e.topUp * bonusDone(i), 0);
+      fx.push(commonMarker(Math.min(1, (el2 - T.c) / 600), G.common === Infinity ? null : G.common - paidSoFar, s.bonus.pct));
       for (const i of A.bonusOrder) {
         const k = A.bonusOrder.indexOf(i);
         const q = stage(el2, bonusStart + k * FINALE.bonusPerSeat, bonusStart + (k + 0.85) * FINALE.bonusPerSeat);
@@ -1073,6 +1143,18 @@ function drawEnding() {
       }
     }
     fx.push(gainLabels(e, part, bonusDone));
+  } else if (el2 >= T.a) {
+    // a lost fund goes to the common fund: dots from the hub to its marker, which counts up
+    fx.push(commonMarker(Math.min(1, (el2 - T.a) / 500), G.common === Infinity ? null : G.common + e.fundBeforeSplit * lostGone, null));
+    if (lostGone > 0 && lostGone < 1) {
+      for (let n = 0; n < 8; n++) {
+        const r = easeOut(clamp(lostGone * 1.4 - n * 0.06, 0, 1));
+        if (r <= 0 || r >= 1) continue;
+        const x = CX + (COMMON[0] - CX) * r;
+        const y = CY + (COMMON[1] - CY) * r;
+        fx.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(4.5 - n * 0.4).toFixed(1)}" class="dot-refund"/>`);
+      }
+    }
   }
   const layer = $('#endfx');
   if (layer) layer.innerHTML = fx.join('');
@@ -1104,8 +1186,10 @@ function showEnd() {
     const top = [...s.players].sort((a, b) => b.refund - a.refund)[0];
     fundLine = `The poorest player still had more than a tenth of the stake, so the boost fund (${fmt(s.ending?.fundBeforeSplit ?? s.fund.refunded)} tokens) was shared out by sharing: in proportion to how much of what reached each player they passed on. ${G.name[top.id]} passed on the most of theirs (${Math.round(100 * passedOn(top))}%) and got the biggest part, ${fmt(top.refund)}. Everyone also got a ${s.bonus.pct}% bonus of ${fmt(any.bonus)} from the common fund, which sits outside the table, for keeping the poorest player above a tenth of the stake.`;
   }
-  else if (lasted) fundLine = `The poorest player, ${G.name[poor.id]}, had less than a tenth of the stake, so the boost fund (${fmt(fundLost)} tokens) was lost.`;
-  else fundLine = `The table ended early, so the boost fund (${fmt(fundLost)} tokens) was lost.`;
+  else if (lasted) fundLine = `The poorest player, ${G.name[poor.id]}, had less than a tenth of the stake, so the boost fund (${fmt(fundLost)} tokens) was lost to the table and went to the common fund.`;
+  else fundLine = `The table ended early, so the boost fund (${fmt(fundLost)} tokens) was lost to the table and went to the common fund.`;
+  if (s.bonus && s.ending && s.ending.topUp < s.ending.topUpFull) fundLine += ` The common fund was running low, so it paid ${fmt(s.ending.topUp)} each instead of the full ${fmt(s.ending.topUpFull)}.`;
+  if (G.commonAfter != null) fundLine += ` The common fund now holds ${fmt(G.commonAfter)}.`;
   const cls = (u) => (u > 0 ? 'pos' : u < 0 ? 'neg' : '');
   // Your account in full (Jason, 2026-11-09: "The end point tally ignores pre-split and boost numbers")
   const myAccount = me ? (() => {
@@ -1175,11 +1259,12 @@ function whatIf(share) {
   selectRoster(rng, 5);
   const inst = G.keys.map((k) => (k === 'you' ? null : STRATEGIES[k].create(rng)));
   const who = (id) => ({ id, carried: id === 'you' ? G.carried : null });
-  const blank = createGame({ players: G.ids.map(who), seed: G.seed, stake: G.s.stake / UNIT });
+  const cf = G.common === Infinity ? Infinity : G.common / UNIT;
+  const blank = createGame({ players: G.ids.map(who), seed: G.seed, stake: G.s.stake / UNIT, commonFund: cf });
   // share null: your dials as you set them (a check that the replay matches the table you played)
   const mine = (x) => (share == null ? (x ?? { vote: 0, share: 5, people: G.s.n }) : { vote: x?.vote ?? 0, share, people: G.s.n });
   const players = G.ids.map((id, i) => ({ ...who(id), settings: inst[i] ? inst[i].decide(botView(blank, id)) : mine(null) }));
-  let s = createGame({ players, seed: G.seed, stake: G.s.stake / UNIT, record: false });
+  let s = createGame({ players, seed: G.seed, stake: G.s.stake / UNIT, commonFund: cf, record: false });
   while (s.status === 'playing') {
     const d = {};
     G.ids.forEach((id, i) => { d[id] = inst[i] ? inst[i].decide(botView(s, id)) : mine(G.myLog[s.t]); });

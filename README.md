@@ -16,6 +16,13 @@ Visitors learn by playing against strategy bots in the browser, then progress to
 
 Games 1 and 2 are the learning levels. Game 3 is unlocked by achievements and is designed with bot simulation first.
 
+## Roadmap
+
+1. **Now:** CommonWeal (Game 3) with one seat for you and five strategy bots that learn.
+2. **Next:** your reputation and points carried from table to table.
+3. **Then:** invitations to multiplayer tables, by reputation (a progressive web app).
+4. **Later:** a platform for more games, with commons connected between tables and games, a token economy and governance, after legal review.
+
 ## Run it
 
 No build step. Serve the folder and open the game:
