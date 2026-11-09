@@ -598,14 +598,26 @@ Jason: "Slow down the end game distributions. I want the finale to be a satisfyi
 
 Across the site, **Home in the site bar is a house icon** (Jason, 2026-11-10), with the word kept for screen readers.
 
+## Out of preview (2026-11-10)
+
+Jason: "Let's stick with 500 tokens each for the game start. Take the game out of preview. Ending speed is good. Why does The bonus come in from outside the wheel to every seat? I can't tell what it is when it happens. Slow the bonus down to one by one and help me know what it is. Post game add 'new table' button in place of dead play button to the wheel area."
+
+38. **Every table starts at 500 tokens each** (Jason, 2026-11-10). The play-test's stake picker is gone (it replaces decision 29's picker). The engine's default stays 1,000 because the earlier simulations and tests were run with it (agent's choice); the page and the achievements use 500.
+39. **CommonWeal is out of preview, and opens in order like Game 2** (Jason, 2026-11-10, asked: "In order, like Game 2"). The "Play-test" labels are gone. The home page links to it without `?preview` and shows it locked until all six Centipede & Ultimatum achievements are earned, and Game 2's "Game 3 unlocked" now links to it. The locked page matches Game 2's, with a button to play Centipede & Ultimatum. `?preview` still opens it, as it does for Game 2.
+40. **The bonus comes one seat at a time, from a marker that says what it is** (Jason, 2026-11-10). Why it comes from outside: the bonus isn't this table's money. It comes from the common fund, which 2017 kept between tables, and it rewards the whole table for keeping its poorest player above a tenth of the stake (2% to 10% of the stake, bigger the better off the poorest is).
+    - In the finale, a diamond marked "common fund" with the bonus % appears in the picture's corner. A line under the picture explains it, and diamonds then travel from the marker to each seat in turn (1 s a seat, you first, then round the wheel).
+    - Each seat's line reads "◆ +N bonus". The marker stays after the finale.
+    - How it works and the end card say where the bonus comes from.
+    - The reputation discs moved to each seat's outer side, so the numbers towards the hub stay clear (agent's choice).
+41. **New table where Play was** (Jason, 2026-11-10). After the finale, the dead Play button under the picture becomes "New table", and focus stays on it as the new table opens.
+
 ## Open for the next session (2026-11-10)
 
 1. **Jason's play of this build** comes first: the slower finale and celebrations (decisions 35-36), stake 500, the fund shared out by sharing, following the white arrow, the what-if, achievements, What this table showed, and the reputation discs with the Patron reacting. Questions it should answer: does 500 feel tight but fair; do the discs and the Patron's reactions read clearly; are the achievements in the right order for a person (the odds are from simulated styles); do the moments say something worth knowing?
 2. **Agent's choices made this session, for Jason to confirm or change:**
    - the share-out measure: the part of what reached each player that they passed on (decision 27)
-   - the picker's list of stakes (500, 550, 650, 800, 1,000; decision 29)
    - "speaks" read as one line per bot per lap in What's happening, dial changes and votes included (decision 33)
-   - achievements count only at stake 500; their names and what they ask
+   - achievements' names and what they ask
    - three moments on What this table showed; trickle-down, Ponzi, the Matthew effect and privilege as latency not named (reasons above)
    - the reputation discs' 5-point "about average" band, and a carried disc standing for one lap (decision 34)
 3. **Ideas, not decided:**

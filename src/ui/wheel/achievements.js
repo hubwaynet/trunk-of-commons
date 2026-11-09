@@ -2,8 +2,7 @@
 // (tools/sim-wheel-achievements.mjs) can estimate how hard each one is. A tracker watches the table
 // second by second, as the page and the simulator step it, and endAchievements judges the finished
 // table. Ordered easiest first by simulated odds against the learning bots (docs/design/wheel-of-fortune.md).
-// They count at the play-test's default stake, 500 (agent's choice, 2026-11-10): at higher stakes
-// the six minutes are nearly certain.
+// They count at the game's stake, 500 (Jason, 2026-11-10, decision 38: every table starts at 500).
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { whiteId, blackId, passedOn } from '../../engine/wheel.js';

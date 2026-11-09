@@ -126,7 +126,8 @@ async function finish(t, { ctx, page, errors }, label) {
 test('home page loads and shows unlocked levels from this browser', async (t) => {
   const run = await open('/', DESKTOP, { init: () => localStorage.setItem('trunk.unlocked.centipede', '1') });
   assert.match(await run.page.textContent('#level2-status'), /Unlocked/);
-  assert.match(await run.page.textContent('#level3-status'), /Play-test/);
+  assert.match(await run.page.textContent('#level3-status'), /Level 3 · Locked until all six Centipede/);
+  assert.equal(await run.page.getAttribute('#level-3 h2 a', 'href'), 'games/wheel/', 'CommonWeal is out of preview: no ?preview on the home page');
   await finish(t, run, 'home');
 });
 
@@ -375,7 +376,9 @@ async function playWheel(page, label) {
   assert.equal(await page.$eval('h1', (e) => e.textContent), 'CommonWeal', `${label}: the name`);
   assert.equal(await page.$eval('.site-nav a.home-link', (a) => a.textContent.trim()), 'Home', `${label}: the house icon's name`);
   assert.ok(await page.$('.site-nav a.home-link svg.home-icon'), `${label}: the house icon`);
-  assert.equal(await page.$eval('#stake', (e) => e.value), '500', `${label}: the play-test stake is 500 by default`);
+  // every table starts at 500, with no stake picker (Jason, 2026-11-10)
+  assert.equal(await page.$('#stake'), null, `${label}: no stake picker`);
+  assert.equal(await page.$eval('#mine', (e) => e.textContent), '500', `${label}: you start with 500`);
   // the dials work from the keyboard, and keep focus while the clock runs
   await page.focus('#d-share');
   await page.keyboard.press('ArrowRight');
@@ -428,7 +431,13 @@ async function playWheel(page, label) {
   const end = await page.$eval('.end-card', (e) => e.textContent);
   // the finale is over and its numbers stay in the picture (Jason, 2026-11-10)
   assert.equal(await page.$('#finale-bar'), null, `${label}: the finale bar has gone`);
-  if (/shared out by sharing/.test(end)) assert.ok((await page.$$('#endfx .end-gain')).length >= 1, `${label}: each seat's part stays written by it`);
+  if (/shared out by sharing/.test(end)) {
+    assert.ok((await page.$$('#endfx .end-gain')).length >= 1, `${label}: each seat's part stays written by it`);
+    assert.ok(await page.$('#endfx .common-fund'), `${label}: the common fund's marker shows where the bonus came from`);
+  }
+  // after the table, the dead Play button becomes New table (Jason, 2026-11-10)
+  assert.equal(await page.$eval('#pause', (b) => b.textContent), 'New table', `${label}: New table in the transport`);
+  assert.equal(await page.$eval('#pause', (b) => b.disabled), false, `${label}: and it works`);
   assert.doesNotMatch(end, /undefined|NaN/, `${label}: end card`);
   assert.match(end, /Who was the hero/, `${label}: end card asks the hero question`);
   // the what-if replays your table with one other Pass on setting (Jason, 2026-11-09); the page logs
@@ -438,7 +447,7 @@ async function playWheel(page, label) {
   const showed = await page.$eval('.showed', (e) => e.textContent);
   assert.doesNotMatch(showed, /undefined|NaN/, `${label}: what this table showed`);
   assert.ok((await page.$$('.showed .moment')).length >= 1, `${label}: at least one moment`);
-  // achievements: the card under the end card, and the strip at the top (Jason's play-test stake, 500)
+  // achievements: the card under the end card, and the strip at the top
   assert.match(await page.$eval('#extras', (e) => e.textContent), /Achievements[\s\S]*Six minutes, bonus and all[\s\S]*Who was the hero\?/, `${label}: the achievements card`);
   assert.match(await page.$eval('#ach-progress', (e) => e.textContent), /\d of 6/, `${label}: the achievements strip`);
   // what the bots learned: one entry for each bot, with no gaps in the words
@@ -491,5 +500,10 @@ test('The Wheel: watching six bots runs to the end', { timeout: 120_000 }, async
   await page.selectOption('#speed', '8');
   for (let i = 0; i < 100 && !(await page.$('#again')); i++) await page.clock.runFor(5000);
   assert.ok(await page.$('#again'), 'the watched table ends');
+  // New table from the transport, where Play was (Jason, 2026-11-10)
+  await page.click('#pause');
+  assert.equal(await page.$eval('#clock', (e) => e.textContent), '6:00', 'a new table from the transport');
+  assert.equal(await page.$eval('#pause', (b) => b.textContent), 'Start', 'ready to start');
+  assert.equal(await focusId(page), 'pause', 'focus stays on the button');
   await finish(t, run, 'wheel-watch');
 });

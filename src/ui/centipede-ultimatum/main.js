@@ -36,8 +36,8 @@ let G = null;
 
 // ---------- achievements (checks in ./achievements.js, stored in this browser) ----------
 const store = achievementStore({ key: STORAGE_KEY, celebratedKey: CELEBRATED_KEY, all: ACHIEVEMENTS });
-// Game 3 has no page yet: link to its card on the home page until it does.
-const UNLOCK = () => ({ unlocked: isUnlocked('wheel'), unlockLabel: 'Game 3 unlocked', unlockHref: '../../#level-3' });
+// "Game 3 unlocked" links to CommonWeal (out of preview, Jason 2026-11-10).
+const UNLOCK = () => ({ unlocked: isUnlocked('wheel'), unlockLabel: 'Game 3 unlocked', unlockHref: '../wheel/' });
 function earn(ids) {
   const fresh = store.add(ids);
   if (!fresh.length) return;

@@ -84,7 +84,7 @@
 /* The ending: the fund flows out of the hub (circles), the bonus comes in from outside (diamonds) */
 .dot-refund { fill: var(--flow); stroke: var(--surface); stroke-width: 1; }
 .dot-bonus { fill: var(--brass); stroke: var(--surface); stroke-width: 1; }
-.end-gain { font-family: var(--font-data); font-size: 14px; font-weight: 700; fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.end-gain { font-family: var(--font-data); font-size: 14px; font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 
 /* Your dials: round knobs with strength bars */
 #dials-box:empty { display: none; }
@@ -173,3 +173,8 @@
 @keyframes hub-pulse { from { stroke-width: 2; } to { stroke-width: 6; } }
 .end-gain.bonus-gain { font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .hub-pulse { animation: none; stroke-width: 4; } }
+
+/* The common fund, outside the wheel: where the bonus comes from (Jason, 2026-11-10) */
+.common-diamond { fill: var(--brass); stroke: var(--surface); stroke-width: 2; }
+.common-label { font-family: var(--font-body); font-size: 11px; font-weight: 700; fill: var(--ink); text-anchor: end; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
+.common-sub { font-weight: 400; font-family: var(--font-data); }
