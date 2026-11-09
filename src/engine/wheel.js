@@ -24,7 +24,8 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
  * maxTicks: the table's length in seconds. 360 = six minutes (Jason, 2026-11-09).
  * minSpeed: the wheel never turns slower than this, in degrees a second (2017: 6).
  * minVote: 0 lets a player not vote (core, 2026-11-09); 1 is 2017's "no neutral position".
- * maxVote: the strongest vote, in tokens (and degrees) a second (2017: 9).
+ * maxVote: the strongest vote, in degrees a second (2017: 9).
+ * voteCost: tokens a second for each degree of vote (2017: 1).
  * reverseAbove: the net vote against the wheel's direction must be more than this to turn it round.
  *   9 (default, Jason 2026-11-09: "Make momentum too difficult for one player to hold back"): more
  *   than one player's strongest vote, so momentum carries the arrow round to every seat and only
@@ -64,7 +65,7 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
  * record: keep a per-tick history for the page and the round log (simulations turn it off).
  */
 export function createGame({
-  players, seed = 0, stake = 1000, maxTicks = MAX_TICKS, minSpeed = 6, minVote = 0, maxVote = 9, reverseAbove = 9, blackRun = Infinity,
+  players, seed = 0, stake = 1000, maxTicks = MAX_TICKS, minSpeed = 6, minVote = 0, maxVote = 9, voteCost = 1, reverseAbove = 9, blackRun = Infinity,
   collect = { black: 9, grey: 1 }, greyReach = 90, rewardTransit = 2, shareSpeed = 45, minParcel = 0.1, boostMax = 10,
   selfShare = 'kept', boostStart = 0, endBonus = 'refund', delays = false, maxDepth = 40, record = true,
 }) {
@@ -73,7 +74,7 @@ export function createGame({
   const pos = joinPositions(n);
   const start = Math.round(stake * UNIT);
   return {
-    seed, n, maxTicks, minSpeed, minVote, maxVote, reverseAbove, blackRun, greyReach, rewardTransit, shareSpeed, boostMax, selfShare, endBonus, delays, maxDepth, record,
+    seed, n, maxTicks, minSpeed, minVote, maxVote, voteCost, reverseAbove, blackRun, greyReach, rewardTransit, shareSpeed, boostMax, selfShare, endBonus, delays, maxDepth, record,
     collect: { black: Math.round(collect.black * UNIT), grey: Math.round(collect.grey * UNIT) },
     minParcel: Math.round(minParcel * UNIT),
     stake: start,
@@ -211,9 +212,9 @@ export function step(s, decisions = {}) {
       p.effVote = v;
     }
     if (v === 0 && st.minVote > 0) v = st.dir * st.minVote; // 2017: no neutral position
-    const afford = Math.floor(p.balance / UNIT);
+    const afford = Math.floor(p.balance / (UNIT * st.voteCost));
     if (Math.abs(v) > afford) v = Math.sign(v) * afford;
-    const cost = Math.abs(v) * UNIT;
+    const cost = Math.round(Math.abs(v) * UNIT * st.voteCost);
     p.balance -= cost; p.stats.voted += cost; fund.balance += cost; fund.votes += cost;
     net += v;
     if (rec) rec.votes.push(v);

@@ -73,6 +73,63 @@ export function steer(v, targetId, strength, reserve = 150) {
   return needed <= strength ? want * needed : 0;
 }
 
+/**
+ * Wishes (Jason, 2026-11-09: "Bots show their wish"). With momentum above one player's vote, a bot
+ * can't turn the wheel back alone, but its vote still counts: with the momentum it speeds the wheel
+ * up; against it, it cancels others' speed-ups, and together with others (more than 9) it turns the
+ * wheel back. Bots vote their wish at the moments that matter to them, even when they can't win
+ * alone, so the player can see it (2017: the vote direction shows on each disc) and tip the balance.
+ */
+const HALF = (v) => 180 / v.n;
+/** Where an arrow is relative to a player: 'on' (in their segment), 'next' (heading their way, within a
+ * seat and a half), or null. */
+export function arrowAt(v, angle, id) {
+  const p = v.players.find((x) => x.id === id);
+  const d = turnTo(angle, p.angle);
+  if (Math.abs(d) < HALF(v)) return 'on';
+  if (Math.sign(d) === v.dir && Math.abs(d) < 3 * HALF(v)) return 'next';
+  return null;
+}
+/** Bots keep a reserve: they stop paying to steer below this share of the stake. */
+const canPay = (v, reserve) => v.me.balance >= reserve * v.stake;
+/** Bring the white arrow to a player: hurry it when it is next, hold it back while it is there. */
+export function bring(v, id, strength, reserve = 0.25) {
+  if (!canPay(v, reserve)) return 0;
+  const at = arrowAt(v, v.theta, id);
+  return at === 'next' ? v.dir * strength : at === 'on' ? -v.dir * strength : 0;
+}
+/** The poorest player, if below `below` of the stake. */
+const poorest = (v, below) => {
+  const p = v.players.reduce((a, x) => (x.balance < a.balance ? x : a));
+  return p.balance < below * v.stake ? p : null;
+};
+/**
+ * Rescue the poorest player, if they are below `below` of the stake: hurry the black arrow past them,
+ * and hurry the white arrow to them. It never tries to turn the wheel back, which would send the
+ * black arrow over the player who has just paid.
+ */
+export function rescue(v, strength, below = 0.4, reserve = 0.25) {
+  const p = poorest(v, below);
+  if (!p || !canPay(v, reserve)) return 0;
+  if (arrowAt(v, v.theta + 180, p.id) === 'on') return v.dir * strength;
+  if (arrowAt(v, v.theta, p.id) === 'next') return v.dir * strength;
+  return 0;
+}
+
+/**
+ * Stewarding the table: hurry the black arrow past a player in danger (below `below` of the stake),
+ * and hurry the white arrow past a player who passes on little (share dial at `stingy` tenths or
+ * less), whose fee would swallow most of the reward. Both help everyone, at the steward's cost.
+ */
+export function steward(v, strength, below = 0.4, stingy = 3, reserve = 0.25) {
+  if (!canPay(v, reserve)) return 0;
+  const p = poorest(v, below);
+  if (p && arrowAt(v, v.theta + 180, p.id) === 'on') return v.dir * strength;
+  const w = v.players.find((x) => x.id === v.white);
+  if (w.id !== v.id && w.share <= stingy) return v.dir * strength;
+  return 0;
+}
+
 /** Tracks each player's share setting, smoothed over roughly the last 20 seconds. */
 function sharingMemory() {
   const score = {};
@@ -103,35 +160,30 @@ export const STRATEGIES = {
   },
   selfSteerer: {
     label: 'Self-Steerer', family: 'steerer',
-    summary: 'Pays to turn the white arrow towards itself and hold it there. Shares half, the most it can keep.',
-    tell: 'Votes whenever the wheel turns away from it.',
-    create: () => ({ decide: (v) => ({ vote: steer(v, v.id, 3), share: 5, people: everyone(v) }) }),
+    summary: 'Pays to hurry the white arrow towards itself and to hold it back while it is there. Shares half, the most it can keep.',
+    tell: 'Votes as the white arrow nears it, and against the wheel while it has it.',
+    create: () => ({ decide: (v) => ({ vote: bring(v, v.id, 3), share: 5, people: everyone(v) }) }),
   },
   sharerSteerer: {
     label: 'Patron', family: 'steerer',
-    summary: 'Pays to turn the white arrow towards whoever else has shared most lately. Shares seven tenths.',
-    tell: 'Votes towards the most generous player.',
+    summary: 'Pays to bring the white arrow to whoever else has shared most lately: hurrying it there, holding it back while it is there. Shares seven tenths.',
+    tell: 'Votes as the white arrow nears the most generous player.',
     create: () => {
       const memory = sharingMemory();
       return {
         decide: (v) => {
           const score = memory(v);
           const best = others(v).reduce((a, p) => (score[p.id] > score[a.id] + 1e-9 ? p : a));
-          return { vote: steer(v, best.id, 2), share: 7, people: everyone(v) };
+          return { vote: bring(v, best.id, 2), share: 7, people: everyone(v) };
         },
       };
     },
   },
   poorSteerer: {
     label: 'Lifeguard', family: 'steerer',
-    summary: 'Pays to turn the white arrow towards the poorest player, which also turns the black arrow away from them. Shares seven tenths.',
-    tell: 'Votes towards whoever is lowest.',
-    create: () => ({
-      decide: (v) => {
-        const poorest = v.players.reduce((a, p) => (p.balance < a.balance ? p : a));
-        return { vote: steer(v, poorest.id, 2), share: 7, people: everyone(v) };
-      },
-    }),
+    summary: 'When a player falls below four tenths of the stake, it pays to hurry the black arrow past them and the white arrow to them. Shares seven tenths.',
+    tell: 'Votes when an arrow nears the poorest player.',
+    create: () => ({ decide: (v) => ({ vote: rescue(v, 3), share: 7, people: everyone(v) }) }),
   },
   reciprocator: {
     label: 'Reciprocator', family: 'sharer',

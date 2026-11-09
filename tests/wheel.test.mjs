@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   createGame, step, joinPositions, quotas, feePct, transitTicks, whiteId, blackId, totalUnits, bonusPct, voteDelay, UNIT,
 } from '../src/engine/wheel.js';
-import { STRATEGIES, botView, selectRoster } from '../src/bots/wheel-bots.js';
+import { STRATEGIES, botView, selectRoster, steer } from '../src/bots/wheel-bots.js';
 import { playTable, simulate } from '../tools/sim-wheel.mjs';
 import { mulberry32 } from '../src/engine/rng.js';
 
@@ -152,27 +152,30 @@ test('tables replay exactly from their seed', () => {
   assert.equal(a.t, b.t);
 });
 
-const heldBySteerer = (opts) => {
-  const keys = ['keeper', 'keeper', 'selfSteerer', 'keeper', 'keeper', 'keeper'];
+// The old holding logic (pay just enough to keep the arrow in your segment), and the Self-Steerer bot.
+const holder = { create: () => ({ decide: (v) => ({ vote: steer(v, v.id, 9), share: 5, people: v.n }) }) };
+const heldBy = (who, opts) => {
+  const keys = ['keeper', 'keeper', 'me', 'keeper', 'keeper', 'keeper'];
   const rng = mulberry32(1);
-  const inst = keys.map((k) => STRATEGIES[k].create(rng));
+  const inst = keys.map((k) => (k === 'me' ? who : STRATEGIES[k]).create(rng));
   let s = createGame({ players: keys.map((k, i) => ({ id: `${k}#${i}` })), stake: 2000, ...opts });
   let held = 0;
   for (let t = 0; t < 120 && s.status === 'playing'; t++) {
     const d = {};
     s.players.forEach((p, i) => { d[p.id] = inst[i].decide(botView(s, p.id)); });
     s = step(s, d);
-    if (t >= 60 && whiteId(s) === 'selfSteerer#2') held++;
+    if (t >= 60 && whiteId(s) === 'me#2') held++;
   }
   return held;
 };
 
-test('with any vote able to turn the wheel, the self-steerer holds the white arrow in its segment', () => {
-  assert.ok(heldBySteerer({ reverseAbove: 0 }) >= 50, 'held most of the last 60 seconds');
+test('with any vote able to turn the wheel, one player can hold the white arrow in their segment', () => {
+  assert.ok(heldBy(holder, { reverseAbove: 0 }) >= 50, 'held most of the last 60 seconds');
 });
 
 test('with momentum above one player\'s vote, the arrow swings round: no more than a fair share', () => {
-  assert.ok(heldBySteerer({}) <= 12, 'about 10 of 60 seconds');
+  assert.ok(heldBy(holder, {}) <= 12, 'old holding logic: about 10 of 60 seconds');
+  assert.ok(heldBy(STRATEGIES.selfSteerer, {}) <= 12, 'the Self-Steerer bot: about 10 of 60 seconds');
 });
 
 test('every strategy has a label, family, summary and tell, and decides valid dials', () => {
