@@ -132,6 +132,7 @@ These were the prompts for the first session. Questions 1-5 are answered (see "D
 7. **Invitations come later, after reputation** (agent's proposal, accepted in passing by Jason, who raised it: "Players gain a reputation. Sharing players would invite like minded players. So too exploiters might to gang up?"). For the first version you start the table and sit at the white arrow, and the bots join in a seeded order. Later: you invite one bot from a short line-up showing reputations, and each bot invites the next by its leanings, so sharers draw sharers and exploiters gangs. This needs a decision against the 2026-11-06 rule "no choosing the bots".
 8. **Sharing rewards is Game 3's main lesson** (Jason): "Sharing rewards is an extended lesson in game 3, for the common good, compared to game 2, which had it a little to last the distance."
 9. **The self-share loophole is closed** (Jason, 2026-11-09: "close the self-share loop hole"). The slice a player shares with themselves counts as kept (`selfShare: 'kept'` is now the default), so the fee and the boost follow only what reaches other people, and sharing only with yourself is keeping. 2017 as written stays available as `selfShare: 'cascade'`.
+10. **The economy: the refund, and a stake of 1,000** (Jason, 2026-11-09: "ok Refund in equal shares, with a stake of 1,000"). At full time, if the poorest player still holds at least 10% of the stake, the game's boost fund is shared equally among the players and the common fund adds the 2017 bonus (2% to 10% of each stake, by the poorest player's share). A table that busts loses its fund. `endBonus: 'refund'` and `stake: 1000` are now the defaults. The agent's note: with the refund, the fee works like a deposit returned when the table finishes; six keepers finish 40 ahead, though keeping still loses against the bots (-229). Refunding by what each shared was the alternative; Jason kept equal shares, in line with 2018's equal Universal Distribution.
 
 ## The core as built (2026-11-09)
 
@@ -175,5 +176,28 @@ Stake 600, 6 minutes, `selfShare: 'kept'` (now the default) unless marked. 1,000
 ## Proposals waiting for Jason (2026-11-09)
 
 1. ~~Close the self-share loophole~~: done (decision 9).
-2. The economy: the refund version of the end bonus, with a stake of about 1,000, so a cooperative table can come out ahead and keeping the poorest alive is worth something to everyone.
-3. Steering: what should stop a player holding the white arrow? Options to simulate: bots that counter-steer together against a holder (a coalition), the 2017 position delays (privilege as latency, which help the holder), or a rising cost for holding. The 2017 momentum rule alone is not recommended.
+2. ~~The economy~~: done (decision 10).
+3. Steering: what should stop a player holding the white arrow? See "Steering experiments" below. The agent recommends `blackRun: 10`.
+
+## Steering experiments (2026-11-09)
+
+Rules as decided so far (stake 1,000, refund, self-share kept). Bot tables: 1,000 per row. "Alone" is the learner style against five random bots, 300 tables each. Steering styles shown are "shares half, steers to self, up to 3 a second" / "up to 9". Reproduce with `tools/sim-wheel.mjs` options `{"delays":true}`, `{"reverseAfter":180}` and `{"blackRun":10}`; the resisting bots were a scratch experiment, not kept in the roster.
+
+| Rule or habit | Bot tables lasted | Bonus earned | Self-Steerer bot | Steer to self, alone | Share everything, alone | Six who steer to self |
+|---|---|---|---|---|---|---|
+| None (as decided) | 30% | 28% | +244 | +181 / +230 | -37 | -178, bust in 139 s |
+| Bots push back together (3 kinds, up to 4 a second, against anyone holding 12 of the last 20 s) | 20% | 17% | +202 | +169 / +79 | -75 | (no change) |
+| Five kinds push back at up to 9 | 29% | 26% | +173 | +131 / +187 | -141 | (no change) |
+| 2017 position and vote delays | 13% | 11% | +187 | +294 / +293 | -39 | -224 |
+| Reversal limit: 120° between reversals | 13% | 9% | +80 | +284 | +77 | -216 |
+| Reversal limit: 180° | 20% | 9% | -33 | +57 | -34 | -313 |
+| **Nobody pays the black arrow's 9 for more than 10 s in a row** (`blackRun: 10`) | **83%** | **78%** | +309 | +183 / +270 | **+103** | -213 / -365 |
+| `blackRun: 10` and the 180° limit | 21% | 10% | -53 | +13 | -48 | -310 |
+
+What the experiments show:
+
+1. **Holding is cheap and pinning is deadly.** Holding the white arrow costs the holder about a token every 10 seconds; the seat held at the black arrow pays 9 a second until it goes bust, which ends the table for everyone.
+2. **Pushing back doesn't work.** Bots that steer against a holder pay more than the holder does and still lose. That's the second-order free-rider problem: sanctioning is itself a public good (Ostrom; check the source before a card names it).
+3. **2017's delays help the holder,** as expected: privilege as latency means the seat at the white arrow acts first. Not kept.
+4. **A reversal limit moves the damage rather than stopping it.** The holder rocks the arrow across their half of the wheel, the far half pays, and the table busts later.
+5. **Protecting the pinned player works.** After one natural pass (10 seconds at the minimum speed), a player held at the black arrow pays 1 a second instead of 9. Natural play is untouched; only pinning is affected. Tables survive a holder, the poorest player ends with a median 74% of the stake (from 0%), and sharing pays against the bots (+103 sharing everything, +83 sharing 8/10). The temptation is still there: holding gains +183 to +270 alone, and a table where everyone holds still goes bust (-213 to -365).

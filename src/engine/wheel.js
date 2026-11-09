@@ -20,13 +20,18 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
 
 /**
  * Core rules first (Jason, 2026-11-09). Options keep the 2017 variants so simulations can compare.
- * stake: tokens each player brings. To be set by simulation (Jason, 2026-11-09).
+ * stake: tokens each player brings: 1,000 (Jason, 2026-11-09, from simulation; 2017 had 100).
  * maxTicks: the table's length in seconds. 360 = six minutes (Jason, 2026-11-09).
  * minSpeed: the wheel never turns slower than this, in degrees a second (2017: 6).
  * minVote: 0 lets a player not vote (core, 2026-11-09); 1 is 2017's "no neutral position".
  * maxVote: the strongest vote, in tokens (and degrees) a second (2017: 9).
  * reverseAbove: 0 (core) lets any net vote against the wheel turn it round; 6 is 2017's momentum
  *   rule: reversing takes more than 6 degrees a second of net votes the other way.
+ * reverseAfter: degrees the wheel must turn after a reversal before it can be reversed again
+ *   (0: no limit, the core). An experiment (2026-11-09) against holding the arrow by rocking it.
+ * blackRun: the most seconds in a row a player pays the black arrow's amount; after that they pay
+ *   the grey amount until the black arrow moves on (Infinity: no limit, the core). An experiment
+ *   (2026-11-09): one natural pass at the minimum speed is 10 seconds.
  * collect: what the black side pays each second: the seat holding the black arrow pays `black`,
  *   other seats within `greyReach` degrees of it pay `grey` (2017: 9, 1 and 90°).
  * rewardTransit: seconds for the reward to cross from the black arrow to the white (2017: 2). It
@@ -43,32 +48,40 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
  * boostStart: tokens in the boost fund when the table starts (2017 doesn't say; 0).
  * endBonus: what finishing the full six minutes earns, when the poorest player still holds at least
  *   10% of the stake. The bonus is 2% (poorest holds 10-20% of the stake) up to 10% (90% or more).
- *   'none'   no bonus (core)
- *   '2017'   as written: the bonus is added to the boost on shares still travelling at the end
- *   'refund' the game's boost fund is shared equally among the players instead of going to the
- *            common fund, and the common fund adds the bonus, as a % of each player's stake
+ *   'refund' (default, Jason 2026-11-09): the game's boost fund is shared equally among the players
+ *            instead of going to the common fund, and the common fund adds the bonus, as a % of
+ *            each player's stake. A table that busts loses its fund.
+ *   '2017'   as written: the bonus is added to the boost on shares still travelling at the end.
+ *            Simulated: it changes nothing (nets moved by 3 tokens at most).
+ *   'none'   no bonus (the first core)
+ * delays: 2017's "privilege as latency": a change to a vote dial takes effect after a delay of up to
+ *   1.5 seconds by seat (none at the white arrow, the most at the black) plus up to 1.5 seconds for an
+ *   extreme vote (none for 1, the most for 9), rounded to whole seconds. Off in the core.
  * maxDepth: settling rounds within one second (a slice shared with yourself comes straight back);
  *   after this many, what's left is kept, so a loop can't run for ever.
  * record: keep a per-tick history for the page and the round log (simulations turn it off).
  */
 export function createGame({
-  players, seed = 0, stake = 600, maxTicks = MAX_TICKS, minSpeed = 6, minVote = 0, maxVote = 9, reverseAbove = 0,
+  players, seed = 0, stake = 1000, maxTicks = MAX_TICKS, minSpeed = 6, minVote = 0, maxVote = 9, reverseAbove = 0, reverseAfter = 0, blackRun = Infinity,
   collect = { black: 9, grey: 1 }, greyReach = 90, rewardTransit = 2, shareSpeed = 45, minParcel = 0.1, boostMax = 10,
-  selfShare = 'kept', boostStart = 0, endBonus = 'none', maxDepth = 40, record = true,
+  selfShare = 'kept', boostStart = 0, endBonus = 'refund', delays = false, maxDepth = 40, record = true,
 }) {
   if (!players || players.length < 3) throw new Error('Need at least 3 players');
   const n = players.length;
   const pos = joinPositions(n);
   const start = Math.round(stake * UNIT);
   return {
-    seed, n, maxTicks, minSpeed, minVote, maxVote, reverseAbove, greyReach, rewardTransit, shareSpeed, boostMax, selfShare, endBonus, maxDepth, record,
+    seed, n, maxTicks, minSpeed, minVote, maxVote, reverseAbove, reverseAfter, blackRun, greyReach, rewardTransit, shareSpeed, boostMax, selfShare, endBonus, delays, maxDepth, record,
     collect: { black: Math.round(collect.black * UNIT), grey: Math.round(collect.grey * UNIT) },
     minParcel: Math.round(minParcel * UNIT),
     stake: start,
     t: 0, // ticks played
+    holder: players[0].id, // who has had the white arrow in their segment, and since when
+    holderSince: 0,
     theta: 0, // angle of the white arrow, degrees clockwise from seat 0 (the initiator)
     dir: 1, // 1 clockwise, -1 anticlockwise. 2017: clockwise, towards the second player to join
     speed: minSpeed,
+    turned: Infinity, // degrees turned since the last reversal
     players: players.map((p, i) => ({
       id: p.id,
       join: i,
@@ -76,6 +89,9 @@ export function createGame({
       balance: p.balance != null ? Math.round(p.balance * UNIT) : start,
       start: p.balance != null ? Math.round(p.balance * UNIT) : start,
       settings: { vote: 0, share: 0, people: 1, ...(p.settings ?? {}) },
+      voteLog: [], // with delays on: recent dial values, { t, v, at } (at: when each takes effect)
+      effVote: 0, // the vote in effect (equals the dial unless delays are on)
+      atBlack: 0, // seconds in a row at the black arrow
       stats: { paid: 0, voted: 0, reward: 0, sharesIn: 0, sharesOut: 0, fees: 0, boost: 0 },
     })),
     fund: { start: Math.round(boostStart * UNIT), balance: Math.round(boostStart * UNIT), fees: 0, votes: 0, boostPaid: 0, forfeits: 0, refunded: 0 },
@@ -106,6 +122,14 @@ export function joinPositions(n) {
 
 const mod = (a, m) => ((a % m) + m) % m;
 export const seatAngle = (s, pos) => (pos * 360) / s.n;
+/** 2017 vote delay in whole seconds: up to 1.5 by seat (darker seats wait longer) plus up to 1.5 for
+ * an extreme vote. */
+export function voteDelay(s, p, v) {
+  const bySeat = (1.5 * angDist(seatAngle(s, p.pos), s.theta)) / 180;
+  const byVote = v === 0 ? 0 : (1.5 * (Math.abs(v) - 1)) / (s.maxVote - 1);
+  return Math.round(bySeat + byVote);
+}
+
 /** Smallest angle between two directions, 0..180. */
 export const angDist = (a, b) => { const d = mod(a - b, 360); return Math.min(d, 360 - d); };
 /** Signed shortest turn from angle a to angle b, in (-180, 180]. Positive is clockwise. */
@@ -178,6 +202,13 @@ export function step(s, decisions = {}) {
   let net = 0;
   for (const p of players) {
     let v = p.settings.vote;
+    if (st.delays) {
+      // The most recent dial value whose delay has run out takes effect.
+      p.voteLog = [...p.voteLog, { t, v, at: t + voteDelay(st, p, v) }].filter((x) => x.t > t - 4);
+      const arrived = p.voteLog.filter((x) => x.at <= t);
+      v = arrived.length ? arrived[arrived.length - 1].v : p.effVote;
+      p.effVote = v;
+    }
     if (v === 0 && st.minVote > 0) v = st.dir * st.minVote; // 2017: no neutral position
     const afford = Math.floor(p.balance / UNIT);
     if (Math.abs(v) > afford) v = Math.sign(v) * afford;
@@ -186,17 +217,18 @@ export function step(s, decisions = {}) {
     net += v;
     if (rec) rec.votes.push(v);
   }
-  if (st.reverseAbove > 0) {
-    if (net * st.dir >= 0) st.speed = Math.max(st.minSpeed, Math.abs(net));
-    else if (Math.abs(net) > st.reverseAbove) { st.dir = -st.dir; st.speed = Math.abs(net); }
-    else st.speed = st.minSpeed;
-  } else {
-    if (net !== 0) st.dir = Math.sign(net);
-    st.speed = Math.max(st.minSpeed, Math.abs(net));
-  }
+  const dir0 = st.dir;
+  const mayReverse = st.turned >= st.reverseAfter;
+  if (net * st.dir >= 0) st.speed = Math.max(st.minSpeed, Math.abs(net));
+  else if (mayReverse && Math.abs(net) > st.reverseAbove) { st.dir = -st.dir; st.speed = Math.max(st.minSpeed, Math.abs(net)); }
+  else st.speed = st.minSpeed;
+  st.turned = st.dir === dir0 ? st.turned + st.speed : st.speed;
 
   // 2. Collection from the black side, at the wheel's position at the start of the second.
   const q = quotas(st);
+  const bpos = posAt(st, st.theta + 180);
+  for (const p of players) p.atBlack = p.pos === bpos ? p.atBlack + 1 : 0;
+  players.forEach((p, i) => { if (p.atBlack > st.blackRun) q[i] = st.collect.grey; });
   let collected = 0;
   players.forEach((p, i) => {
     const pay = Math.min(q[i], p.balance);
@@ -208,6 +240,8 @@ export function step(s, decisions = {}) {
 
   // 3. The wheel turns.
   st.theta = mod(st.theta + st.dir * st.speed, 360);
+  const w = whiteId(st);
+  if (w !== st.holder) { st.holder = w; st.holderSince = t + 1; }
 
   // 4. Arrivals.
   const keptBefore = players.map((p) => p.balance);

@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createGame, step, joinPositions, quotas, feePct, transitTicks, whiteId, blackId, totalUnits, bonusPct, UNIT,
+  createGame, step, joinPositions, quotas, feePct, transitTicks, whiteId, blackId, totalUnits, bonusPct, voteDelay, UNIT,
 } from '../src/engine/wheel.js';
 import { STRATEGIES, botView, selectRoster } from '../src/bots/wheel-bots.js';
 import { playTable, simulate } from '../tools/sim-wheel.mjs';
@@ -88,7 +88,7 @@ test('votes: zero allowed, the net sets the direction, and 2017 momentum needs m
   let s = step(fresh({}, { a: { vote: -2 } }));
   assert.equal(s.dir, -1);
   assert.equal(s.speed, 6);
-  assert.equal(bal(s, 'a'), 600 * UNIT - 2 * UNIT);
+  assert.equal(bal(s, 'a'), s.stake - 2 * UNIT);
   let m = step(fresh({ reverseAbove: 6 }, { a: { vote: -6 } }));
   assert.equal(m.dir, 1); // 6 against isn't enough
   m = step(fresh({ reverseAbove: 6 }, { a: { vote: -7 } }));
@@ -98,7 +98,7 @@ test('votes: zero allowed, the net sets the direction, and 2017 momentum needs m
 });
 
 test('a player who cannot pay ends the table; rewards still crossing go to the boost fund', () => {
-  let s = createGame({ players: ids.map((id) => ({ id, balance: id === 'f' ? 20 : 600 })) });
+  let s = createGame({ players: ids.map((id) => ({ id, balance: id === 'f' ? 20 : 1000 })) });
   s = run(s, 10);
   assert.equal(s.status, 'ended');
   assert.equal(s.endReason, 'bust');
@@ -115,12 +115,12 @@ test('a table lasts at most 360 seconds', () => {
   assert.equal(s.t, 360);
 });
 
-test('the end bonus: 2% to 10% by the poorest player, paid only at full time with the refund', () => {
+test('the end bonus: 2% to 10% by the poorest player; at full time the fund is refunded equally', () => {
   const s = fresh();
   assert.equal(bonusPct(s), 10);
   const poorer = { ...s, players: s.players.map((p, i) => (i ? p : { ...p, balance: 0.15 * s.stake })) };
   assert.equal(bonusPct(poorer), 2);
-  const r = run(fresh({ stake: 5000, endBonus: 'refund' }, { all: { share: 8, people: 6 } }), 400);
+  const r = run(fresh({ stake: 5000 }, { all: { share: 8, people: 6 } }), 400);
   assert.equal(r.endReason, 'time');
   assert.equal(r.bonus.pct, 10);
   assert.equal(r.fund.balance < r.n, true); // the fund was shared out (odd hundredths remain)
@@ -129,7 +129,7 @@ test('the end bonus: 2% to 10% by the poorest player, paid only at full time wit
 });
 
 test('every token is accounted for, under every rule variant', () => {
-  const variants = [{}, { selfShare: 'cascade' }, { reverseAbove: 6, minVote: 1 }, { endBonus: 'refund', stake: 2000 }, { endBonus: '2017', stake: 2000 }];
+  const variants = [{}, { selfShare: 'cascade' }, { reverseAbove: 6, minVote: 1 }, { endBonus: 'none', stake: 600 }, { endBonus: '2017', stake: 2000 }];
   for (const opts of variants) {
     for (let t = 0; t < 40; t++) {
       const s = playTable(selectRoster(mulberry32(t), 6), 100 + t, opts);
@@ -176,4 +176,48 @@ test('every strategy has a label, family, summary and tell, and decides valid di
 test('the simulator reports every table conserved', () => {
   const st = simulate(30, (t, rng) => selectRoster(rng, 6));
   assert.equal(st.conserved, 30);
+});
+
+test('a table that goes bust keeps no refund and earns no bonus', () => {
+  let s = createGame({ players: ids.map((id) => ({ id, balance: id === 'f' ? 20 : 1000 })) });
+  s = run(s, 10);
+  assert.equal(s.endReason, 'bust');
+  assert.equal(s.bonus, null);
+  assert.equal(s.fund.refunded, 0);
+  assert.equal(s.commonIn, 0);
+});
+
+test('blackRun: after 10 seconds in a row at the black arrow, a player pays the grey amount', () => {
+  // Hold the wheel still-ish by rocking it: a votes against the wheel every second.
+  const play = (blackRun) => {
+    let s = fresh({ blackRun }, { all: { share: 0, people: 1 } });
+    for (let t = 0; t < 30; t++) s = step(s, { a: { vote: t % 2 ? 6 : -6 } });
+    return s.players.find((p) => p.id === 'f').stats.paid / UNIT;
+  };
+  assert.equal(play(Infinity), 30 * 9); // pinned at the black arrow for 30 seconds
+  assert.equal(play(10), 10 * 9 + 20 * 1);
+});
+
+test('reverseAfter: the wheel must turn this far after a reversal before turning back again', () => {
+  let s = fresh({ reverseAfter: 60 }, { a: { vote: -1 } });
+  s = step(s); // first reversal is allowed
+  assert.equal(s.dir, -1);
+  s = step(s, { a: { vote: 1 } }); // only 6 degrees since: not yet
+  assert.equal(s.dir, -1);
+  for (let i = 0; i < 9; i++) s = step(s, { a: { vote: 0 } });
+  s = step(s, { a: { vote: 1 } }); // 60 degrees turned: allowed
+  assert.equal(s.dir, 1);
+});
+
+test('2017 delays: darker seats and stronger votes wait longer', () => {
+  const s = fresh({ delays: true });
+  const at = (id) => s.players.find((p) => p.id === id);
+  assert.equal(voteDelay(s, at('a'), 1), 0); // at the white arrow, a small vote: at once
+  assert.equal(voteDelay(s, at('f'), 1), 2); // at the black arrow: 1.5 s, rounded
+  assert.equal(voteDelay(s, at('a'), 9), 2);
+  assert.equal(voteDelay(s, at('f'), 9), 3);
+  let t = step(fresh({ delays: true }, { f: { vote: -1 } }));
+  assert.equal(t.dir, 1); // f's vote hasn't arrived yet
+  t = step(step(t));
+  assert.equal(t.dir, -1);
 });
