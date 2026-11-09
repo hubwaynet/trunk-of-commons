@@ -7,7 +7,7 @@
 // has shared), the wheel, and the boost fund. Use the supplied rng, never Math.random.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { whiteId, blackId, seatAngle, turnTo, quotas, feePct, UNIT } from '../engine/wheel.js';
+import { whiteId, blackId, seatAngle, turnTo, quotas, feePct, reputations, UNIT } from '../engine/wheel.js';
 import { shuffle } from '../engine/rng.js';
 
 export const FAMILIES = {
@@ -19,6 +19,7 @@ export const FAMILIES = {
 
 export function botView(s, id) {
   const q = quotas(s);
+  const rep = reputations(s); // the discs everyone can see (2017), carried ones included
   return {
     id,
     t: s.t,
@@ -41,7 +42,7 @@ export function botView(s, id) {
     me: s.players.find((p) => p.id === id),
     players: s.players.map((p, i) => ({
       id: p.id, pos: p.pos, angle: seatAngle(s, p.pos), balance: p.balance, owes: q[i],
-      ...p.settings, sharesOut: p.stats.sharesOut, sharesIn: p.stats.sharesIn, reward: p.stats.reward,
+      ...p.settings, sharesOut: p.stats.sharesOut, sharesIn: p.stats.sharesIn, reward: p.stats.reward, rep: rep[p.id],
     })),
   };
 }
@@ -368,15 +369,18 @@ function selfSteerer() {
   });
 }
 
-/** The Patron: hurries the white arrow towards whoever else has shared most lately. It learns whose
- * turn at the white arrow brings it nothing back: after two laps, it hurries the arrow past a player
- * who sends it almost nothing while they have it. */
+/** The Patron: hurries the white arrow towards whoever else has shared most lately. It reads the
+ * reputation discs (Jason, 2026-11-10: bots react to reputations, as people would): it favours
+ * players above the table's average and hurries the arrow past players below it, a carried disc
+ * included. It also learns whose turn at the white arrow brings it nothing back: after two laps, it
+ * hurries the arrow past a player who sends it almost nothing while they have it. */
 function patron() {
   const memory = sharingMemory();
   const xp = experience();
   const back = {}; // per holder: shares that reached the patron while they had the white arrow, and seconds
   let lastIn = null;
   const passOver = new Set();
+  const told = new Set(); // whose disc it has said it is reacting to
   return teach((v) => {
     const score = memory(v);
     const e = xp(v);
@@ -395,10 +399,17 @@ function patron() {
       }
     }
     let vote;
-    if (passOver.has(v.white) && canPay(v, 0.25)) vote = v.dir * 2;
-    else {
-      const best = others(v).filter((p) => !passOver.has(p.id)).reduce((a, p) => (!a || score[p.id] > score[a.id] + 1e-9 ? p : a), null);
+    const holder = v.players.find((p) => p.id === v.white);
+    const below = holder.id !== v.id && holder.rep === 'below';
+    if ((passOver.has(v.white) || below) && v.white !== v.id && canPay(v, 0.25)) {
+      vote = v.dir * 2;
+      if (below && !passOver.has(v.white) && !told.has(`below:${v.white}`)) { told.add(`below:${v.white}`); note ??= `hurries the white arrow past @[${v.white}]: their disc shows they pass on less than the table's average`; }
+    } else {
+      const open = others(v).filter((p) => !passOver.has(p.id) && p.rep !== 'below');
+      const above = open.filter((p) => p.rep === 'above');
+      const best = (above.length ? above : open).reduce((a, p) => (!a || score[p.id] > score[a.id] + 1e-9 ? p : a), null);
       vote = best ? bring(v, best.id, 2) : 0;
+      if (best && vote && best.rep === 'above' && !told.has(`above:${best.id}`)) { told.add(`above:${best.id}`); note ??= `hurries the white arrow towards @[${best.id}]: their disc shows they pass on more than the table's average`; }
     }
     return { vote, share: 7, people: v.n, note };
   });
@@ -492,8 +503,8 @@ export const STRATEGIES = {
   },
   sharerSteerer: {
     label: 'Patron', family: 'steerer',
-    summary: 'Starts paying to hurry the white arrow towards whoever else has shared most lately. Shares seven tenths. Learns whose turn at the white arrow brings it nothing back, and hurries the arrow past them.',
-    tell: 'Votes as the white arrow nears the most generous, and to hurry it past a keeper.',
+    summary: 'Pays to hurry the white arrow towards whoever else shares most, favouring players whose reputation disc is above the table\'s average and hurrying the arrow past those below it, a reputation carried from their last table included. Shares seven tenths. Learns whose turn at the white arrow brings it nothing back, and hurries the arrow past them too.',
+    tell: 'Votes as the white arrow nears the most generous, and to hurry it past anyone below average.',
     create: () => patron(),
   },
   poorSteerer: {

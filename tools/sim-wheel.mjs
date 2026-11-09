@@ -64,7 +64,8 @@ export function playTable(keys, seed, opts = {}, era = 'now', onTick = null, sty
   const rng = mulberry32(seed);
   const ids = keys.map((k, i) => `${k}#${i}`);
   const inst = ids.map((id, i) => style(keys[i]).create(rng));
-  let s = createGame({ players: ids.map((id) => ({ id })), seed, record: false, ...opts });
+  const { carried, ...rules } = opts; // carried: { seat index: 'above' | 'about' | 'below' }
+  let s = createGame({ players: ids.map((id, i) => ({ id, carried: carried?.[i] ?? null })), seed, record: false, ...rules });
   while (s.status === 'playing') {
     const d = {};
     ids.forEach((id, i) => { d[id] = inst[i].decide(botView(s, id)); });

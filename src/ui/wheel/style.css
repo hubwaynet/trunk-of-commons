@@ -157,3 +157,11 @@
 
 /* Achievements (same look as Games 1 and 2) */
 .progress-segs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; width: 180px; max-width: 100%; }
+
+/* Reputation discs (2017's relative reputation; question 6, 2026-11-10): shape and colour */
+.rep-disc { stroke: var(--surface); stroke-width: 1.5; }
+.rep-disc.rep-above { fill: var(--good); }
+.rep-disc.rep-about { fill: var(--muted); }
+.rep-disc.rep-below { fill: var(--low); }
+.rep-glyph { fill: #ffffff; }
+.ring-legend .rep-disc { stroke: none; }

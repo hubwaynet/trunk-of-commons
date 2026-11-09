@@ -122,6 +122,7 @@ export function createGame({
       effVote: 0, // the vote in effect (equals the dial unless delays are on)
       atBlack: 0, // seconds in a row at the black arrow
       refund: 0, // their share of the boost fund at full time
+      carried: p.carried ?? null, // a reputation brought from their last table (no rule uses it)
       stats: { paid: 0, voted: 0, reward: 0, sharesIn: 0, sharesOut: 0, fees: 0, boost: 0 },
     })),
     fund: { start: Math.round(boostStart * UNIT), balance: Math.round(boostStart * UNIT), fees: 0, votes: 0, boostPaid: 0, forfeits: 0, refunded: 0 },
@@ -420,6 +421,29 @@ export function passedOn(p) {
   const got = p.stats.reward + p.stats.sharesIn;
   return got > 0 ? Math.max(0, p.stats.sharesOut - p.stats.boost) / got : 0;
 }
+
+/**
+ * Relative reputation (2017: a disc "green if they share more than the table average, and magenta if
+ * less"; built 2026-11-10 for question 6). From the part of what reached each player that they have
+ * passed on so far: 'above' or 'below' the table's average, or 'about' it when within `band` of it
+ * (agent's choice, so a disc doesn't flicker over a hair's difference). null until something has
+ * reached the player, and for everyone until at least two players can be compared.
+ */
+export function reputations(s, band = 0.05) {
+  // A reputation carried from a player's last table stands for their first lap here (Jason,
+  // 2026-11-10: "react and carry"; one turn of the wheel at its usual speed, agent's choice).
+  const lap = 360 / s.minSpeed;
+  const out = Object.fromEntries(s.players.map((p) => [p.id, p.carried && s.t < lap ? p.carried : null]));
+  const seen = s.players.filter((p) => p.stats.reward + p.stats.sharesIn > 0 && !(p.carried && s.t < lap));
+  if (seen.length < 2) return out;
+  const avg = seen.reduce((a, p) => a + passedOn(p), 0) / seen.length;
+  for (const p of seen) {
+    const d = passedOn(p) - avg;
+    out[p.id] = d > band ? 'above' : d < -band ? 'below' : 'about';
+  }
+  return out;
+}
+export const CARRY_SECONDS = (s) => 360 / s.minSpeed;
 
 /**
  * Each player's account for the table, in hundredths: where every token came from and went. It

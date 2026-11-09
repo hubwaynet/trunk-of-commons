@@ -515,24 +515,26 @@ Six achievements, ordered easiest first by simulated odds against the learning b
 | 5 | Came out ahead | You ended with more than your stake. |
 | 6 | Who was the hero? | You passed on the biggest part, came out ahead, and the table earned the bonus: 2017's question, answered both ways at once. |
 
-Odds per style in your seat, 300 tables each at stake 500 against five random learning bots. Reproduce with `node tools/sim-wheel-achievements.mjs 300`. "Nudges" means hurrying the white arrow (strength 4) past a player who keeps everything (share 0, or sharing only with themselves) and the black arrow past a player below four tenths of the stake; "stewards" is the older `steward()`, which misses a Free Rider (half, but only to itself).
+Odds per style in your seat, 300 tables each at stake 500 against five random learning bots, re-run after decision 34 (the Patron reading reputations); the order didn't change. Reproduce with `node tools/sim-wheel-achievements.mjs 300`. "Nudges" means hurrying the white arrow (strength 4) past a player who keeps everything (share 0, or sharing only with themselves) and the black arrow past a player below four tenths of the stake; "stewards" is the older `steward()`, which misses a Free Rider (half, but only to itself).
 
 | Style | Bonus | Passed it on | Lifeline | Changed a mind | Ahead | Hero |
 |---|---|---|---|---|---|---|
 | Keeps everything | 0% | 0% | 0% | 0% | 0% | 0% |
-| Shares half | 65% | 0% | 0% | 0% | 39% | 0% |
-| Shares 8/10 | 74% | 57% | 0% | 0% | 72% | 41% |
-| Shares everything | 62% | 100% | 0% | 0% | 31% | 31% |
-| Half, stewards | 76% | 0% | 89% | 58% | 23% | 0% |
-| 8/10, stewards | 74% | 57% | 74% | 59% | 62% | 34% |
-| Everything, stewards | 51% | 100% | 34% | 58% | 18% | 18% |
-| Half, nudges | 91% | 0% | 98% | 83% | 14% | 0% |
-| **8/10, nudges** | **96%** | 60% | 82% | 83% | **82%** | **49%** |
-| Everything, nudges | 82% | 100% | 56% | 82% | 27% | 27% |
-| Mean over the styles | 67% | 48% | 43% | 42% | 37% | 20% |
+| Shares half | 74% | 0% | 0% | 0% | 35% | 0% |
+| Shares 8/10 | 83% | 58% | 0% | 0% | 72% | 42% |
+| Shares everything | 71% | 100% | 0% | 0% | 37% | 37% |
+| Half, stewards | 77% | 0% | 89% | 59% | 24% | 0% |
+| 8/10, stewards | 80% | 61% | 78% | 59% | 64% | 39% |
+| Everything, stewards | 61% | 100% | 44% | 58% | 30% | 30% |
+| Half, nudges | 92% | 0% | 98% | 83% | 14% | 0% |
+| **8/10, nudges** | **98%** | 60% | 86% | 83% | **82%** | **51%** |
+| Everything, nudges | 82% | 100% | 63% | 82% | 38% | 38% |
+| Mean over the styles | 72% | 48% | 46% | 42% | 40% | 24% |
 
-1. **Nudging keepers is the best play found so far.** Sharing 8/10 and hurrying the arrows past keepers and players in danger earns the bonus at 96% of tables at stake 500 (74% without the nudging) and comes out ahead 82% of the time (72%). Hurrying the white arrow past a keeper stops the fee swallowing the reward, and the keeper learns from it. Both dials count, and steering for the table pays the steerer too: the cooperative use of steering that decision 12 was looking for.
-2. **The hero is possible but hard** (49% at best): passing on more than anyone usually means sharing everything, which comes out ahead only 27-31% of the time; 8/10 wins it when no bot passes on more.
+(Before decision 34 the means were 67%, 48%, 43%, 42%, 37% and 20%, and sharing 8/10 with nudging earned the bonus at 96% of tables.)
+
+1. **Nudging keepers is the best play found so far.** Sharing 8/10 and hurrying the arrows past keepers and players in danger earns the bonus at 98% of tables at stake 500 (83% without the nudging) and comes out ahead 82% of the time (72%). Hurrying the white arrow past a keeper stops the fee swallowing the reward, and the keeper learns from it. Both dials count, and steering for the table pays the steerer too: the cooperative use of steering that decision 12 was looking for.
+2. **The hero is possible but hard** (51% at best): passing on more than anyone usually means sharing everything, which comes out ahead only 27-31% of the time; 8/10 wins it when no bot passes on more.
 
 ## What this table showed (2026-11-10)
 
@@ -555,6 +557,27 @@ Candidates not used (agent's choices, open to Jason):
 - **Ponzi and pyramid schemes** pay earlier members from later members' money and need ever more coming in. The Wheel's collection is fixed and goes round, which is closer to a rotating savings and credit association, so that is the idea used when a table goes bust.
 - **The Matthew effect** (Merton, 1968): momentum brings every seat the white arrow in turn, so a table rarely shows early advantage compounding; no moment could name it honestly.
 - **Privilege as latency:** the 2017 delays were tried and not kept, so no table shows it.
+
+## Reputation discs (2026-11-10, question 6)
+
+34. **Relative reputation discs; the Patron reacts to them; yours carries to your next table** (Jason, 2026-11-10). Built as 2017 described: each seat has a small disc comparing the part of what reached that player that they have passed on so far with the table's average (`reputations(s)` in the engine; no rule uses it). ▲ on green is above average, ● on grey about (within 5 points, agent's choice, so a disc doesn't flicker over a hair's difference), ▼ on magenta below. The shapes carry it in greyscale; the scoreboard gives the word and the percentage, and How it works has a legend that says how these discs differ from Centipede & Ultimatum's rings (those judge each player on their own; these judge them against the table). Asked whether your disc should carry over, Jason asked back: "If bot strategies are like human players & will react to player feedback to reputations?" The bots didn't read the discs, so the agent proposed they would, and Jason chose "react and carry":
+    - **The Patron reads the discs.** It favours players above average when it hurries the white arrow to the most generous, and hurries the arrow past players below average from the start (before, only after two laps of little coming back), saying so once for each player.
+    - **Your disc carries** to your next table in this browser (`trunk.wheel.reputation`) and stands there for your first lap (60 seconds at the usual speed, agent's choice) until your sharing at the new table replaces it. What's happening says so when you arrive, and the end card says what carries on. The what-if replay carries it too, so it still reproduces your table.
+
+Simulated, 300 tables each at stake 500 (every bot learning, the fund shared out by sharing). Reproduce the bot tables and lone styles with `node tools/sim-wheel.mjs 300 stake`; a carried disc is the simulator option `{"carried":{"0":"below"}}`.
+
+| | Before (decision 33) | Patron reads the discs |
+|---|---|---|
+| Bot tables lasted, bonus | 89%, 73% | 93%, 84% |
+| Alone: keeps everything (net, bonus) | -497, 0% | -497, 0% |
+| Alone: shares half | -98, 65% | -90, 74% |
+| Alone: shares 8/10 | -22, 74% | +10, 83% |
+| Alone: shares everything | -160, 62% | -123, 71% |
+| Alone: shares half and stewards | -106, 76% | -102, 77% |
+
+1. **Reacting to reputations keeps more tables alive:** the Patron hurries the arrow past keepers from the start, so the fees swallow less and keepers learn sooner. Every sharing style gains (8/10 alone now comes out ahead on average at stake 500).
+2. **Stewarding adds less now** (3 points of bonus over plain half, from 11), because the Patron does part of that work.
+3. **A carried disc matters a little:** arriving below average costs a player about 6-7 tokens on average (half: -96 against -90 fresh; 8/10: +3 against +10), arriving above average about nothing. Only one bot reads it, and only for a minute.
 
 ## Open for the next session (2026-11-09)
 

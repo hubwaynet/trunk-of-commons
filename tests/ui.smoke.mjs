@@ -447,6 +447,10 @@ async function playWheel(page, label) {
   assert.equal(sum(acct.slice(0, sub)), num(acct[sub]), `${label}: the account adds up before the split (${acct.join(' | ')})`);
   assert.equal(num(acct[sub]) + sum(acct.slice(sub + 1, -1)), total, `${label}: the account adds up to what you end with`);
   assert.equal(total, num(await page.$eval('#mine', (e) => e.textContent)), `${label}: the account ends with your tokens`);
+  // reputation discs: a word on the scoreboard as well as a shape on each seat
+  assert.match(await page.$eval('#scoreboard', (e) => e.textContent), /(above|about|below) average \(\d+%\)/, `${label}: reputation words`);
+  assert.ok((await page.$$('#seats .rep-badge .rep-glyph')).length >= 2, `${label}: reputation discs with shapes`);
+  assert.match(await page.$eval('.carry-note', (e) => e.textContent), /Your reputation, (above|about|below) average, carries to your next table/, `${label}: your reputation carries`);
   const rows = await page.$$eval('#scoreboard tbody tr', (r) => r.length);
   assert.equal(rows, 6, `${label}: six seats on the scoreboard`);
 }

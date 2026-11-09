@@ -10,7 +10,7 @@
 // shows each account in full.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { createGame, step, seatAngle, quotas, whiteId, blackId, feePct, ledger, voteCostOf, passedOn, refundWeights, UNIT } from '../../engine/wheel.js';
+import { createGame, step, seatAngle, quotas, whiteId, blackId, feePct, ledger, voteCostOf, passedOn, refundWeights, reputations, CARRY_SECONDS, UNIT } from '../../engine/wheel.js';
 import { STRATEGIES, FAMILIES, botView, selectRoster } from '../../bots/wheel-bots.js';
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
 import { isUnlocked, resetControl } from '../progress-store.js';
@@ -47,6 +47,11 @@ const MINUS = '−';
 const money = (u, sign = 0) => `${sign < 0 ? MINUS : sign > 0 ? '+' : ''}${fmt(Math.abs(u))}`;
 
 let G = null;
+
+// Your reputation carries to your next table (Jason, 2026-11-10: "react and carry"), in this browser.
+const REP_KEY = 'trunk.wheel.reputation';
+const loadRep = () => { try { const r = localStorage.getItem(REP_KEY); return ['above', 'about', 'below'].includes(r) ? r : null; } catch { return null; } };
+const saveRep = (r) => { try { if (r) localStorage.setItem(REP_KEY, r); } catch { /* storage unavailable */ } };
 
 // ---------- achievements (checks in ./achievements.js, stored in this browser) ----------
 const store = achievementStore({ key: STORAGE_KEY, celebratedKey: CELEBRATED_KEY, all: ACHIEVEMENTS });
@@ -110,12 +115,14 @@ function newTable({ watch = G?.watch ?? false } = {}) {
   const names = shuffle(rng, NAMES);
   const stake = Number($('#stake')?.value) || 500; // 500 by default (Jason, 2026-11-09, decision 29)
   const dials = { vote: 0, share: 5, people: 6 }; // you start passing on half, to everyone
+  const carried = watch ? null : loadRep(); // your reputation from your last table, if any
+  const who = (id) => ({ id, carried: id === 'you' ? carried : null });
   // The bots set their dials before the clock starts, so the table shows them from the first look.
-  const blank = createGame({ players: ids.map((id) => ({ id })), seed, stake });
-  const players = ids.map((id, i) => ({ id, settings: inst[i] ? inst[i].decide(botView(blank, id)) : dials }));
+  const blank = createGame({ players: ids.map(who), seed, stake });
+  const players = ids.map((id, i) => ({ ...who(id), settings: inst[i] ? inst[i].decide(botView(blank, id)) : dials }));
   const s = createGame({ players, seed, stake });
   G = {
-    seed, keys, ids, inst, watch, s, prev: s, dials: { ...dials },
+    seed, keys, ids, inst, watch, s, prev: s, dials: { ...dials }, carried,
     name: Object.fromEntries(ids.map((id, i) => [id, id === 'you' ? 'You' : names[i]])),
     hue: Object.fromEntries(ids.map((id, i) => [id, id === 'you' ? HUMAN_HUE : HUES[i % HUES.length]])),
     paused: true, started: false, speed: Number($('#speed')?.value) || 1, lastStep: now(), timer: null, myLog: [],
@@ -135,6 +142,7 @@ function newTable({ watch = G?.watch ?? false } = {}) {
   renderPanel();
   renderScore();
   $('#extras').replaceChildren();
+  if (carried) pushEvent(`You arrive with your reputation from your last table: ${REP[carried].glyph} ${REP[carried].word}. The bots see it for your first lap (${CARRY_SECONDS(s)} seconds at the usual speed), until your sharing here replaces it.`);
   update();
   announce(watch
     ? 'New table: six bots. Press Start to set the wheel turning.'
@@ -262,6 +270,8 @@ function drawTable() {
     g.append(el('circle', { cx: x, cy: y, r: 26, class: 'seat-ring' }));
     g.append(el('circle', { cx: x, cy: y, r: 19, fill: G.hue[p.id], class: 'seat-disc' }));
     g.append(el('text', { x, y: y + 5, 'text-anchor': 'middle', class: 'seat-initial' }, p.id === 'you' ? 'YOU' : G.name[p.id][0]));
+    // the reputation disc, upper right of the seat: shape and colour (and the word on the scoreboard)
+    g.append(el('g', { class: 'rep-badge', transform: `translate(${(x + 20).toFixed(1)} ${(y - 20).toFixed(1)})` }));
     // labels sit outside the seat: to the right, to the left, or above/below at the top and bottom
     const sx = Math.sin(rad(a));
     const side = sx > 0.3 ? 'start' : sx < -0.3 ? 'end' : 'middle';
@@ -285,6 +295,7 @@ function drawTable() {
 /** Per second: balances, dials, who pays or receives, the votes and the fund. */
 function drawSeats() {
   const q = quotas(G.s);
+  const rep = reputations(G.s);
   const w = G.s.status === 'playing' ? whiteId(G.s) : null;
   G.s.players.forEach((p, i) => {
     const g = $(`#seats .seat[data-id="${CSS.escape(p.id)}"]`);
@@ -300,6 +311,8 @@ function drawSeats() {
     ring.setAttribute('class', `seat-ring${w === p.id ? ' receiving' : paying >= 9 * UNIT ? ' paying' : paying ? ' paying-light' : ''}`);
     g.classList.toggle('bust', G.s.bust.includes(p.id));
     g.classList.toggle('focused', focusId() === p.id);
+    const badge = g.querySelector('.rep-badge');
+    if (badge) badge.innerHTML = repBadge(rep[p.id]);
   });
   drawVotes();
   const fund = $('#hub-fund');
@@ -308,6 +321,23 @@ function drawSeats() {
     // after a table that didn't earn the refund, the fund is lost
     $('#hub .hub-label').textContent = G.s.status === 'ended' && !G.s.bonus ? 'lost' : 'fund';
   }
+}
+
+/**
+ * Reputation is relative, as in the 2017 design (question 6, built 2026-11-10): above, about or below
+ * the table's average part passed on. A disc with a shape, so colour is never the only cue: an up
+ * triangle on green above, a dot on grey about, a down triangle on magenta below.
+ */
+const REP = {
+  above: { word: 'above average', glyph: '▲' },
+  about: { word: 'about average', glyph: '●' },
+  below: { word: 'below average', glyph: '▼' },
+};
+function repBadge(r) {
+  if (!r) return '';
+  const shape = r === 'above' ? '<polygon points="0,-4.6 4.4,3.2 -4.4,3.2" class="rep-glyph"/>'
+    : r === 'below' ? '<polygon points="0,4.6 4.4,-3.2 -4.4,-3.2" class="rep-glyph"/>' : '<circle r="2.4" class="rep-glyph"/>';
+  return `<circle r="8.5" class="rep-disc rep-${r}"/>${shape}`;
 }
 
 /**
@@ -487,7 +517,7 @@ function renderFlowControl() {
   const opts = [['white', 'The white arrow'], ['black', 'The black arrow'], ['all', 'Everyone alike'], ...G.s.players.map((p) => [p.id, p.id === 'you' ? 'You' : G.name[p.id]])];
   box.innerHTML = `<label class="small"><b>Follow:</b> <select id="flow-focus">${opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('')}</select></label>
     <details class="flow-legend small" id="picture-key"><summary>What the picture shows</summary>
-      <p class="muted">Gold dots: the reward, crossing from the black arrow to the white. Each player's shares run in their own lane, in their colour, from them to each person they share with: thicker for more on the way. Follow picks whose shares, fee and boost stand out: whoever has the white arrow (the default), whoever has the black arrow, one player, or everyone alike. Tap a seat to follow it, and tap it again to go back to the white arrow. For the player you follow, the amount on its way is written on each band, squares carry the fee from their seat into the hub (the boost fund) and diamonds carry its boost out to their shares, each with the amount, and a receipt in What's happening adds up each of their turns at an arrow. Curved arrows beside the seats are votes: longer and thicker for stronger, dashed when against the wheel's turn. Rings: solid for the seat receiving, dashed for the seats paying.</p></details>`;
+      <p class="muted">Gold dots: the reward, crossing from the black arrow to the white. Each player's shares run in their own lane, in their colour, from them to each person they share with: thicker for more on the way. Follow picks whose shares, fee and boost stand out: whoever has the white arrow (the default), whoever has the black arrow, one player, or everyone alike. Tap a seat to follow it, and tap it again to go back to the white arrow. For the player you follow, the amount on its way is written on each band, squares carry the fee from their seat into the hub (the boost fund) and diamonds carry its boost out to their shares, each with the amount, and a receipt in What's happening adds up each of their turns at an arrow. Curved arrows beside the seats are votes: longer and thicker for stronger, dashed when against the wheel's turn. Rings: solid for the seat receiving, dashed for the seats paying. The small disc at each seat's upper right is its reputation: ▲ above the table's average part passed on, ● about average, ▼ below.</p></details>`;
   const sel = $('#flow-focus');
   sel.value = G.focus;
   sel.addEventListener('change', (e) => setFocus(e.target.value));
@@ -802,12 +832,13 @@ function renderEvents() {
 function renderScore() {
   $('#scoreboard').innerHTML = `<h2 id="score-h">The table</h2>
     <div class="log-wrap" tabindex="0" role="region" aria-label="The table, scrollable"><table class="score">
-      <thead><tr><th scope="col">Seat</th><th scope="col">Tokens</th><th scope="col">Passes on</th><th scope="col">Vote</th><th scope="col">Rewards in</th><th scope="col">Shared out</th><th scope="col">Paid in</th></tr></thead>
-      <tbody>${G.s.players.map((p) => `<tr data-id="${esc(p.id)}"><th scope="row"><span class="who"><span class="dot" style="background:${G.hue[p.id]}"></span>${esc(G.name[p.id])}</span></th><td></td><td></td><td></td><td></td><td></td><td></td></tr>`).join('')}</tbody>
+      <thead><tr><th scope="col">Seat</th><th scope="col">Tokens</th><th scope="col">Passes on</th><th scope="col">Reputation</th><th scope="col">Vote</th><th scope="col">Rewards in</th><th scope="col">Shared out</th><th scope="col">Paid in</th></tr></thead>
+      <tbody>${G.s.players.map((p) => `<tr data-id="${esc(p.id)}"><th scope="row"><span class="who"><span class="dot" style="background:${G.hue[p.id]}"></span>${esc(G.name[p.id])}</span></th><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`).join('')}</tbody>
     </table></div>
-    <p class="small muted">Rewards in: what reached them at the white arrow. Shared out: what they passed to others. Paid in: what the black side took from them.</p>`;
+    <p class="small muted">Reputation: the part of what reached them that they have passed on so far, against the table's average (within 5 points counts as about average). Rewards in: what reached them at the white arrow. Shared out: what they passed to others. Paid in: what the black side took from them.</p>`;
 }
 function updateScore() {
+  const rep = reputations(G.s);
   G.s.players.forEach((p, i) => {
     const row = $(`#scoreboard tr[data-id="${CSS.escape(p.id)}"]`);
     if (!row) return;
@@ -816,10 +847,11 @@ function updateScore() {
     const others = Math.min(st.people, G.s.n) - 1;
     c[0].textContent = fmt(shownBalance(p, i));
     c[1].textContent = st.share === 0 || others === 0 ? 'keeps all' : `${st.share}/10 to ${others}`;
-    c[2].textContent = st.vote && G.s.status === 'playing' ? `${st.vote > 0 ? '↻ clockwise' : '↺ anticlockwise'} ${Math.abs(st.vote)}` : '–';
-    c[3].textContent = fmt(p.stats.reward);
-    c[4].textContent = fmt(p.stats.sharesOut);
-    c[5].textContent = fmt(p.stats.paid);
+    c[2].textContent = rep[p.id] ? `${REP[rep[p.id]].glyph} ${REP[rep[p.id]].word} (${Math.round(100 * passedOn(p))}%)` : '–';
+    c[3].textContent = st.vote && G.s.status === 'playing' ? `${st.vote > 0 ? '↻ clockwise' : '↺ anticlockwise'} ${Math.abs(st.vote)}` : '–';
+    c[4].textContent = fmt(p.stats.reward);
+    c[5].textContent = fmt(p.stats.sharesOut);
+    c[6].textContent = fmt(p.stats.paid);
   });
 }
 
@@ -924,6 +956,7 @@ function showEnd() {
   const richest = rows[0];
   const giver = [...rows].sort((a, b) => b.p.stats.sharesOut - a.p.stats.sharesOut)[0];
   const me = s.players.find((p) => p.id === 'you');
+  const myRep = me ? reputations(s).you : null; // carries to your next table
   const any = L[s.players[0].id];
   let fundLine;
   if (s.bonus && s.refundBy === 'equal') fundLine = `The poorest player still had more than a tenth of the stake, so the boost fund was shared out: ${fmt(any.refund)} each, plus a ${s.bonus.pct}% bonus of ${fmt(any.bonus)} each from the common fund.`;
@@ -971,12 +1004,14 @@ function showEnd() {
       <tbody>${rows.map(({ p, key, net }) => { const m = L[p.id]; return `<tr><th scope="row"><span class="who"><span class="dot" style="background:${G.hue[p.id]}"></span>${esc(G.name[p.id])}</span></th><td>${key === 'you' ? 'You' : esc(STRATEGIES[key].label)}</td><td>${fmt(m.received)}</td><td>${fmt(m.sharesOut)}</td><td>${Math.round(100 * passedOn(p))}%</td><td>${fmt(m.fees)}</td><td>${fmt(m.beforeSplit)}</td><td>${s.bonus ? `+${fmt(m.refund + m.bonus)}` : '0'}</td><td>${fmt(p.balance)}</td><td class="${net >= 0 ? 'pos' : 'neg'}">${signed(tok(net))}</td></tr>`; }).join('')}</tbody>
     </table></div>
     <p class="small muted">Received: rewards and shares that reached them, before they passed anything on. Shared out: what they sent to others, the fund's boost included. Passed on: the part of what reached them that they sent to others, the boost not counted, which sets their part of the boost fund. Before the split: what they held once the last shares had landed, before the boost fund was shared out.</p>
+    ${myRep ? `<p class="carry-note"><span class="rep-inline" aria-hidden="true">${REP[myRep].glyph}</span> Your reputation, <b>${REP[myRep].word}</b>, carries to your next table: the bots there see it for your first lap.</p>` : ''}
     ${me ? whatIfHtml(me) : ''}
     ${learnedHtml(rows)}
     <p>Richest: <b>${esc(G.name[richest.p.id])}</b>. Gave the most to others: <b>${esc(G.name[giver.p.id])}</b>. Who was the hero?</p>
     <p><button class="btn" id="again" type="button">New table</button></p>
   </section>`);
   if (me) earn(endAchievements(s, G.tracker.facts));
+  if (myRep) saveRep(myRep);
   // What this table showed: up to three moments, yours first, each with a checked source
   const names = Object.fromEntries(s.players.map((p) => [p.id, p.id === 'you' ? 'you' : G.name[p.id]]));
   const moments = pickMoments(tableMoments(s, { names, facts: G.tracker?.facts ?? null, lessons: G.lessons, first: G.first }), 3);
@@ -999,10 +1034,11 @@ function whatIf(share) {
   const rng = mulberry32(G.seed);
   selectRoster(rng, 5);
   const inst = G.keys.map((k) => (k === 'you' ? null : STRATEGIES[k].create(rng)));
-  const blank = createGame({ players: G.ids.map((id) => ({ id })), seed: G.seed, stake: G.s.stake / UNIT });
+  const who = (id) => ({ id, carried: id === 'you' ? G.carried : null });
+  const blank = createGame({ players: G.ids.map(who), seed: G.seed, stake: G.s.stake / UNIT });
   // share null: your dials as you set them (a check that the replay matches the table you played)
   const mine = (x) => (share == null ? (x ?? { vote: 0, share: 5, people: G.s.n }) : { vote: x?.vote ?? 0, share, people: G.s.n });
-  const players = G.ids.map((id, i) => ({ id, settings: inst[i] ? inst[i].decide(botView(blank, id)) : mine(null) }));
+  const players = G.ids.map((id, i) => ({ ...who(id), settings: inst[i] ? inst[i].decide(botView(blank, id)) : mine(null) }));
   let s = createGame({ players, seed: G.seed, stake: G.s.stake / UNIT, record: false });
   while (s.status === 'playing') {
     const d = {};

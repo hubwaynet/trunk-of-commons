@@ -15,7 +15,7 @@ export const POOR = 0.4; // a player below this share of the stake is in danger
 export const REFORM_WINDOW = 60; // seconds after you hurried a keeper past in which their change counts
 
 // Easiest first, by the mean odds over ten styles for the human seat (tools/sim-wheel-achievements.mjs,
-// 300 tables each, 2026-11-10): 67%, 48%, 43%, 42%, 37%, 20%.
+// 300 tables each, 2026-11-10, after decision 34): 72%, 48%, 46%, 42%, 40%, 24%.
 export const ACHIEVEMENTS = [
   { id: 'bonus', name: 'Six minutes, bonus and all', text: 'The table lasted the six minutes with the poorest player above a tenth of the stake, so the boost fund was shared out.' },
   { id: 'most-passed', name: 'Passed it on', text: 'Of everyone at the table, you passed on the biggest part of what reached you.' },

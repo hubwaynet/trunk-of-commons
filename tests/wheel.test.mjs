@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createGame, step, joinPositions, quotas, feePct, transitTicks, whiteId, blackId, totalUnits, bonusPct, voteDelay, ledger, passedOn, UNIT,
+  createGame, step, joinPositions, quotas, feePct, transitTicks, whiteId, blackId, totalUnits, bonusPct, voteDelay, ledger, passedOn, reputations, UNIT,
 } from '../src/engine/wheel.js';
 import { STRATEGIES, botView, selectRoster, steer } from '../src/bots/wheel-bots.js';
 import { playTable, simulate, measure } from '../tools/sim-wheel.mjs';
@@ -160,6 +160,17 @@ test('the boost fund is shared out by sharing: a keeper gets none of it (Jason, 
   // nobody passed anything on: equal shares
   const keepers = run(fresh({ stake: 5000 }, { all: { share: 0, people: 1 } }), 400);
   assert.ok(keepers.bonus && keepers.players.every((p) => p.refund === keepers.players[0].refund && p.refund > 0));
+});
+
+test('relative reputation: above, about or below the table average part passed on (2017)', () => {
+  const s0 = fresh();
+  assert.ok(Object.values(reputations(s0)).every((r) => r === null), 'nothing before anything has reached anyone');
+  const settings = { all: { share: 5, people: 6 }, a: { share: 0, people: 1 }, b: { share: 10, people: 6 } };
+  const s = run(fresh({ stake: 2000 }, settings), 120);
+  const r = reputations(s);
+  assert.equal(r.a, 'below', 'the keeper');
+  assert.equal(r.b, 'above', 'the one passing on everything');
+  assert.equal(r.c, 'about', 'sharing half, as most do');
 });
 
 test('every token is accounted for, under every rule variant', () => {
