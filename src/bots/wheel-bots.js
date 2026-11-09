@@ -14,6 +14,7 @@ export const FAMILIES = {
   sharer: 'Sharers',
   keeper: 'Keepers',
   steerer: 'Steerers',
+  learner: 'Learners',
 };
 
 export function botView(s, id) {
@@ -230,6 +231,18 @@ export const STRATEGIES = {
       },
     }),
   },
+  learner: {
+    label: 'Learner', family: 'learner',
+    summary: 'Learns from its own results: starts at a random share, and after each turn of the wheel moves its share dial again the same way if it kept more per token of reward than the turn before, or turns back if it kept less (Win-Stay, Lose-Shift).',
+    tell: 'Its share bar moves by two tenths once a lap, just after the white arrow leaves it.',
+    create: (rng) => learner(rng),
+  },
+  reformedKeeper: {
+    label: 'Reformed Keeper', family: 'learner',
+    summary: 'Keeps everything until experience tells it otherwise: when the fees have cost it three tenths of its stake, or when others hurry the white arrow past it. Then it starts sharing with everyone, a little more every 10 seconds, up to the table\'s average.',
+    tell: 'Share bar empty, then filling after it is hurried past or its tokens fall.',
+    create: () => reformedKeeper(),
+  },
   opportunist: {
     label: 'Opportunist', family: 'keeper',
     summary: 'Shows a generous share bar, nine tenths, until the white arrow reaches it; then it drops to half while the reward flows in.',
@@ -237,6 +250,91 @@ export const STRATEGIES = {
     create: () => ({ decide: (v) => ({ vote: 0, share: v.white === v.id ? 5 : 9, people: everyone(v) }) }),
   },
 };
+
+/**
+ * Learning from experience (Jason, 2026-11-09: "Bots are standing in for human players. As long as
+ * there is feedback, and time to learn, a player should eventually adjust from experience. While the
+ * rules and fees are one feedback, player reactions are another.")
+ *
+ * A lap is the time between one white-arrow visit and the next: each lap holds one visit of each
+ * arrow, so laps compare fairly. `lapWatcher` reports when the white arrow has just left a player.
+ */
+function lapWatcher() {
+  let had = false;
+  return (v) => {
+    const has = v.white === v.id;
+    const left = had && !has;
+    had = has;
+    return left;
+  };
+}
+/** What a player made over a lap from what reached it: everything except what the black side took
+ * and what it spent on votes, per token of reward that reached it. */
+const lapMark = (v) => ({ kept: v.me.balance + v.me.stats.paid + v.me.stats.voted, reward: v.me.stats.reward });
+
+/**
+ * The Learner: Win-Stay, Lose-Shift on its own results (the rules and fees as feedback). It starts at
+ * a random share dial. After each lap it compares what it kept per token of reward with the lap
+ * before: if it did at least as well, it moves its dial again the same way; if worse, it turns back.
+ */
+function learner(rng) {
+  let share = Math.floor(rng() * 11);
+  let way = rng() < 0.5 ? -1 : 1;
+  let last = null;
+  let mark = null;
+  let result = null; // 'start', 'better' or 'worse', for the page to say why the dial moved
+  const lap = lapWatcher();
+  return {
+    decide: (v) => {
+      mark ??= lapMark(v);
+      if (lap(v)) {
+        const now = lapMark(v);
+        const reward = now.reward - mark.reward;
+        if (reward > 0) {
+          const score = (now.kept - mark.kept) / reward;
+          result = last == null ? 'start' : score < last ? 'worse' : 'better';
+          if (result === 'worse') way = -way; // lose: shift
+          last = score;
+          share = Math.max(0, Math.min(10, share + 2 * way));
+          if (share === 0 || share === 10) way = -way; // at an end, the next try goes back
+          mark = now;
+        }
+      }
+      return { vote: 0, share, people: v.n, learning: { share, way, result } };
+    },
+  };
+}
+
+/**
+ * The Reformed Keeper: keeps everything until experience tells it otherwise. Two kinds of feedback
+ * count: the fees biting (its tokens fall below 7/10 of the stake), and other players reacting
+ * (3 seconds in which the others' votes hurried the white arrow on while it had it). Then it starts
+ * sharing with everyone, 2 tenths more every 10 seconds, up to the others' average (at least half,
+ * at most 8 tenths).
+ */
+function reformedKeeper() {
+  let hurried = 0;
+  let reformed = null; // { t, why }
+  let share = 0;
+  let lastStep = 0;
+  return {
+    decide: (v) => {
+      if (!reformed) {
+        const othersNet = v.players.filter((p) => p.id !== v.id).reduce((a, p) => a + p.vote, 0);
+        if (v.white === v.id && othersNet * v.dir > 0) hurried++;
+        if (v.me.balance < 0.7 * v.stake) reformed = { t: v.t, why: 'fees' };
+        else if (hurried >= 3) reformed = { t: v.t, why: 'reactions' };
+        if (reformed) lastStep = v.t - 10;
+      }
+      if (reformed && v.t - lastStep >= 10) {
+        const others = v.players.filter((p) => p.id !== v.id);
+        const target = Math.max(5, Math.min(8, Math.round(others.reduce((a, p) => a + p.share, 0) / others.length)));
+        if (share < target) { share = Math.min(target, share + 2); lastStep = v.t; }
+      }
+      return share ? { vote: 0, share, people: v.n, reformed } : { vote: 0, share: 0, people: 1, reformed };
+    },
+  };
+}
 
 /** A varied roster: at least one from each family, the rest at random, in a random join order. */
 export function selectRoster(rng, count = 5) {

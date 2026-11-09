@@ -6,7 +6,7 @@
 - *Wheel of Fortune Sharing Game*, 2017-11-19, in the claude.ai project.
 - Game 3 ("multiplayer iterated") in *TrunK of Commons*, 2018-08-07.
 
-**Status, 2026-11-09: core rules settled and simulated; a play-test page is up** (`games/wheel/?preview`), revised after Jason's first play (decisions 14-23). The first five questions are answered (see "Decisions" below). A pure engine (`src/engine/wheel.js`), eight bots (`src/bots/wheel-bots.js`), a simulator (`tools/sim-wheel.mjs`) and tests (`tests/wheel.test.mjs`) are on main. The first findings and the proposals waiting for Jason are at the end of this file. As in the other design logs, each decision has its date and who decided.
+**Status, 2026-11-09: core rules settled and simulated; a play-test page is up** (`games/wheel/?preview`), revised after Jason's first play (decisions 14-24). The first five questions are answered (see "Decisions" below). A pure engine (`src/engine/wheel.js`), eight bots (`src/bots/wheel-bots.js`), a simulator (`tools/sim-wheel.mjs`) and tests (`tests/wheel.test.mjs`) are on main. The first findings and the proposals waiting for Jason are at the end of this file. As in the other design logs, each decision has its date and who decided.
 
 ## The idea (2017)
 
@@ -340,6 +340,33 @@ Jason's response (2026-11-09): "Shouldn't the cost of pinning the wheel outweigh
 3. **Stewarding pays its way at a tight stake.** At 650 the steward ends a little better off than the plain sharer (-137 against -142) and helps the table: its tables last 94% of the time, against 88%, and earn the bonus 59%, against 53%. At 1,000 it's a small gift to the table (+95 against +119).
 4. **Who still goes bust at 650.** Of 300 bot tables, 50 ended early, every one because a Keeper or Free Rider couldn't pay. None ended because a seat was pinned: the longest run at the black arrow is back to 10 seconds, one natural pass. With stubborn holding bots it had been 18 seconds, and 148 tables ended early.
 5. **Selfish steering no longer tempts.** The dilemma left in steering is cooperative: steering for the table helps, and at a tight stake it pays for itself.
+
+### Bots that learn (Jason, 2026-11-09)
+
+Jason asked why the Keeper never changes, given the fees. The agent's answer: every bot is a fixed strategy with a readable tell, like the entries in Axelrod's tournaments, and none learns from its own results.
+
+24. **Two learning bots** (Jason: "Both. Bots are standing in for human players. As long as there is feedback, and time to learn, a player should eventually adjust from experience. While the rules and fees are one feedback, player reactions are another."). A new family, Learners, puts at least one at every table.
+    - **The Learner** learns from its own results, which is where the rules and fees show up. It plays Win-Stay, Lose-Shift and starts at a random share dial. After each lap (each time the white arrow leaves it, so every lap holds one visit of each arrow) it compares what it kept per token of reward with the lap before. If it did at least as well, it moves its dial 2 tenths further the same way; if worse, it turns back.
+    - **The Reformed Keeper** keeps everything until either kind of feedback reaches it: the fees (its tokens fall below 7/10 of the stake), or other players' reactions (3 seconds in which the others' votes hurried the white arrow on while it had it). Then it shares with everyone, 2 tenths more every 10 seconds, up to the others' average (at least half, at most 8 tenths). You can reform it by hurrying the arrow past it.
+    - **Their reasons show** in "What's happening": "the fees have cost it three tenths of its stake", "others hurried the white arrow past it", "it kept more per token of reward last lap than the lap before, so it tries further the same way".
+
+Simulated: 400 bot tables per stake, with the new roster of at least one bot from each of the four families.
+
+| | Stake 650 | Stake 1,000 |
+|---|---|---|
+| Bot tables lasted | 87% (83% before the Learners) | 100% |
+| Bonus earned | 53% (40%) | 100% |
+| Went bust | Keeper 29, Free Rider 24 | none |
+| Learner: share dial at the start, at the end (mean) | 5.1, 6.1 | 5.1, 6.2 |
+| Learner: dial moves per table | 6 | 6 |
+| Learner: end dial, 0 to 10 tenths (tables) | 0 0 0 12 40 34 78 45 41 8 9 | 0 0 0 9 49 33 68 49 36 8 15 |
+| Reformed Keeper reformed | every table: 74% by the fees, 26% by reactions, after 94 s on average | every table, after 146 s |
+| Net: Reformed Keeper against Keeper | -190 against -404 | +41 against -89 |
+| Net: Learner | -162 (the Sharer: -162) | +67 (the Sharer: +83) |
+
+1. **The Learner finds the selfish optimum, not the cooperative one.** No Learner ends keeping (0 to 2 tenths), and the most common end is 6 tenths to everyone: passing on half of what it receives, which keeps the most per token of reward (a quarter, after the fee). It rarely learns to share everything, because the payoff for that is spread across the table rather than coming back to it. That is the share dial's temptation, made visible.
+2. **Reforming roughly halves the Keeper's loss** at 650 and turns it into a gain at 1,000. At the bigger stake the fees take longer to bite, so it reforms later.
+3. **Learning helps the table:** with a Learner or a Reformed Keeper at every table, more tables last and earn the bonus at the tight stake.
 
 ## Open for the next session (2026-11-09)
 

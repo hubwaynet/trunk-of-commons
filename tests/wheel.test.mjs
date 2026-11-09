@@ -211,6 +211,45 @@ test('smarter bots: the Self-Steerer holds the arrow back only when holding pays
   assert.equal(at({}), 0, 'at a token a degree: holding costs more than it gains, so it lets go');
 });
 
+test('the Reformed Keeper keeps until the fees bite or others hurry the arrow past it (Jason, 2026-11-09)', () => {
+  // others' reactions: three seconds of being hurried past while it has the white arrow
+  let bot = STRATEGIES.reformedKeeper.create(mulberry32(1));
+  let s = createGame({ players: ids.map((id) => ({ id, settings: id === 'b' ? { vote: 4 } : {} })), stake: 1000 });
+  const view = (st) => botView(st, 'a');
+  for (let i = 0; i < 2; i++) assert.equal(bot.decide({ ...view(s), t: i }).share, 0, 'still keeping');
+  const d = bot.decide({ ...view(s), t: 2 });
+  assert.equal(d.reformed.why, 'reactions');
+  assert.ok(d.share > 0 && d.people === 6, 'starts sharing with everyone');
+  // the fees: its tokens below 7/10 of the stake
+  bot = STRATEGIES.reformedKeeper.create(mulberry32(1));
+  s = createGame({ players: ids.map((id) => ({ id, balance: id === 'a' ? 600 : 1000 })), stake: 1000 });
+  assert.equal(bot.decide(view(s)).reformed.why, 'fees');
+});
+
+test('the Learner moves its share dial after each lap and learns away from keeping', () => {
+  let start = 0, end = 0, low = 0, moved = 0, n = 0;
+  for (let t = 0; t < 40; t++) {
+    const keys = ['learner', 'sharer', 'keeper', 'reciprocator', 'selfSteerer', 'poorSteerer'];
+    const rng = mulberry32(500 + t);
+    const inst = keys.map((k) => STRATEGIES[k].create(rng));
+    let s = createGame({ players: keys.map((k, i) => ({ id: `${k}#${i}` })), seed: t, record: false });
+    let first = null;
+    while (s.status === 'playing') {
+      const d = {};
+      s.players.forEach((p, i) => { d[p.id] = inst[i].decide(botView(s, p.id)); });
+      first ??= d['learner#0'].share;
+      s = step(s, d);
+    }
+    const last = s.players[0].settings.share;
+    start += first; end += last; n++;
+    if (last <= 2) low++;
+    if (last !== first) moved++;
+  }
+  assert.ok(moved >= 30, `the dial moved at ${moved} of 40 tables`);
+  assert.ok(low <= 4, `${low} of 40 ended keeping or nearly`);
+  assert.ok(end / n >= 4 && end / n <= 8, `ends near the middle (${(end / n).toFixed(1)}, from ${(start / n).toFixed(1)})`);
+});
+
 // The old holding logic (pay just enough to keep the arrow in your segment), and the Self-Steerer bot.
 const holder = { create: () => ({ decide: (v) => ({ vote: steer(v, v.id, 9), share: 5, people: v.n }) }) };
 const heldBy = (who, opts) => {

@@ -101,6 +101,7 @@ function tick() {
   if (G.s.status !== 'playing') return;
   const d = {};
   G.ids.forEach((id, i) => { d[id] = G.inst[i] ? G.inst[i].decide(botView(G.s, id)) : { ...G.dials }; });
+  G.decided = d; // the learners say why they moved (shown in What's happening)
   G.prev = G.s;
   G.s = step(G.s, d);
   G.lastStep = now();
@@ -562,7 +563,7 @@ function noteEvents() {
     if (p.id === 'you') continue;
     const was = G.last[p.id];
     const st = p.settings;
-    if (was.share !== st.share || was.people !== st.people) pushEvent(`${G.name[p.id]} now passes on ${st.share}/10 to ${Math.min(st.people, s.n) - 1} others.`);
+    if (was.share !== st.share || was.people !== st.people) pushEvent(`${G.name[p.id]} now ${st.share === 0 || st.people === 1 ? 'keeps everything' : `passes on ${st.share}/10 to ${Math.min(st.people, s.n) - 1} others`}${whyMoved(p.id, was)}.`);
     if (!was.vote && st.vote) pushEvent(`${G.name[p.id]} votes ${st.vote > 0 ? 'clockwise' : 'anticlockwise'} ${Math.abs(st.vote)} (${Math.sign(st.vote) === G.prev.dir ? 'with the wheel' : 'against it'}).`);
   }
   if (G.prev.dir !== s.dir) pushEvent(`Together the votes turned the wheel round: now ${s.dir > 0 ? 'clockwise' : 'anticlockwise'}.`, true);
@@ -573,6 +574,19 @@ function noteEvents() {
     pushEvent(`${G.name[poor.id]} has fallen below a tenth of the stake: the bonus is at risk.`, true);
   }
   if (s.status === 'playing' && t % 60 === 0 && t > 0) announce(`${(s.maxTicks - t) / 60} minute${s.maxTicks - t === 60 ? '' : 's'} left.`);
+}
+/** Why a learning bot moved its dial (Jason, 2026-11-09: players adjust from feedback, the rules
+ * and fees on one side, other players' reactions on the other). Empty for the fixed strategies. */
+function whyMoved(id, was) {
+  const d = G.decided?.[id];
+  if (d?.reformed && was.share === 0) return d.reformed.why === 'fees'
+    ? ': the fees have cost it three tenths of its stake'
+    : ': others hurried the white arrow past it';
+  const r = d?.learning?.result;
+  if (r === 'better') return ': it kept more per token of reward last lap than the lap before, so it tries further the same way';
+  if (r === 'worse') return ': it kept less per token of reward last lap than the lap before, so it turns back';
+  if (r === 'start') return ': trying a change after its first lap';
+  return '';
 }
 function renderEvents() {
   const ul = $('#events');
