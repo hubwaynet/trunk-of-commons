@@ -6,7 +6,7 @@
 - *Wheel of Fortune Sharing Game*, 2017-11-19, in the claude.ai project.
 - Game 3 ("multiplayer iterated") in *TrunK of Commons*, 2018-08-07.
 
-**Status, 2026-11-09: core rules settled and simulated; a play-test page is up** (`games/wheel/?preview`), revised after Jason's first play (decisions 14-26) and his second (27-28). The first five questions are answered (see "Decisions" below). A pure engine (`src/engine/wheel.js`), eight bots (`src/bots/wheel-bots.js`), a simulator (`tools/sim-wheel.mjs`) and tests (`tests/wheel.test.mjs`) are on main. The first findings and the proposals waiting for Jason are at the end of this file. As in the other design logs, each decision has its date and who decided.
+**Status, 2026-11-09: core rules settled and simulated; a play-test page is up** (`games/wheel/?preview`), revised after Jason's first play (decisions 14-26) and his second (27-34): the fund shared out by sharing, a 500 stake, a what-if, achievements, What this table showed and reputation discs. The first five questions are answered (see "Decisions" below). A pure engine (`src/engine/wheel.js`), eight bots (`src/bots/wheel-bots.js`), a simulator (`tools/sim-wheel.mjs`) and tests (`tests/wheel.test.mjs`) are on main. The first findings and the proposals waiting for Jason are at the end of this file. As in the other design logs, each decision has its date and who decided.
 
 ## The idea (2017)
 
@@ -579,10 +579,20 @@ Simulated, 300 tables each at stake 500 (every bot learning, the fund shared out
 2. **Stewarding adds less now** (3 points of bonus over plain half, from 11), because the Patron does part of that work.
 3. **A carried disc matters a little:** arriving below average costs a player about 6-7 tokens on average (half: -96 against -90 fresh; 8/10: +3 against +10), arriving above average about nothing. Only one bot reads it, and only for a minute.
 
-## Open for the next session (2026-11-09)
+## Open for the next session (2026-11-10)
 
-1. **Jason's feedback from play** comes first. Questions the page is meant to answer: does steering feel worth doing; is the stake right (650, 800, 1,000); is the picture readable on a phone; does the share-dial temptation show? (First play done, decisions 14-20; the votes finding above waits for Jason.)
-2. **Give steering more leverage**, if play confirms it's weak (decision 12). Options to simulate, one at a time: letting votes slow the wheel as well as speed it (a lower minimum speed), with the pinned player protected (`blackRun`) if holding returns; a tighter stake; tuning the steering bots so their wishes don't bankrupt them.
-3. **Sharpening the sharing temptation**, if wanted: the fee and boost tables, or how the refund is shared.
-4. **For the page:** achievements (ordered by simulated odds, as in Games 1 and 2), "What this table showed" (question 9: check each source first), reputation discs (question 6).
-5. The deferred questions: invitations, points between tables (7), the name (10).
+1. **Jason's play of this build** comes first: stake 500, the fund shared out by sharing, following the white arrow, the what-if, achievements, What this table showed, and the reputation discs with the Patron reacting. Questions it should answer: does 500 feel tight but fair; do the discs and the Patron's reactions read clearly; are the achievements in the right order for a person (the odds are from simulated styles); do the moments say something worth knowing?
+2. **Agent's choices made this session, for Jason to confirm or change:**
+   - the share-out measure: the part of what reached each player that they passed on (decision 27)
+   - the picker's list of stakes (500, 550, 650, 800, 1,000; decision 29)
+   - "speaks" read as one line per bot per lap in What's happening, dial changes and votes included (decision 33)
+   - achievements count only at stake 500; their names and what they ask
+   - three moments on What this table showed; trickle-down, Ponzi, the Matthew effect and privilege as latency not named (reasons above)
+   - the reputation discs' 5-point "about average" band, and a carried disc standing for one lap (decision 34)
+3. **Ideas, not decided:**
+   - more bots reading reputations (only the Patron does); the Reciprocator could follow above-average players more, the Lifeguard could weigh a rescue by reputation
+   - the Learner also learning from reactions, and from the share-out at the end (bots learn lap by lap, so they never see decision 27's reward for sharing; a person can)
+   - a nudging bot: sharing 8/10 and hurrying the arrows past keepers and players in danger is the best play found (bonus at 98% of tables at stake 500), and no bot plays it
+4. **Deferred questions:** invitations (now that reputations exist; against the 2026-11-06 rule "no choosing the bots"), points between tables (7), the name (10, before launch).
+5. **Tidy-ups:** M6 (small seat labels on phones), `steer()` still predicts speed under the first rule, the knob to shared UI if another game needs it, and the reputation disc could move if it crowds a seat label on small phones.
+6. **Later:** the larger framework (token economy, governance), multiplayer, commons connected between tables, then legal review and onboarding.
