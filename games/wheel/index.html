@@ -29,6 +29,7 @@
       <div class="eyebrow">Game 3 · Level 3 · Play-test</div>
       <h1>The Wheel</h1>
     </div>
+    <div class="ach-progress" id="ach-progress"></div>
     <div class="top-actions">
       <button class="btn ghost" id="new-game" type="button">New table</button>
       <button class="btn ghost" id="watch-toggle" type="button" aria-pressed="false">Watch the bots</button>
@@ -47,6 +48,11 @@
       <p><b>Last six minutes.</b> The table ends early if anyone can't pay. If it lasts and the poorest player still has a tenth of the stake, the boost fund is shared out by sharing: in proportion to how much of what reached each player they passed on, so a keeper gets none of it. Everyone also gets a bonus from the common fund.</p>
       <p class="fold-end"><label class="test-setting">Play-test stake <select id="stake"><option value="500">500 tokens each</option><option value="550">550 tokens each</option><option value="650">650 tokens each</option><option value="800">800 tokens each</option><option value="1000">1,000 tokens each</option></select></label> <span class="muted small">Lower stakes make the six minutes harder to reach: at 500 your dials decide most.</span> <button class="btn ghost" type="button" data-collapse="how-it-works">Collapse and play</button></p>
     </section>
+  </details>
+
+  <details class="fold" id="achievements-list">
+    <summary><h2>Achievements</h2></summary>
+    <section class="ach-list" id="ach-list" aria-label="Achievements: what each asks and what you've done"></section>
   </details>
 
   <div class="game wheel-game">

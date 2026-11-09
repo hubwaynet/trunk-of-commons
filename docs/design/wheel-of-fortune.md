@@ -502,6 +502,38 @@ After the stake re-check, the agent put its open choices to Jason one at a time,
 32. **No comparisons in receipts; a what-if on the end card** (Jason, 2026-11-10, as recommended). The end card replays your table (same seed, the same bots from the same start, your votes as you made them) with one other Pass on setting held all table to everyone: 8/10 if you passed on less than 7/10 on average, otherwise half. It says what you'd have ended with and how the table would have ended, and that the bots react, so one table can go either way. Before showing it, the page replays your own dials and checks they reproduce your table exactly (an error otherwise, which the play-through test catches).
 33. **Each bot speaks at most once a lap** (Jason, 2026-11-10; the agent had recommended a quieter Reciprocator only). A lap starts as the white arrow leaves the bot. A second lesson in the same lap is not said (`teach()`), and the Reciprocator now speaks as the arrow leaves it, saying where following the others has taken it since it last spoke ("shares more, 7/10 (from 5/10)"). On the page, a bot's dial change or vote gets a line only if it hasn't spoken that lap (agent's reading of "speaks": everything still shows on the seats and in the picture). At stake 500: lessons fall from about 16 a table to 13 (the Reciprocator's from 7.5 to 3.3), and all bot lines in What's happening from 36 to 26.
 
+## Achievements (2026-11-10)
+
+Six achievements, ordered easiest first by simulated odds against the learning bots (agent's design, for Jason to judge in play). The checks are pure (`src/ui/wheel/achievements.js`): a tracker watches each second as the page steps the table, and the finished table is judged at the end. They count only at the play-test's default stake, 500 (agent's choice: at 800 and 1,000 the six minutes are nearly certain). All six play fireworks and show "The Wheel mastered"; there is no level after this one yet, so they unlock nothing.
+
+| | Achievement | Asks |
+|---|---|---|
+| 1 | Six minutes, bonus and all | The table lasts the six minutes and earns the bonus. |
+| 2 | Passed it on | You passed on the biggest part of what reached you, of everyone at the table. |
+| 3 | Lifeline | You hurried the black arrow past a player below four tenths of the stake, and the table lasted. |
+| 4 | Changed a mind | You hurried the white arrow past a player keeping everything, and within a minute they started passing on to others. |
+| 5 | Came out ahead | You ended with more than your stake. |
+| 6 | Who was the hero? | You passed on the biggest part, came out ahead, and the table earned the bonus: 2017's question, answered both ways at once. |
+
+Odds per style in your seat, 300 tables each at stake 500 against five random learning bots. Reproduce with `node tools/sim-wheel-achievements.mjs 300`. "Nudges" means hurrying the white arrow (strength 4) past a player who keeps everything (share 0, or sharing only with themselves) and the black arrow past a player below four tenths of the stake; "stewards" is the older `steward()`, which misses a Free Rider (half, but only to itself).
+
+| Style | Bonus | Passed it on | Lifeline | Changed a mind | Ahead | Hero |
+|---|---|---|---|---|---|---|
+| Keeps everything | 0% | 0% | 0% | 0% | 0% | 0% |
+| Shares half | 65% | 0% | 0% | 0% | 39% | 0% |
+| Shares 8/10 | 74% | 57% | 0% | 0% | 72% | 41% |
+| Shares everything | 62% | 100% | 0% | 0% | 31% | 31% |
+| Half, stewards | 76% | 0% | 89% | 58% | 23% | 0% |
+| 8/10, stewards | 74% | 57% | 74% | 59% | 62% | 34% |
+| Everything, stewards | 51% | 100% | 34% | 58% | 18% | 18% |
+| Half, nudges | 91% | 0% | 98% | 83% | 14% | 0% |
+| **8/10, nudges** | **96%** | 60% | 82% | 83% | **82%** | **49%** |
+| Everything, nudges | 82% | 100% | 56% | 82% | 27% | 27% |
+| Mean over the styles | 67% | 48% | 43% | 42% | 37% | 20% |
+
+1. **Nudging keepers is the best play found so far.** Sharing 8/10 and hurrying the arrows past keepers and players in danger earns the bonus at 96% of tables at stake 500 (74% without the nudging) and comes out ahead 82% of the time (72%). Hurrying the white arrow past a keeper stops the fee swallowing the reward, and the keeper learns from it. Both dials count, and steering for the table pays the steerer too: the cooperative use of steering that decision 12 was looking for.
+2. **The hero is possible but hard** (49% at best): passing on more than anyone usually means sharing everything, which comes out ahead only 27-31% of the time; 8/10 wins it when no bot passes on more.
+
 ## Open for the next session (2026-11-09)
 
 1. **Jason's feedback from play** comes first. Questions the page is meant to answer: does steering feel worth doing; is the stake right (650, 800, 1,000); is the picture readable on a phone; does the share-dial temptation show? (First play done, decisions 14-20; the votes finding above waits for Jason.)

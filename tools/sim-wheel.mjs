@@ -55,12 +55,12 @@ export const LEARNERS = {
 const styleOf = (k) => STRATEGIES[k] ?? LEARNERS[k];
 
 /**
- * Plays one table. keys are strategy keys (from the era's bots) or learner styles. onTick(prev, s, d)
- * sees every second, for measurements.
+ * Plays one table. keys are strategy keys (from the era's bots), learner styles, or keys of `styles`.
+ * onTick(prev, s, d) sees every second, for measurements.
  */
-export function playTable(keys, seed, opts = {}, era = 'now', onTick = null) {
+export function playTable(keys, seed, opts = {}, era = 'now', onTick = null, styles = null) {
   const bots = ERAS[era].strategies;
-  const style = (k) => bots[k] ?? LEARNERS[k];
+  const style = (k) => bots[k] ?? styles?.[k] ?? LEARNERS[k];
   const rng = mulberry32(seed);
   const ids = keys.map((k, i) => `${k}#${i}`);
   const inst = ids.map((id, i) => style(keys[i]).create(rng));

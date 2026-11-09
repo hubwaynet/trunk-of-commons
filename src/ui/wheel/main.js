@@ -13,9 +13,14 @@
 import { createGame, step, seatAngle, quotas, whiteId, blackId, feePct, ledger, voteCostOf, passedOn, refundWeights, UNIT } from '../../engine/wheel.js';
 import { STRATEGIES, FAMILIES, botView, selectRoster } from '../../bots/wheel-bots.js';
 import { mulberry32, newSeed, shuffle } from '../../engine/rng.js';
-import { isUnlocked } from '../progress-store.js';
+import { isUnlocked, resetControl } from '../progress-store.js';
 import { announce } from '../announce.js';
-import { NAMES, HUES, HUMAN_HUE, reduceMotion, el, esc, h, signed, rememberToggle, wireCollapse, showTable } from '../common.js';
+import {
+  NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, h, signed, toast, rememberToggle, wireCollapse, showTable,
+  achievementStore, progressHtml, achievementsCardHtml, achievementsListHtml, showAchievementsButton,
+} from '../common.js';
+import { fireworks } from '../fireworks.js';
+import { ACHIEVEMENTS, STORAGE_KEY, CELEBRATED_KEY, ACHIEVEMENT_STAKE, createTracker, endAchievements } from './achievements.js';
 import { createKnob } from './knob.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -40,6 +45,52 @@ const MINUS = '−';
 const money = (u, sign = 0) => `${sign < 0 ? MINUS : sign > 0 ? '+' : ''}${fmt(Math.abs(u))}`;
 
 let G = null;
+
+// ---------- achievements (checks in ./achievements.js, stored in this browser) ----------
+const store = achievementStore({ key: STORAGE_KEY, celebratedKey: CELEBRATED_KEY, all: ACHIEVEMENTS });
+// Nothing after Level 3 yet: all six say the Wheel is mastered.
+const UNLOCK = () => ({ unlocked: false, unlockLabel: 'Wheel mastered', unlockHref: '' });
+const ACH_NOTE = `Easiest first, judged from simulated tables. They count at the ${ACHIEVEMENT_STAKE} stake.`;
+const celebrate = (duration) => fireworks({ colors: CELEBRATION_COLOURS, duration });
+function earn(ids) {
+  const fresh = store.add(ids);
+  for (const id of fresh) G.earned.add(id);
+  if (fresh.length) toast(`Achievement: ${fresh.map((id) => ACHIEVEMENTS.find((a) => a.id === id).name).join(' · ')}`);
+  if (fresh.length && store.complete() && store.firstCelebration()) G.allNow = true;
+}
+function renderProgress() {
+  const box = document.getElementById('ach-progress');
+  if (!box) return;
+  const have = store.load();
+  box.innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(ACHIEVEMENTS, have, UNLOCK())}`;
+  box.append(showAchievementsButton());
+  const list = document.getElementById('ach-list');
+  if (!list) return;
+  list.innerHTML = achievementsListHtml(ACHIEVEMENTS, have, G?.earned ?? new Set(), { note: ACH_NOTE, ...UNLOCK() });
+  list.querySelector('.progress')?.append(resetControl({
+    game: 'wheel', keys: store.keys, count: ACHIEVEMENTS.filter((a) => have.has(a.id)).length,
+    onChange: (reset) => {
+      if (reset) { store.forget(); if (G) G.earned = new Set(); toast('Wheel achievements reset.'); }
+      renderProgress();
+    },
+  }));
+}
+/** The achievements card under the end card, and the mastered card once all six are earned. */
+function achievementsCards() {
+  const have = store.load();
+  const parts = [];
+  if (store.complete(have)) {
+    const card = h(`<section class="card extra unlocked" aria-labelledby="all-h"><div class="eyebrow">All achievements</div>
+      <h3 id="all-h">The Wheel mastered</h3>
+      <p>You've kept a table going to the bell with the bonus, passed on more than anyone, thrown a lifeline, changed a keeper's mind, come out ahead, and been the sharer and the winner at once.</p>
+      <div class="btn-row"><button class="btn ghost" type="button" id="celebrate-again">Celebrate again</button></div></section>`);
+    card.querySelector('#celebrate-again').addEventListener('click', () => celebrate(5200));
+    parts.push(card);
+  }
+  const off = G.s.stake / UNIT !== ACHIEVEMENT_STAKE ? ` This table's stake was ${fmt(G.s.stake)}, so it didn't count: pick ${ACHIEVEMENT_STAKE} in How it works.` : '';
+  parts.push(h(achievementsCardHtml(ACHIEVEMENTS, have, G.earned, { note: ACH_NOTE + off, ...UNLOCK() })));
+  return parts;
+}
 
 // ---------- lock ----------
 const previewMode = () => Boolean(globalThis.TRUNK_PREVIEW) || /[?&]preview\b/.test(globalThis.location?.search ?? '');
@@ -73,7 +124,9 @@ function newTable({ watch = G?.watch ?? false } = {}) {
     // with an option to switch to black arrow or select any bot to view").
     focus: 'white', knobs: null, endAnim: null, endTimer: null,
     first: settingsOf(s), lessons: Object.fromEntries(ids.map((id) => [id, []])), spoke: {},
+    tracker: watch ? null : createTracker('you'), earned: G?.earned ?? new Set(), allNow: false,
   };
+  renderProgress();
   drawTable();
   renderFlowControl();
   renderDials();
@@ -122,6 +175,7 @@ function tick() {
   G.prev = G.s;
   G.s = step(G.s, d);
   G.lastStep = now();
+  G.tracker?.tick(G.prev, G.s); // for the achievements
   // what each player paid in fees and drew in boost this second, for the picture
   G.fx = Object.fromEntries(G.s.players.map((p, i) => [p.id, { fee: p.stats.fees - G.prev.players[i].stats.fees, boost: p.stats.boost - G.prev.players[i].stats.boost }]));
   // Your vote fades back to 0, one step a second (Jason, 2026-11-09: "The direction dial strength
@@ -920,8 +974,11 @@ function showEnd() {
     <p>Richest: <b>${esc(G.name[richest.p.id])}</b>. Gave the most to others: <b>${esc(G.name[giver.p.id])}</b>. Who was the hero?</p>
     <p><button class="btn" id="again" type="button">New table</button></p>
   </section>`);
-  $('#extras').replaceChildren(card);
+  if (me) earn(endAchievements(s, G.tracker.facts));
+  $('#extras').replaceChildren(card, ...(me ? achievementsCards() : []));
+  renderProgress();
   card.querySelector('#again').addEventListener('click', () => { newTable(); showTable({ ifHidden: true }); });
+  if (G.allNow) { G.allNow = false; setTimeout(() => celebrate(5200), 400); toast('All six achievements: the Wheel mastered!'); }
   announce(`${lasted ? 'The table lasted the six minutes.' : `The table ended at ${at}: ${bust.join(' and ')} couldn't pay.`} ${fundLine}${me ? ` You end with ${fmt(me.balance)}, ${signed(tok(me.balance - me.start))} on your stake.` : ''}`);
   update();
 }
@@ -999,6 +1056,7 @@ function locked() {
 }
 
 rememberToggle('how-it-works', 'trunk.wheel');
+rememberToggle('achievements-list', 'trunk.wheel');
 wireCollapse();
 // "Collapse and play" puts focus on Start (the panel is part of the page grid here, so it can't take focus).
 for (const btn of document.querySelectorAll('[data-collapse]')) btn.addEventListener('click', () => $('#pause')?.focus({ preventScroll: true }));
