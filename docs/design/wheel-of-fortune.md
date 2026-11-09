@@ -642,6 +642,11 @@ How big should the common fund start? 60 players of each style, 30 tables each a
 1. **Most players fill the common fund.** A table that loses its boost fund gives back far more (1,500 to 2,500) than a bonus table takes (80 to 110), so ordinary play builds it up (a mixed player's common fund ends near 25,000 after 30 tables).
 2. **Only near-perfect play drains it:** sharing 8/10 and nudging earns the bonus 96% of the time and gives little back. At a start of 3,000, every player's bonus was paid in full for 20 tables, and the best player's for 30 in 3 cases out of 4; at 5,000, always. 3,000 keeps the fund finite enough that a long run of perfect tables can feel it, as Rising Pool's Commons does.
 
+45. **The links settled, and the roadmap on the home page** (Jason, 2026-11-10: "All those github links work well for reading incoming comms & contributions. Could an additional link to the contact page at hubway.net be offered for those wanting to talk to me?" ... "Home page bottom card for a roadmap with links to github").
+    - GitHub stays for feedback (a new issue) and for following the project (the repository).
+    - A third link, "talk to Jason", goes to his contact page, https://www.hubway.net/contact/.
+    - The roadmap and its three links are built once (`roadmapHtml()` in `src/ui/common.js`). They show on the home page as a card below the three levels, and on CommonWeal's mastered card.
+
 ## Open for the next session (2026-11-10)
 
 1. **Jason's play of this build** comes first: the slower finale and celebrations (decisions 35-36), stake 500, the fund shared out by sharing, following the white arrow, the what-if, achievements, What this table showed, and the reputation discs with the Patron reacting. Questions it should answer: does 500 feel tight but fair; do the discs and the Patron's reactions read clearly; are the achievements in the right order for a person (the odds are from simulated styles); do the moments say something worth knowing?

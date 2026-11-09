@@ -23,6 +23,8 @@ Games 1 and 2 are the learning levels. Game 3 is unlocked by achievements and is
 3. **Then:** invitations to multiplayer tables, by reputation (a progressive web app).
 4. **Later:** a platform for more games, with commons connected between tables and games, a token economy and governance, after legal review.
 
+Tell us what you think by [opening an issue](https://github.com/hubwaynet/trunk-of-commons/issues/new?title=Feedback), follow the project here (Watch, then Releases), or [talk to Jason](https://www.hubway.net/contact/) at hubway.net.
+
 ## Run it
 
 No build step. Serve the folder and open the game:
