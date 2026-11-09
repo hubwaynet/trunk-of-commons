@@ -561,10 +561,14 @@ function renderProgress() {
   if (store.complete(have)) unlock('centipede'); // players who finished before unlocks were stored
   const box = document.getElementById('ach-progress');
   box.innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(ACHIEVEMENTS, have, UNLOCK())}`;
-  box.append(showAchievementsButton());
+  // Show on the left, Reset on the right, well apart (Jason, 2026-11-09).
+  const row = document.createElement('div');
+  row.className = 'ach-actions';
+  row.append(showAchievementsButton());
+  box.append(row);
   const list = document.getElementById('ach-list');
   if (list) list.innerHTML = achievementsListHtml(ACHIEVEMENTS, have, G?.earned ?? new Set(), { note: 'Easiest first.', ...UNLOCK() });
-  box.append(resetControl({
+  row.append(resetControl({
     game: 'risingPool', keys: store.keys, count: ACHIEVEMENTS.filter((a) => have.has(a.id)).length,
     onChange: (reset) => { if (reset) { store.forget(); G.earned = new Set(); toast('Rising Pool achievements reset.', 6000); } render(); },
   }));
