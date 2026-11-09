@@ -84,15 +84,19 @@ test('sharing only with yourself: a loophole as written, ordinary keeping with s
   assert.equal(kept.stats.fees, Math.floor(11 * UNIT * 0.95)); // kept: the 95% fee, as if keeping
 });
 
-test('votes: zero allowed, the net sets the direction, and 2017 momentum needs more than 6 to reverse', () => {
-  let s = step(fresh({}, { a: { vote: -2 } }));
-  assert.equal(s.dir, -1);
+test('votes: zero allowed; momentum needs more than one player can vote to turn the wheel back', () => {
+  let s = step(fresh({}, { a: { vote: -9 } }));
+  assert.equal(s.dir, 1); // one player's strongest vote can't turn it back (Jason, 2026-11-09)
   assert.equal(s.speed, 6);
-  assert.equal(bal(s, 'a'), s.stake - 2 * UNIT);
+  assert.equal(bal(s, 'a'), s.stake - 9 * UNIT); // and it still costs
+  s = step(fresh({}, { a: { vote: -5 }, b: { vote: -5 } }));
+  assert.equal(s.dir, -1); // two together can
+  assert.equal(s.speed, 10);
   let m = step(fresh({ reverseAbove: 6 }, { a: { vote: -6 } }));
-  assert.equal(m.dir, 1); // 6 against isn't enough
+  assert.equal(m.dir, 1); // 2017: 6 against isn't enough...
   m = step(fresh({ reverseAbove: 6 }, { a: { vote: -7 } }));
-  assert.equal(m.dir, -1);
+  assert.equal(m.dir, -1); // ...but one player alone can do it
+  assert.equal(step(fresh({ reverseAbove: 0 }, { a: { vote: -1 } })).dir, -1); // the first core
   const forced = step(fresh({ minVote: 1 }));
   assert.equal(forced.fund.votes, 6 * UNIT); // 2017: no neutral, everyone pays 1
 });
@@ -148,19 +152,27 @@ test('tables replay exactly from their seed', () => {
   assert.equal(a.t, b.t);
 });
 
-test('the self-steerer holds the white arrow in its own segment', () => {
+const heldBySteerer = (opts) => {
   const keys = ['keeper', 'keeper', 'selfSteerer', 'keeper', 'keeper', 'keeper'];
   const rng = mulberry32(1);
   const inst = keys.map((k) => STRATEGIES[k].create(rng));
-  let s = createGame({ players: keys.map((k, i) => ({ id: `${k}#${i}` })), stake: 2000 });
+  let s = createGame({ players: keys.map((k, i) => ({ id: `${k}#${i}` })), stake: 2000, ...opts });
   let held = 0;
   for (let t = 0; t < 120 && s.status === 'playing'; t++) {
     const d = {};
     s.players.forEach((p, i) => { d[p.id] = inst[i].decide(botView(s, p.id)); });
     s = step(s, d);
-    if (t > 40 && whiteId(s) === 'selfSteerer#2') held++;
+    if (t >= 60 && whiteId(s) === 'selfSteerer#2') held++;
   }
-  assert.ok(held >= 70, `held ${held} of 79 seconds`);
+  return held;
+};
+
+test('with any vote able to turn the wheel, the self-steerer holds the white arrow in its segment', () => {
+  assert.ok(heldBySteerer({ reverseAbove: 0 }) >= 50, 'held most of the last 60 seconds');
+});
+
+test('with momentum above one player\'s vote, the arrow swings round: no more than a fair share', () => {
+  assert.ok(heldBySteerer({}) <= 12, 'about 10 of 60 seconds');
 });
 
 test('every strategy has a label, family, summary and tell, and decides valid dials', () => {
@@ -190,23 +202,12 @@ test('a table that goes bust keeps no refund and earns no bonus', () => {
 test('blackRun: after 10 seconds in a row at the black arrow, a player pays the grey amount', () => {
   // Hold the wheel still-ish by rocking it: a votes against the wheel every second.
   const play = (blackRun) => {
-    let s = fresh({ blackRun }, { all: { share: 0, people: 1 } });
+    let s = fresh({ blackRun, reverseAbove: 0 }, { all: { share: 0, people: 1 } });
     for (let t = 0; t < 30; t++) s = step(s, { a: { vote: t % 2 ? 6 : -6 } });
     return s.players.find((p) => p.id === 'f').stats.paid / UNIT;
   };
   assert.equal(play(Infinity), 30 * 9); // pinned at the black arrow for 30 seconds
   assert.equal(play(10), 10 * 9 + 20 * 1);
-});
-
-test('reverseAfter: the wheel must turn this far after a reversal before turning back again', () => {
-  let s = fresh({ reverseAfter: 60 }, { a: { vote: -1 } });
-  s = step(s); // first reversal is allowed
-  assert.equal(s.dir, -1);
-  s = step(s, { a: { vote: 1 } }); // only 6 degrees since: not yet
-  assert.equal(s.dir, -1);
-  for (let i = 0; i < 9; i++) s = step(s, { a: { vote: 0 } });
-  s = step(s, { a: { vote: 1 } }); // 60 degrees turned: allowed
-  assert.equal(s.dir, 1);
 });
 
 test('2017 delays: darker seats and stronger votes wait longer', () => {
@@ -216,7 +217,7 @@ test('2017 delays: darker seats and stronger votes wait longer', () => {
   assert.equal(voteDelay(s, at('f'), 1), 2); // at the black arrow: 1.5 s, rounded
   assert.equal(voteDelay(s, at('a'), 9), 2);
   assert.equal(voteDelay(s, at('f'), 9), 3);
-  let t = step(fresh({ delays: true }, { f: { vote: -1 } }));
+  let t = step(fresh({ delays: true, reverseAbove: 0 }, { f: { vote: -1 } }));
   assert.equal(t.dir, 1); // f's vote hasn't arrived yet
   t = step(step(t));
   assert.equal(t.dir, -1);

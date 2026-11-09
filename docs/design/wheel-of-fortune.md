@@ -133,11 +133,12 @@ These were the prompts for the first session. Questions 1-5 are answered (see "D
 8. **Sharing rewards is Game 3's main lesson** (Jason): "Sharing rewards is an extended lesson in game 3, for the common good, compared to game 2, which had it a little to last the distance."
 9. **The self-share loophole is closed** (Jason, 2026-11-09: "close the self-share loop hole"). The slice a player shares with themselves counts as kept (`selfShare: 'kept'` is now the default), so the fee and the boost follow only what reaches other people, and sharing only with yourself is keeping. 2017 as written stays available as `selfShare: 'cascade'`.
 10. **The economy: the refund, and a stake of 1,000** (Jason, 2026-11-09: "ok Refund in equal shares, with a stake of 1,000"). At full time, if the poorest player still holds at least 10% of the stake, the game's boost fund is shared equally among the players and the common fund adds the 2017 bonus (2% to 10% of each stake, by the poorest player's share). A table that busts loses its fund. `endBonus: 'refund'` and `stake: 1000` are now the defaults. The agent's note: with the refund, the fee works like a deposit returned when the table finishes; six keepers finish 40 ahead, though keeping still loses against the bots (-229). Refunding by what each shared was the alternative; Jason kept equal shares, in line with 2018's equal Universal Distribution.
+11. **Momentum too strong for one player to hold back** (Jason, 2026-11-09: "Make momentum too difficult for one player to hold back"). Turning the wheel back needs a net vote of more than 9, more than any one player can cast (`reverseAbove: 9`, the default). Momentum carries the arrow round to every seat, as Jason first conceived it ("When I first conceived this I thought momentum would swing the arrow around"); only two or more players together can turn it back. 2017's threshold of 6 was below one player's strongest vote (9), so one player could always reverse it alone and hold the arrow (100% of the time in simulation). The reversal-limit experiment was removed; the delays and `blackRun` stay as options for when gangs can hold the arrow.
 
 ## The core as built (2026-11-09)
 
 - **Seats** by join order: the initiator at the white arrow, then alternating sides, the last to join at the black arrow (six players sit at seats 0, 1, 5, 2, 4, 3).
-- **Each second:** votes are paid into the boost fund and their sum sets the direction (any net vote turns the wheel round) and speed (at least 6° a second); the seat holding the black arrow pays 9 and its two neighbours 1 each into the reward; the wheel turns; parcels due arrive.
+- **Each second:** votes are paid into the boost fund and their sum sets the speed (at least 6° a second) and, if it is more than 9 against the wheel, turns it round (decision 11; it was any net vote at first); the seat holding the black arrow pays 9 and its two neighbours 1 each into the reward; the wheel turns; parcels due arrive.
 - **The reward** takes 2 seconds to cross and lands on whoever is at the white arrow when it arrives.
 - **Receiving:** each player's arrivals for the second are added up and settled once. They pass on (share dial) tenths to the nearest people (people dial), keep the rest and pay the 2017 fee on what they keep (95% when keeping everything, otherwise 100% minus the share). The boost fund adds up to 10% to what's shared, in proportion to the people reached. Shares travel 45° a second round the rim: 2, 3 or 4 seconds at six seats.
 - **Ending:** at 360 seconds, or when anyone can't pay. Rewards still crossing are forfeited to the boost fund; shares still travelling complete with settings frozen (2017).
@@ -177,11 +178,11 @@ Stake 600, 6 minutes, `selfShare: 'kept'` (now the default) unless marked. 1,000
 
 1. ~~Close the self-share loophole~~: done (decision 9).
 2. ~~The economy~~: done (decision 10).
-3. Steering: what should stop a player holding the white arrow? See "Steering experiments" below. The agent recommends `blackRun: 10`.
+3. ~~Steering~~: momentum too strong for one player (decision 11). The agent had recommended `blackRun: 10`; Jason chose momentum, his original design.
 
 ## Steering experiments (2026-11-09)
 
-Rules as decided so far (stake 1,000, refund, self-share kept). Bot tables: 1,000 per row. "Alone" is the learner style against five random bots, 300 tables each. Steering styles shown are "shares half, steers to self, up to 3 a second" / "up to 9". Reproduce with `tools/sim-wheel.mjs` options `{"delays":true}`, `{"reverseAfter":180}` and `{"blackRun":10}`; the resisting bots were a scratch experiment, not kept in the roster.
+Rules as decided before decision 11 (stake 1,000, refund, self-share kept, any net vote turns the wheel). Bot tables: 1,000 per row. "Alone" is the learner style against five random bots, 300 tables each. Steering styles shown are "shares half, steers to self, up to 3 a second" / "up to 9". Reproduce with `tools/sim-wheel.mjs` options `{"reverseAbove":0,"delays":true}` and `{"reverseAbove":0,"blackRun":10}` (the reversal limit was removed); the resisting bots were a scratch experiment, not kept in the roster.
 
 | Rule or habit | Bot tables lasted | Bonus earned | Self-Steerer bot | Steer to self, alone | Share everything, alone | Six who steer to self |
 |---|---|---|---|---|---|---|
@@ -189,7 +190,7 @@ Rules as decided so far (stake 1,000, refund, self-share kept). Bot tables: 1,00
 | Bots push back together (3 kinds, up to 4 a second, against anyone holding 12 of the last 20 s) | 20% | 17% | +202 | +169 / +79 | -75 | (no change) |
 | Five kinds push back at up to 9 | 29% | 26% | +173 | +131 / +187 | -141 | (no change) |
 | 2017 position and vote delays | 13% | 11% | +187 | +294 / +293 | -39 | -224 |
-| Reversal limit: 120° between reversals | 13% | 9% | +80 | +284 | +77 | -216 |
+| Reversal limit: 120° between reversals (option removed) | 13% | 9% | +80 | +284 | +77 | -216 |
 | Reversal limit: 180° | 20% | 9% | -33 | +57 | -34 | -313 |
 | **Nobody pays the black arrow's 9 for more than 10 s in a row** (`blackRun: 10`) | **83%** | **78%** | +309 | +183 / +270 | **+103** | -213 / -365 |
 | `blackRun: 10` and the 180° limit | 21% | 10% | -53 | +13 | -48 | -310 |
@@ -201,3 +202,28 @@ What the experiments show:
 3. **2017's delays help the holder,** as expected: privilege as latency means the seat at the white arrow acts first. Not kept.
 4. **A reversal limit moves the damage rather than stopping it.** The holder rocks the arrow across their half of the wheel, the far half pays, and the table busts later.
 5. **Protecting the pinned player works.** After one natural pass (10 seconds at the minimum speed), a player held at the black arrow pays 1 a second instead of 9. Natural play is untouched; only pinning is affected. Tables survive a holder, the poorest player ends with a median 74% of the stake (from 0%), and sharing pays against the bots (+103 sharing everything, +83 sharing 8/10). The temptation is still there: holding gains +183 to +270 alone, and a table where everyone holds still goes bust (-213 to -365).
+
+## Does the arrow swing round? (2026-11-09)
+
+Jason asked whether players can stop the arrow swinging round the table. Share of seconds a steerer had the white arrow in its segment, 300 tables each (a fair share is 17%):
+
+| Rule | Self-Steerer bot (pays up to 3) | Determined player (up to 9) | Seats the arrow reached per table |
+|---|---|---|---|
+| Any net vote turns the wheel (the first core) | 74% | 100% | 1.6 of 6 (Self-Steerer), 1.0 (determined) |
+| 2017: turning back needs more than 6 | 17% | 100% | 6 of 6 / 1 of 6 |
+| Turning back needs more than 9 (decision 11) | 17% | 17% | 6 of 6, about 6 laps |
+
+## After decisions 9-11 (2026-11-09)
+
+The rules now: stake 1,000, six minutes, self-share kept, the refund, momentum above one player's vote. Bot tables: 1,000; learner styles: 300 tables each.
+
+- **Every bot table lasts the six minutes and earns the bonus**, and the poorest player ends with a median 92% of the stake. Nobody goes bust, and join order makes no difference (+47 to +53 by seat).
+- **Steering is idle in one-player games.** No bot can turn the wheel back alone, so bots never pay to vote (0 votes per table). The vote dial only matters when two or more players act together, and no bot does that yet.
+- **The share dial is now the dilemma, but a mild one.** At a stake of 1,000: alone against the bots, sharing half pays best (+102), 8/10 +76, everything -22, keeping -72; a table of six sharing everything does best (+100 each), 8/10 +90, half +70, keeping +40. That is the prisoner's dilemma order (temptation 102 > cooperation 100 > mutual defection 70 > the lone cooperator -22), but the temptation is only 2 tokens.
+- **The stake is a cliff, not a dial.** At 600, bot tables last 68% of the time but the poorest ends near 0, so the bonus is almost never earned (4%) and everyone loses heavily (keepers go bust 41% of the time). At 700 and above, every table lasts and earns the bonus. Learner nets at 700: half alone +68, everything alone -58; six sharing everything +70, six sharing half +35.
+
+## Open for the next session (2026-11-09)
+
+1. **Steering in one-player games.** Options: bots that team up (a pair that steers together, a gang), bots that vote their wish even when alone so the player can tip a coalition over 9, or no vote dial in the first version.
+2. **Sharpening the sharing temptation**, if wanted: the fee and boost tables, or how the refund is shared. The stake alone doesn't do it.
+3. The deferred questions: reputation (6), invitations, points between tables (7), the lessons (9), the name (10).

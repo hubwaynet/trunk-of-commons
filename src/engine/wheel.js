@@ -25,13 +25,15 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
  * minSpeed: the wheel never turns slower than this, in degrees a second (2017: 6).
  * minVote: 0 lets a player not vote (core, 2026-11-09); 1 is 2017's "no neutral position".
  * maxVote: the strongest vote, in tokens (and degrees) a second (2017: 9).
- * reverseAbove: 0 (core) lets any net vote against the wheel turn it round; 6 is 2017's momentum
- *   rule: reversing takes more than 6 degrees a second of net votes the other way.
- * reverseAfter: degrees the wheel must turn after a reversal before it can be reversed again
- *   (0: no limit, the core). An experiment (2026-11-09) against holding the arrow by rocking it.
+ * reverseAbove: the net vote against the wheel's direction must be more than this to turn it round.
+ *   9 (default, Jason 2026-11-09: "Make momentum too difficult for one player to hold back"): more
+ *   than one player's strongest vote, so momentum carries the arrow round to every seat and only
+ *   two or more players together can turn it back. 6 is 2017's rule, which one player could beat
+ *   alone; 0 lets any net vote turn it (the first core).
  * blackRun: the most seconds in a row a player pays the black arrow's amount; after that they pay
- *   the grey amount until the black arrow moves on (Infinity: no limit, the core). An experiment
- *   (2026-11-09): one natural pass at the minimum speed is 10 seconds.
+ *   the grey amount until the black arrow moves on (Infinity: no limit). An experiment
+ *   (2026-11-09) against one player pinning another; not needed while momentum is above one
+ *   player's vote, but kept for when gangs can hold the arrow.
  * collect: what the black side pays each second: the seat holding the black arrow pays `black`,
  *   other seats within `greyReach` degrees of it pay `grey` (2017: 9, 1 and 90°).
  * rewardTransit: seconds for the reward to cross from the black arrow to the white (2017: 2). It
@@ -62,7 +64,7 @@ export const MAX_TICKS = 360; // six minutes (Jason, 2026-11-09)
  * record: keep a per-tick history for the page and the round log (simulations turn it off).
  */
 export function createGame({
-  players, seed = 0, stake = 1000, maxTicks = MAX_TICKS, minSpeed = 6, minVote = 0, maxVote = 9, reverseAbove = 0, reverseAfter = 0, blackRun = Infinity,
+  players, seed = 0, stake = 1000, maxTicks = MAX_TICKS, minSpeed = 6, minVote = 0, maxVote = 9, reverseAbove = 9, blackRun = Infinity,
   collect = { black: 9, grey: 1 }, greyReach = 90, rewardTransit = 2, shareSpeed = 45, minParcel = 0.1, boostMax = 10,
   selfShare = 'kept', boostStart = 0, endBonus = 'refund', delays = false, maxDepth = 40, record = true,
 }) {
@@ -71,7 +73,7 @@ export function createGame({
   const pos = joinPositions(n);
   const start = Math.round(stake * UNIT);
   return {
-    seed, n, maxTicks, minSpeed, minVote, maxVote, reverseAbove, reverseAfter, blackRun, greyReach, rewardTransit, shareSpeed, boostMax, selfShare, endBonus, delays, maxDepth, record,
+    seed, n, maxTicks, minSpeed, minVote, maxVote, reverseAbove, blackRun, greyReach, rewardTransit, shareSpeed, boostMax, selfShare, endBonus, delays, maxDepth, record,
     collect: { black: Math.round(collect.black * UNIT), grey: Math.round(collect.grey * UNIT) },
     minParcel: Math.round(minParcel * UNIT),
     stake: start,
@@ -81,7 +83,6 @@ export function createGame({
     theta: 0, // angle of the white arrow, degrees clockwise from seat 0 (the initiator)
     dir: 1, // 1 clockwise, -1 anticlockwise. 2017: clockwise, towards the second player to join
     speed: minSpeed,
-    turned: Infinity, // degrees turned since the last reversal
     players: players.map((p, i) => ({
       id: p.id,
       join: i,
@@ -217,12 +218,9 @@ export function step(s, decisions = {}) {
     net += v;
     if (rec) rec.votes.push(v);
   }
-  const dir0 = st.dir;
-  const mayReverse = st.turned >= st.reverseAfter;
   if (net * st.dir >= 0) st.speed = Math.max(st.minSpeed, Math.abs(net));
-  else if (mayReverse && Math.abs(net) > st.reverseAbove) { st.dir = -st.dir; st.speed = Math.max(st.minSpeed, Math.abs(net)); }
-  else st.speed = st.minSpeed;
-  st.turned = st.dir === dir0 ? st.turned + st.speed : st.speed;
+  else if (Math.abs(net) > st.reverseAbove) { st.dir = -st.dir; st.speed = Math.max(st.minSpeed, Math.abs(net)); }
+  else st.speed = st.minSpeed; // momentum holds: votes against it only cancel out
 
   // 2. Collection from the black side, at the wheel's position at the start of the second.
   const q = quotas(st);

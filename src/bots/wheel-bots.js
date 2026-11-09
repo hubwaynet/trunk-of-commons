@@ -28,7 +28,6 @@ export function botView(s, id) {
     speed: s.speed,
     minSpeed: s.minSpeed,
     reverseAbove: s.reverseAbove,
-    canReverse: s.turned >= s.reverseAfter,
     white: whiteId(s),
     heldFor: s.t - s.holderSince, // seconds the current player has had the white arrow in their segment
     black: blackId(s),
@@ -61,7 +60,7 @@ export function steer(v, targetId, strength, reserve = 150) {
   // Where the wheel goes next second without this bot's vote.
   let coming = v.dir, speed = Math.max(v.minSpeed, Math.abs(othersNet));
   if (othersNet * v.dir < 0) {
-    if (v.canReverse && Math.abs(othersNet) > v.reverseAbove) coming = -v.dir;
+    if (Math.abs(othersNet) > v.reverseAbove) coming = -v.dir;
     else speed = v.minSpeed;
   }
   const next = turnTo(v.theta + coming * speed, target.angle);
@@ -70,7 +69,6 @@ export function steer(v, targetId, strength, reserve = 150) {
   if (Math.abs(next) < Math.abs(now)) return 0; // already heading towards it
   const want = Math.sign(now) || -coming;
   const againstMomentum = want !== v.dir;
-  if (againstMomentum && !v.canReverse) return 0; // the wheel can't be turned back yet
   const needed = Math.abs(othersNet) + 1 + (v.reverseAbove > 0 && againstMomentum ? Math.max(0, v.reverseAbove - Math.abs(othersNet)) : 0);
   return needed <= strength ? want * needed : 0;
 }
