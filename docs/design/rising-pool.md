@@ -101,4 +101,4 @@ From the whole-system review (`claude/review-2026-11-06.md` in the claude.ai pro
 
 A collapsible **Achievements** section sits below How it works, listing every achievement with what it asks and whether it is done (DONE, NEW or TO DO), plus the progress bar. It starts closed and remembers being opened. The header strip has a **Show ▾** button that opens the section and scrolls to it. It is built once in `src/ui/common.js` (`achievementsListHtml`, `showAchievementsButton`) and shared by both games. The end-of-table card is unchanged.
 
-Show and Reset sit on one row, Show on the left and Reset on the right, so a stray tap is less likely to reach Reset (Jason, 2026-11-09). Reset still asks for confirmation.
+The header strip has only **Show ▾**. **Reset** sits inside the Achievements section, at the end of the progress line (after "Game 2/3 unlocked"), so it can't be tapped by accident from the strip (Jason, 2026-11-09). Reset still asks for confirmation.

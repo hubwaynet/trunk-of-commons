@@ -110,6 +110,6 @@ th { font-family: var(--font-data); font-weight: 500; font-size: 11px; letter-sp
 /* Achievements section below How it works, and the strip's Show button */
 .ach-list { display: grid; gap: 8px; padding-top: 4px; }
 .ach-list p { margin: 0; }
-.ach-actions { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 24px; flex-wrap: wrap; }
-.ach-actions .reset-ach { margin-left: auto; justify-content: flex-end; text-align: right; }
+.ach-show { justify-self: start; }
+.ach-list .progress .reset-ach { margin-left: auto; justify-content: flex-end; text-align: right; }
 .ach-list .badge { flex: none; min-width: 5ch; white-space: nowrap; }

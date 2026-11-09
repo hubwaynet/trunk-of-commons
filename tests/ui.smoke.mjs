@@ -304,8 +304,11 @@ test('all six Game 2 achievements show the mastered card; Reset clears them but 
   await playCentipede(page, { label: 'centipede-mastered' }); // reloads, then plays a table to the end
   assert.match(await page.textContent('#ach-progress'), /6 of 6 · Game 3 unlocked/);
   assert.match(await page.textContent('.extra.unlocked'), /mastered/);
-  await page.click('#reset-centipede');
-  await page.click('#reset-centipede-yes');
+  assert.equal(await page.$('#ach-progress #reset-centipede'), null, 'Reset is not in the top strip');
+  await page.click('#ach-show'); // opens the Achievements section, where Reset lives
+  assert.ok(await page.$eval('#achievements-list', (d) => d.open), 'Show opens the section');
+  await page.click('#ach-list #reset-centipede');
+  await page.click('#ach-list #reset-centipede-yes');
   assert.match(await page.textContent('#ach-progress'), /0 of 6 · Game 3 unlocked/, 'achievements cleared, unlock kept');
   assert.equal(await page.$('.extra.unlocked'), null);
   const home = await run.ctx.newPage();

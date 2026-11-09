@@ -56,15 +56,13 @@ function renderProgress() {
   const have = store.load();
   if (store.complete(have)) unlock('wheel');
   box.innerHTML = `<span class="eyebrow">Achievements</span>${progressHtml(ACHIEVEMENTS, have, UNLOCK())}`;
-  // Show on the left, Reset on the right, well apart (Jason, 2026-11-09).
-  const row = document.createElement('div');
-  row.className = 'ach-actions';
-  row.append(showAchievementsButton());
-  box.append(row);
+  // The strip has only Show; Reset lives in the Achievements section, after the progress
+  // label, away from the strip to avoid an accidental reset (Jason, 2026-11-09).
+  box.append(showAchievementsButton());
   const list = document.getElementById('ach-list');
   if (list) list.innerHTML = achievementsListHtml(ACHIEVEMENTS, have, G?.earned ?? new Set(), { note: 'Easiest first, judged from simulated tables.', ...UNLOCK() });
   if (G.watch) return;
-  row.append(resetControl({
+  list?.querySelector('.progress')?.append(resetControl({
     game: 'centipede', keys: store.keys, count: ACHIEVEMENTS.filter((a) => have.has(a.id)).length,
     onChange: (reset) => {
       if (reset) { store.forget(); G.earned = new Set(); toast('Centipede & Ultimatum achievements reset.'); }
