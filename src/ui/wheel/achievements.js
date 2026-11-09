@@ -56,6 +56,17 @@ export function createTracker(id = 'you') {
   };
 }
 
+/**
+ * Achievements that can be earned while the table is still playing, so the page can celebrate them
+ * as they happen (Jason, 2026-11-10: "Add some celebration for achievements, as they occur").
+ */
+export function midAchievements(s, facts) {
+  const got = new Set();
+  if (Math.round(s.stake / 100) !== ACHIEVEMENT_STAKE) return got;
+  if (facts.changedMind.length) got.add('changed-mind');
+  return got;
+}
+
 /** Achievements for a finished table. facts come from createTracker. */
 export function endAchievements(s, facts, id = 'you') {
   const got = new Set();

@@ -165,3 +165,11 @@
 .rep-disc.rep-below { fill: var(--low); }
 .rep-glyph { fill: #ffffff; }
 .ring-legend .rep-disc { stroke: none; }
+
+/* The finale (Jason, 2026-11-10): a line saying what is happening, Skip, a pulsing hub, numbers that stay */
+.finale-bar { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.finale-line { margin: 0; flex: 1 1 220px; font-weight: 700; }
+.hub-pulse { animation: hub-pulse 0.8s ease-in-out infinite alternate; stroke: var(--brass); }
+@keyframes hub-pulse { from { stroke-width: 2; } to { stroke-width: 6; } }
+.end-gain.bonus-gain { font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .hub-pulse { animation: none; stroke-width: 4; } }

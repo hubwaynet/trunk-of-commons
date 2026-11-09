@@ -371,6 +371,10 @@ async function playWheel(page, label) {
   await page.goto(page.url()); // reload so the page's timers run on the test clock
   await page.waitForSelector('#pause');
   assert.equal(await page.$eval('#clock', (e) => e.textContent), '6:00', `${label}: the clock waits for Start`);
+  // the game's name, and Home as a house icon that still says Home to screen readers (Jason, 2026-11-10)
+  assert.equal(await page.$eval('h1', (e) => e.textContent), 'CommonWeal', `${label}: the name`);
+  assert.equal(await page.$eval('.site-nav a.home-link', (a) => a.textContent.trim()), 'Home', `${label}: the house icon's name`);
+  assert.ok(await page.$('.site-nav a.home-link svg.home-icon'), `${label}: the house icon`);
   assert.equal(await page.$eval('#stake', (e) => e.value), '500', `${label}: the play-test stake is 500 by default`);
   // the dials work from the keyboard, and keep focus while the clock runs
   await page.focus('#d-share');
@@ -422,6 +426,9 @@ async function playWheel(page, label) {
   for (let i = 0; i < 100 && !(await page.$('#again')); i++) await page.clock.runFor(5000);
   assert.ok(await page.$('#again'), `${label}: the table ends`);
   const end = await page.$eval('.end-card', (e) => e.textContent);
+  // the finale is over and its numbers stay in the picture (Jason, 2026-11-10)
+  assert.equal(await page.$('#finale-bar'), null, `${label}: the finale bar has gone`);
+  if (/shared out by sharing/.test(end)) assert.ok((await page.$$('#endfx .end-gain')).length >= 1, `${label}: each seat's part stays written by it`);
   assert.doesNotMatch(end, /undefined|NaN/, `${label}: end card`);
   assert.match(end, /Who was the hero/, `${label}: end card asks the hero question`);
   // the what-if replays your table with one other Pass on setting (Jason, 2026-11-09); the page logs

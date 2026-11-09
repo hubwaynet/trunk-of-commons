@@ -82,7 +82,7 @@ function renderExtras() {
     const card = h(`<section class="card extra unlocked" aria-labelledby="all-h"><div class="eyebrow">All achievements</div>
       <h3 id="all-h">Centipede &amp; Ultimatum mastered</h3>
       <p>You've shown you can share fairly, hold back, grab well, win a table's welcome, go the full distance, and make your own vote count.</p>
-      <p class="muted small">Game 3, the Wheel, is unlocked for you and opens when it's ready.</p>
+      <p class="muted small">Game 3, CommonWeal, is unlocked for you.</p>
       <div class="btn-row"><button class="btn ghost" type="button" id="celebrate-again">Celebrate again</button></div></section>`);
     card.querySelector('#celebrate-again').addEventListener('click', () => celebrate(5200));
     parts.push(card);

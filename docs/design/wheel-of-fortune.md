@@ -1,6 +1,6 @@
-# Wheel of Fortune: design notes
+# CommonWeal (Game 3): design notes
 
-**Working title.** "Wheel of Fortune" is also the name of a famous TV game show, so the game needs its own name before launch (Jason's call, with the legal review).
+**The name is CommonWeal** (Jason, 2026-11-10, decision 37; question 10). It was the Wheel of Fortune, a working title shared with a famous TV game show. The file, the page's address (`games/wheel/`) and the code keep "wheel", so links and saved achievements keep working. The legal review still checks the name before launch.
 
 **Sources:**
 - *Wheel of Fortune Sharing Game*, 2017-11-19, in the claude.ai project.
@@ -579,9 +579,28 @@ Simulated, 300 tables each at stake 500 (every bot learning, the fund shared out
 2. **Stewarding adds less now** (3 points of bonus over plain half, from 11), because the Patron does part of that work.
 3. **A carried disc matters a little:** arriving below average costs a player about 6-7 tokens on average (half: -96 against -90 fresh; 8/10: +3 against +10), arriving above average about nothing. Only one bot reads it, and only for a minute.
 
+## After Jason's third look (2026-11-10)
+
+Jason: "Slow down the end game distributions. I want the finale to be a satisfying experience. Add some celebration for achievements, as they occur. Currently, the end game is too fast to see what happens. Let the numbers stay. Change home link to house icon. Change 'The Wheel' to 'CommonWeal'."
+
+35. **A slower finale, and the numbers stay** (Jason, 2026-11-10). The ending now plays in real time whatever the speed setting, in five stretches (timings the agent's choice):
+    - **The bell** (at least 1.8 s): shares still on their way land, a second of travel to a second; rewards still crossing drop into the hub.
+    - **The verdict** (2.4 s): the hub pulses while a line under the picture says whether the fund is shared out or lost.
+    - **The share-out** (1 s a seat): biggest part first, circles from the hub sized by the part, the seat's balance counting up.
+    - **The bonus** (2 s): diamonds come in from outside to every seat.
+    - **Settling** (1.4 s), then the end card.
+    - A lasting table's finale takes about 14-17 seconds; "Skip to the results" jumps to the end. Screen readers hear each step.
+    - Afterwards each seat's part (● +N) and bonus (◆ +N) stay written between it and the hub, the hub says "shared out" or "lost", and the balances stay at their final amounts until the next table.
+36. **Achievements are celebrated as they happen** (Jason, 2026-11-10). Each new one gets a toast and a short burst of fireworks the moment it is clear; all six still get the long show.
+    - Changed a mind is earned during play, the second it happens (`midAchievements`).
+    - In the finale: Lifeline and Six minutes, bonus and all at the verdict; Passed it on when your part arrives; Came out ahead and Who was the hero? as the balances settle.
+37. **The name: CommonWeal** (Jason, 2026-11-10), on the page, in the site bar, on the home page and in the unlock line of Centipede & Ultimatum.
+
+Across the site, **Home in the site bar is a house icon** (Jason, 2026-11-10), with the word kept for screen readers.
+
 ## Open for the next session (2026-11-10)
 
-1. **Jason's play of this build** comes first: stake 500, the fund shared out by sharing, following the white arrow, the what-if, achievements, What this table showed, and the reputation discs with the Patron reacting. Questions it should answer: does 500 feel tight but fair; do the discs and the Patron's reactions read clearly; are the achievements in the right order for a person (the odds are from simulated styles); do the moments say something worth knowing?
+1. **Jason's play of this build** comes first: the slower finale and celebrations (decisions 35-36), stake 500, the fund shared out by sharing, following the white arrow, the what-if, achievements, What this table showed, and the reputation discs with the Patron reacting. Questions it should answer: does 500 feel tight but fair; do the discs and the Patron's reactions read clearly; are the achievements in the right order for a person (the odds are from simulated styles); do the moments say something worth knowing?
 2. **Agent's choices made this session, for Jason to confirm or change:**
    - the share-out measure: the part of what reached each player that they passed on (decision 27)
    - the picker's list of stakes (500, 550, 650, 800, 1,000; decision 29)

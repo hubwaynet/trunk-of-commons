@@ -12,7 +12,7 @@ Visitors learn by playing against strategy bots in the browser, then progress to
 |---|------|---------|--------|
 | 1 | **Rising Pool** (working title) | Threshold public good with rising stakes | Playable |
 | 2 | **Centipede & Ultimatum** | Take the pool or keep building; divide it and face judgement | Playable (unlocked by Game 1) |
-| 3 | Wheel of Fortune (placeholder name) | Real-time redistribution, sharing incentives, privilege as latency | Design & simulation |
+| 3 | CommonWeal (from the 2017 Wheel of Fortune Sharing Game) | Real-time redistribution, sharing incentives, privilege as latency | Design & simulation |
 
 Games 1 and 2 are the learning levels. Game 3 is unlocked by achievements and is designed with bot simulation first.
 

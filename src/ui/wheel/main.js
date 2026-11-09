@@ -1,4 +1,4 @@
-// The Wheel (Game 3, working title): browser UI. One human seat plus five strategy bots, or six bots
+// CommonWeal (Game 3; the Wheel until 2026-11-10): browser UI. One human seat plus five strategy bots, or six bots
 // to watch. A play-test page (Jason, 2026-11-09: "Let's get this up for play to check feedback
 // from play"). The engine settles each second; this page draws the seconds in between, so rewards
 // and shares travel as streams and arrive on time.
@@ -22,7 +22,7 @@ import {
 import { pickMoments } from '../ideas.js';
 import { tableMoments } from './moments.js';
 import { fireworks } from '../fireworks.js';
-import { ACHIEVEMENTS, STORAGE_KEY, CELEBRATED_KEY, ACHIEVEMENT_STAKE, createTracker, endAchievements } from './achievements.js';
+import { ACHIEVEMENTS, STORAGE_KEY, CELEBRATED_KEY, ACHIEVEMENT_STAKE, createTracker, midAchievements, endAchievements } from './achievements.js';
 import { createKnob } from './knob.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -55,15 +55,19 @@ const saveRep = (r) => { try { if (r) localStorage.setItem(REP_KEY, r); } catch 
 
 // ---------- achievements (checks in ./achievements.js, stored in this browser) ----------
 const store = achievementStore({ key: STORAGE_KEY, celebratedKey: CELEBRATED_KEY, all: ACHIEVEMENTS });
-// Nothing after Level 3 yet: all six say the Wheel is mastered.
-const UNLOCK = () => ({ unlocked: false, unlockLabel: 'Wheel mastered', unlockHref: '' });
+// Nothing after Level 3 yet: all six say CommonWeal is mastered.
+const UNLOCK = () => ({ unlocked: false, unlockLabel: 'CommonWeal mastered', unlockHref: '' });
 const ACH_NOTE = `Easiest first, judged from simulated tables. They count at the ${ACHIEVEMENT_STAKE} stake.`;
 const celebrate = (duration) => fireworks({ colors: CELEBRATION_COLOURS, duration });
+/** Records achievements and celebrates the new ones as they happen (Jason, 2026-11-10). */
 function earn(ids) {
   const fresh = store.add(ids);
+  if (!fresh.length) return;
   for (const id of fresh) G.earned.add(id);
-  if (fresh.length) toast(`Achievement: ${fresh.map((id) => ACHIEVEMENTS.find((a) => a.id === id).name).join(' · ')}`);
-  if (fresh.length && store.complete() && store.firstCelebration()) G.allNow = true;
+  toast(`Achievement: ${fresh.map((id) => ACHIEVEMENTS.find((a) => a.id === id).name).join(' · ')}`);
+  if (store.complete() && store.firstCelebration()) G.allNow = true;
+  else celebrate(1900);
+  renderProgress();
 }
 function renderProgress() {
   const box = document.getElementById('ach-progress');
@@ -77,7 +81,7 @@ function renderProgress() {
   list.querySelector('.progress')?.append(resetControl({
     game: 'wheel', keys: store.keys, count: ACHIEVEMENTS.filter((a) => have.has(a.id)).length,
     onChange: (reset) => {
-      if (reset) { store.forget(); if (G) G.earned = new Set(); toast('Wheel achievements reset.'); }
+      if (reset) { store.forget(); if (G) G.earned = new Set(); toast('CommonWeal achievements reset.'); }
       renderProgress();
     },
   }));
@@ -88,7 +92,7 @@ function achievementsCards() {
   const parts = [];
   if (store.complete(have)) {
     const card = h(`<section class="card extra unlocked" aria-labelledby="all-h"><div class="eyebrow">All achievements</div>
-      <h3 id="all-h">The Wheel mastered</h3>
+      <h3 id="all-h">CommonWeal mastered</h3>
       <p>You've kept a table going to the bell with the bonus, passed on more than anyone, thrown a lifeline, changed a keeper's mind, come out ahead, and been the sharer and the winner at once.</p>
       <div class="btn-row"><button class="btn ghost" type="button" id="celebrate-again">Celebrate again</button></div></section>`);
     card.querySelector('#celebrate-again').addEventListener('click', () => celebrate(5200));
@@ -105,7 +109,7 @@ const previewMode = () => Boolean(globalThis.TRUNK_PREVIEW) || /[?&]preview\b/.t
 // ---------- a table ----------
 function newTable({ watch = G?.watch ?? false } = {}) {
   stopClock();
-  if (G) clearTimeout(G.endTimer);
+  if (G) for (const t of G.endTimers ?? []) clearTimeout(t);
   const seed = newSeed();
   const rng = mulberry32(seed);
   const botKeys = selectRoster(rng, watch ? 6 : 5);
@@ -131,7 +135,7 @@ function newTable({ watch = G?.watch ?? false } = {}) {
     // Whose shares, fee and boost the picture shows: the white arrow by default (Jason, 2026-11-09,
     // after playing: "the player focus showing fees & boosts to follow the white arrow by default,
     // with an option to switch to black arrow or select any bot to view").
-    focus: 'white', knobs: null, endAnim: null, endTimer: null,
+    focus: 'white', knobs: null, endAnim: null, endTimers: [],
     first: settingsOf(s), lessons: Object.fromEntries(ids.map((id) => [id, []])), spoke: {},
     tracker: watch ? null : createTracker('you'), earned: G?.earned ?? new Set(), allNow: false,
   };
@@ -186,6 +190,7 @@ function tick() {
   G.s = step(G.s, d);
   G.lastStep = now();
   G.tracker?.tick(G.prev, G.s); // for the achievements
+  if (G.tracker) earn(midAchievements(G.s, G.tracker.facts)); // celebrated the moment they happen
   // what each player paid in fees and drew in boost this second, for the picture
   G.fx = Object.fromEntries(G.s.players.map((p, i) => [p.id, { fee: p.stats.fees - G.prev.players[i].stats.fees, boost: p.stats.boost - G.prev.players[i].stats.boost }]));
   // Your vote fades back to 0, one step a second (Jason, 2026-11-09: "The direction dial strength
@@ -319,7 +324,7 @@ function drawSeats() {
   if (fund && !G.endAnim) {
     fund.textContent = fmt(G.s.fund.balance);
     // after a table that didn't earn the refund, the fund is lost
-    $('#hub .hub-label').textContent = G.s.status === 'ended' && !G.s.bonus ? 'lost' : 'fund';
+    $('#hub .hub-label').textContent = G.s.status !== 'ended' ? 'fund' : G.s.bonus ? 'shared out' : 'lost';
   }
 }
 
@@ -857,11 +862,18 @@ function updateScore() {
 
 // ---------- the end ----------
 /**
- * The bell. The ending plays out in the picture before the end card (Jason, 2026-11-09: "The end
- * game flows shut off immediately, and bonus boost is not seen"): shares still on their way finish
- * their trips, rewards still crossing drop into the boost fund in the hub, and then, if the table
- * earned it, the fund flows out to every seat and the common fund's bonus comes in from outside.
+ * The finale (Jason, 2026-11-10: "Slow down the end game distributions. I want the finale to be a
+ * satisfying experience ... Currently, the end game is too fast to see what happens. Let the numbers
+ * stay."). It plays in real time, whatever the speed setting:
+ *   1. the bell: shares still on their way land; rewards still crossing drop into the hub
+ *   2. the verdict: the boost fund is shared out, or lost
+ *   3. the share-out, one seat at a time, the biggest part first; each part stays written by its seat
+ *   4. the common fund's bonus comes in from outside to every seat
+ *   5. the balances settle and the end card appears; the numbers stay in the picture
+ * Achievements are celebrated as each becomes clear. "Skip to the results" jumps to the end.
  */
+const FINALE = { verdict: 2400, perSeat: 1000, bonus: 2000, settle: 1400 };
+
 function endTable() {
   stopClock();
   const s = G.s;
@@ -871,70 +883,158 @@ function endTable() {
     ? 'Six minutes: the bell. Shares still on their way land; rewards still crossing go to the boost fund.'
     : `${s.bust.map((id) => G.name[id]).join(' and ')} couldn't pay: the table ends. Shares still on their way land; rewards still crossing go to the boost fund.`);
   if (reduceMotion || !e) { update(); return showEnd(); }
-  const msPerSec = clamp(tickMs(), 250, 1000);
+  const got = G.tracker ? endAchievements(s, G.tracker.facts) : new Set();
   const lastArrive = Math.max(s.t, ...e.shares.map((x) => x.arrive));
-  const aMs = (lastArrive - (s.t - 1)) * msPerSec;
-  const bMs = e.refunds.some((x) => x > 0) || e.topUp ? 2200 : 0;
-  G.endAnim = { t0: now(), msPerSec, aMs, bMs, e, bellT: s.t };
+  const shared = Boolean(s.bonus) && e.refunds.some((x) => x > 0);
+  const order = s.players.map((p, i) => i).filter((i) => e.refunds[i] > 0).sort((a, b) => e.refunds[b] - e.refunds[a]);
+  const T = {};
+  T.a = Math.max(1800, (lastArrive - (s.t - 1)) * 1000);
+  T.b = T.a + FINALE.verdict;
+  T.c = T.b + (shared ? order.length * FINALE.perSeat : 0);
+  T.d = T.c + (shared && e.topUp ? FINALE.bonus : 0);
+  T.end = T.d + FINALE.settle;
+  G.endAnim = { t0: now(), e, bellT: s.t, order, shared, T };
   setPaused(true);
+  finaleBar(lasted ? 'The bell: shares still on their way are landing.' : 'The table has ended: shares still on their way are landing.');
   update();
-  G.endTimer = setTimeout(() => { G.endAnim = null; showEnd(); }, aMs + bMs + 500);
+  const at = (ms, fn) => G.endTimers.push(setTimeout(fn, ms));
+  const verdict = shared ? `The poorest player kept more than a tenth of the stake: the boost fund of ${fmt(e.fundBeforeSplit)} is shared out by sharing.`
+    : lasted ? `The poorest player fell below a tenth of the stake: the boost fund of ${fmt(e.fundBeforeSplit)} is lost.`
+      : `The table ended early: the boost fund of ${fmt(e.fundBeforeSplit)} is lost.`;
+  at(T.a, () => { finaleBar(verdict); announce(verdict); });
+  if (shared) {
+    at(T.b, () => finaleBar('The biggest part goes to whoever passed on the most of what reached them.'));
+    order.forEach((i, k) => at(T.b + k * FINALE.perSeat + 0.75 * FINALE.perSeat, () => {
+      const p = s.players[i];
+      announce(`${p.id === 'you' ? 'You get' : `${G.name[p.id]} gets`} ${fmt(e.refunds[i])}.`);
+    }));
+    if (e.topUp) at(T.c, () => finaleBar(`The common fund adds a ${s.bonus.pct}% bonus to every seat: ${fmt(e.topUp)} each.`));
+  }
+  // achievements, each celebrated as it becomes clear
+  const fire = (id, ms) => { if (got.has(id)) at(ms, () => earn([id])); };
+  fire('lifeline', T.a + 400);
+  fire('bonus', T.a + 1200);
+  const mine = order.indexOf(s.players.findIndex((p) => p.id === 'you'));
+  fire('most-passed', mine >= 0 ? T.b + (mine + 0.8) * FINALE.perSeat : T.c);
+  fire('ahead', T.d + 300);
+  fire('hero', T.d + 1100);
+  at(T.end, finishFinale);
+}
+function finishFinale() {
+  for (const t of G.endTimers) clearTimeout(t);
+  G.endTimers = [];
+  G.endAnim = null;
+  finaleBar(null);
+  showEnd();
+}
+/** The line under the picture during the finale, with Skip; null removes both. */
+function finaleBar(text) {
+  const box = $('#transport');
+  if (!box) return;
+  let bar = $('#finale-bar');
+  if (text == null) { bar?.remove(); return; }
+  if (!bar) {
+    bar = h('<div class="finale-bar" id="finale-bar"><p class="finale-line" id="finale-line" aria-hidden="true"></p><button class="btn ghost" id="skip-finale" type="button">Skip to the results</button></div>');
+    box.append(bar);
+    bar.querySelector('#skip-finale').addEventListener('click', finishFinale);
+  }
+  $('#finale-line').textContent = text;
+}
+
+/** How far through a stretch of the finale we are, 0 to 1. */
+const stage = (el, from, to) => (to <= from ? (el >= to ? 1 : 0) : clamp((el - from) / (to - from), 0, 1));
+const easeOut = (x) => 1 - (1 - x) * (1 - x);
+
+/** Each seat's part of the fund and its bonus, written by the seat; they stay after the finale. */
+function gainLabels(e, partDone, bonusDone) {
+  const out = [];
+  // Stacked at one point between the hub and the seat, so they never overlap: a circle for the
+  // fund (as its dots), a diamond for the bonus (as its dots).
+  G.s.players.forEach((p, i) => {
+    const [x, y] = polar(disp(p.pos), SEAT_R - 60);
+    const a = partDone(i);
+    if (a > 0) out.push(`<text x="${x.toFixed(1)}" y="${(y + 2).toFixed(1)}" class="end-gain" opacity="${Math.min(1, a * 2).toFixed(2)}">● +${fmt(e.refunds[i])}</text>`);
+    if (bonusDone > 0 && e.topUp) out.push(`<text x="${x.toFixed(1)}" y="${(y + 16).toFixed(1)}" class="end-gain bonus-gain" opacity="${Math.min(1, bonusDone * 2).toFixed(2)}">◆ +${fmt(e.topUp)}</text>`);
+  });
+  return out.join('');
+}
+/** The picture once the finale is over (or skipped, or with reduced motion): the numbers stay. */
+function finalFx() {
+  const e = G.s.ending;
+  const layer = $('#endfx');
+  if (!layer || !e) return;
+  layer.innerHTML = G.s.bonus ? gainLabels(e, (i) => (e.refunds[i] > 0 ? 1 : 0), 1) : '';
 }
 
 function drawEnding() {
   const A = G.endAnim;
   const s = G.s;
   const e = A.e;
+  const { T } = A;
   const el2 = now() - A.t0;
-  const frac = Math.min(1, el2 / A.msPerSec);
-  const T = A.bellT - 1 + el2 / A.msPerSec;
+  // 1. the bell: the last second's turn, shares landing, rewards dropping into the hub
+  const frac = Math.min(1, el2 / 1000);
+  const tt = A.bellT - 1 + el2 / 1000;
   const delta = G.prev === s ? 0 : turnTo(G.prev.theta, s.theta);
   const theta = G.prev.theta + delta * frac;
   $('#wheel')?.setAttribute('transform', `rotate(${theta.toFixed(2)} ${CX} ${CY})`);
-  // rewards still crossing stop at the hub (the boost fund) and fade there
-  const fade = clamp(1 - (el2 - A.msPerSec) / 500, 0, 1);
+  const fade = clamp(1 - (el2 - 1000) / 800, 0, 1);
   const rw = $('#rewards');
-  if (rw) { rw.innerHTML = rewardDots(theta, T, e.rewards, true); rw.setAttribute('opacity', fade.toFixed(2)); }
+  if (rw) { rw.innerHTML = fade > 0 ? rewardDots(theta, tt, e.rewards, true) : ''; rw.setAttribute('opacity', fade.toFixed(2)); }
   const fl = $('#flows');
-  if (fl) fl.innerHTML = flowMarkup(T, e.shares.filter((x) => x.arrive > T));
-  const pa = A.aMs ? clamp(el2 / A.aMs, 0, 1) : 1;
-  const pb = A.bMs ? clamp((el2 - A.aMs) / A.bMs, 0, 1) : 0;
-  const each = (i) => e.refunds[i] + e.topUp;
-  const refunded = e.refunds.reduce((a, x) => a + x, 0);
-  // balances count up: first the shares landing, then the fund and bonus
+  if (fl) fl.innerHTML = flowMarkup(tt, e.shares.filter((x) => x.arrive > tt));
+  const pa = stage(el2, 0, T.a);
+  // 3. the share-out, seat by seat, biggest part first
+  const part = (i) => {
+    const k = A.order.indexOf(i);
+    return k < 0 ? 0 : easeOut(stage(el2, T.b + k * FINALE.perSeat, T.b + (k + 0.85) * FINALE.perSeat));
+  };
+  const pd = A.shared && e.topUp ? easeOut(stage(el2, T.c, T.c + FINALE.bonus * 0.85)) : 0;
+  let given = 0;
   s.players.forEach((p, i) => {
     const g = $(`#seats .seat[data-id="${CSS.escape(p.id)}"]`);
-    const v = pb > 0 ? e.beforeSplit[i] + each(i) * pb : e.bell[i] + (e.beforeSplit[i] - e.bell[i]) * pa;
+    const q = part(i);
+    given += e.refunds[i] * q;
+    const v = el2 < T.a ? e.bell[i] + (e.beforeSplit[i] - e.bell[i]) * pa : e.beforeSplit[i] + e.refunds[i] * q + e.topUp * pd;
     if (g) g.querySelectorAll('tspan')[1].textContent = fmt(v);
   });
   const hub = $('#hub-fund');
-  if (hub) hub.textContent = fmt(pb > 0 ? e.fundBeforeSplit - refunded * pb : e.fundAtBell + (e.fundBeforeSplit - e.fundAtBell) * pa);
+  if (hub) hub.textContent = fmt(el2 < T.a ? e.fundAtBell + (e.fundBeforeSplit - e.fundAtBell) * pa : e.fundBeforeSplit - given);
   const hubLabel = $('#hub .hub-label');
-  if (hubLabel) hubLabel.textContent = pa >= 1 && !A.bMs ? 'lost' : 'fund';
-  // the fund flows out of the hub to every seat; the bonus comes in from outside the wheel
+  if (hubLabel) hubLabel.textContent = el2 < T.a ? 'fund' : !A.shared ? 'lost' : el2 >= T.c ? 'shared out' : 'sharing';
+  // 2. the verdict: the hub pulses while it is decided
+  $('#hub circle.hub')?.classList.toggle('hub-pulse', el2 >= T.a && el2 < T.b);
   const fx = [];
-  if (pb > 0 && pb < 1) {
+  if (A.shared) {
     const most = Math.max(1, ...e.refunds);
     s.players.forEach((p, i) => {
+      const k = A.order.indexOf(i);
+      if (k < 0) return;
+      const q = stage(el2, T.b + k * FINALE.perSeat, T.b + (k + 0.85) * FINALE.perSeat);
+      if (q <= 0 || q >= 1) return;
       const a = disp(p.pos);
       const big = e.refunds[i] / most; // each seat's circles are sized by its part of the fund
-      for (let k = 0; k < 5; k++) {
-        const q = clamp(pb * 1.35 - k * 0.07, 0, 1);
-        if (q <= 0 || q >= 1) continue;
-        const [x1, y1] = polar(a, HUB_R + (SEAT_R - 26 - HUB_R) * q);
-        if (e.refunds[i] > 0) fx.push(`<circle cx="${x1.toFixed(1)}" cy="${y1.toFixed(1)}" r="${((1.6 + 3.4 * Math.sqrt(big)) * (1 - k * 0.12)).toFixed(1)}" class="dot-refund"/>`);
-        if (e.topUp) {
-          const [x2, y2] = polar(a, 252 - (252 - SEAT_R) * q);
-          fx.push(`<rect x="${(x2 - 3).toFixed(1)}" y="${(y2 - 3).toFixed(1)}" width="6" height="6" class="dot-bonus" transform="rotate(45 ${x2.toFixed(1)} ${y2.toFixed(1)})"/>`);
-        }
+      for (let n = 0; n < 7; n++) {
+        const r = clamp(q * 1.4 - n * 0.07, 0, 1);
+        if (r <= 0 || r >= 1) continue;
+        const [x1, y1] = polar(a, HUB_R + (SEAT_R - 26 - HUB_R) * easeOut(r));
+        fx.push(`<circle cx="${x1.toFixed(1)}" cy="${y1.toFixed(1)}" r="${((2 + 3.6 * Math.sqrt(big)) * (1 - n * 0.1)).toFixed(1)}" class="dot-refund"/>`);
       }
     });
-  }
-  if (pb > 0) {
-    s.players.forEach((p, i) => {
-      const [x, y] = polar(disp(p.pos), SEAT_R - 44);
-      fx.push(`<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" class="end-gain" opacity="${Math.min(1, pb * 2).toFixed(2)}">+${fmt(each(i))}</text>`);
-    });
+    // 4. the bonus comes in from outside the wheel to every seat
+    if (e.topUp && el2 >= T.c && el2 < T.c + FINALE.bonus) {
+      const q = stage(el2, T.c, T.c + FINALE.bonus * 0.85);
+      for (const p of s.players) {
+        const a = disp(p.pos);
+        for (let n = 0; n < 4; n++) {
+          const r = clamp(q * 1.3 - n * 0.08, 0, 1);
+          if (r <= 0 || r >= 1) continue;
+          const [x2, y2] = polar(a, 256 - (256 - SEAT_R - 26) * easeOut(r));
+          fx.push(`<rect x="${(x2 - 3.5).toFixed(1)}" y="${(y2 - 3.5).toFixed(1)}" width="7" height="7" class="dot-bonus" transform="rotate(45 ${x2.toFixed(1)} ${y2.toFixed(1)})"/>`);
+        }
+      }
+    }
+    fx.push(gainLabels(e, part, pd));
   }
   const layer = $('#endfx');
   if (layer) layer.innerHTML = fx.join('');
@@ -944,7 +1044,9 @@ function showEnd() {
   setPaused(true);
   const s = G.s;
   $('#rewards')?.removeAttribute('opacity');
-  if ($('#endfx')) $('#endfx').innerHTML = '';
+  if ($('#rewards')) $('#rewards').innerHTML = '';
+  $('#hub circle.hub')?.classList.remove('hub-pulse');
+  finalFx(); // the numbers stay (Jason, 2026-11-10)
   const lasted = s.endReason === 'time';
   const at = `${Math.floor(s.t / 60)}:${String(s.t % 60).padStart(2, '0')}`;
   const bust = s.bust.map((id) => G.name[id]);
@@ -1019,7 +1121,7 @@ function showEnd() {
   $('#extras').replaceChildren(card, ...showed, ...(me ? achievementsCards() : []));
   renderProgress();
   card.querySelector('#again').addEventListener('click', () => { newTable(); showTable({ ifHidden: true }); });
-  if (G.allNow) { G.allNow = false; setTimeout(() => celebrate(5200), 400); toast('All six achievements: the Wheel mastered!'); }
+  if (G.allNow) { G.allNow = false; setTimeout(() => celebrate(5200), 400); toast('All six achievements: CommonWeal mastered!'); }
   announce(`${lasted ? 'The table lasted the six minutes.' : `The table ended at ${at}: ${bust.join(' and ')} couldn't pay.`} ${fundLine}${me ? ` You end with ${fmt(me.balance)}, ${signed(tok(me.balance - me.start))} on your stake.` : ''}`);
   update();
 }
@@ -1093,7 +1195,7 @@ function renderKey() {
 // ---------- start ----------
 function locked() {
   $('.game').replaceChildren(h(`<div class="card locked-card"><div class="eyebrow">Level 3 · Locked</div>
-    <h2>Earn all six Centipede &amp; Ultimatum achievements to open the Wheel</h2>
+    <h2>Earn all six Centipede &amp; Ultimatum achievements to open CommonWeal</h2>
     <p class="muted">This is a play-test. To try it now, open <a href="?preview">the preview</a>.</p></div>`));
 }
 

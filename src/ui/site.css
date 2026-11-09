@@ -126,3 +126,7 @@ h3 { font-family: var(--font-display); font-weight: 600; font-size: 16px; margin
 .linkish.danger { color: var(--low); font-weight: 700; }
 .fold { grid-template-columns: minmax(0, 1fr); }
 .fold > * { min-width: 0; }
+
+/* Home is a house icon in the site bar (Jason, 2026-11-10); the word stays for screen readers */
+.site-nav .home-link { display: inline-flex; align-items: center; }
+.home-icon { width: 20px; height: 20px; display: block; }
