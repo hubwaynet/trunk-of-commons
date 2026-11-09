@@ -534,6 +534,28 @@ Odds per style in your seat, 300 tables each at stake 500 against five random le
 1. **Nudging keepers is the best play found so far.** Sharing 8/10 and hurrying the arrows past keepers and players in danger earns the bonus at 96% of tables at stake 500 (74% without the nudging) and comes out ahead 82% of the time (72%). Hurrying the white arrow past a keeper stops the fee swallowing the reward, and the keeper learns from it. Both dials count, and steering for the table pays the steerer too: the cooperative use of steering that decision 12 was looking for.
 2. **The hero is possible but hard** (49% at best): passing on more than anyone usually means sharing everything, which comes out ahead only 27-31% of the time; 8/10 wins it when no bot passes on more.
 
+## What this table showed (2026-11-10)
+
+The end card now names up to three moments from the table, yours first, each linked to an idea with a source a player can open (`src/ui/wheel/moments.js`, ideas in `src/ui/ideas.js`; agent's choice of three rather than Game 2's two, because a six-minute table holds more). Strategy names are never used. Every source was checked on 2026-11-10 before a card names it:
+
+| Moment on this table | Idea | Source (checked) |
+|---|---|---|
+| You hurried the white arrow past a keeper and they started passing on | Monitoring and graduated sanctions | Ostrom, *Governing the Commons* (1990), already used in Game 2 |
+| You spent tokens on votes for the table; everyone shared the result | The second-order dilemma | Yamagishi (1986), "The provision of a sanctioning system as a public good", *JPSP* 51(1): 110-116 |
+| The table went bust when a player couldn't pay | A rotating pot | Besley, Coate and Loury (1993), "The economics of rotating savings and credit associations", *AER* 83(4): 792-810 |
+| The bonus hung on the poorest player | The least advantaged | Rawls, *A Theory of Justice* (1971): the difference principle, via the *Stanford Encyclopedia of Philosophy* |
+| A bot moved its share dial by trying and checking | Win-stay, lose-shift | Nowak and Sigmund (1993), *Nature* 364: 56-58 |
+| A keeper passed nothing on until the fees bit | The free-rider problem | Olson (1965), already used in Game 2 |
+| The fund was shared out by what each passed on | Equality or equity | Adams (1963), already used in Game 2 |
+| How many tokens changed hands for every 10 of reward | A trickle or a cascade | The 2017 design notes ("turn a trickle into a cascade"), no outside source |
+
+Candidates not used (agent's choices, open to Jason):
+
+- **Trickle-down.** The term is contested political shorthand: critics use it, and economists whose policies it labels reject it, so a card naming it would take a side. The 2017 notes' own phrase, "turn a trickle into a cascade", carries the lesson instead.
+- **Ponzi and pyramid schemes** pay earlier members from later members' money and need ever more coming in. The Wheel's collection is fixed and goes round, which is closer to a rotating savings and credit association, so that is the idea used when a table goes bust.
+- **The Matthew effect** (Merton, 1968): momentum brings every seat the white arrow in turn, so a table rarely shows early advantage compounding; no moment could name it honestly.
+- **Privilege as latency:** the 2017 delays were tried and not kept, so no table shows it.
+
 ## Open for the next session (2026-11-09)
 
 1. **Jason's feedback from play** comes first. Questions the page is meant to answer: does steering feel worth doing; is the stake right (650, 800, 1,000); is the picture readable on a phone; does the share-dial temptation show? (First play done, decisions 14-20; the votes finding above waits for Jason.)

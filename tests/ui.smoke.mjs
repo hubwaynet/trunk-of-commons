@@ -427,6 +427,10 @@ async function playWheel(page, label) {
   // the what-if replays your table with one other Pass on setting (Jason, 2026-11-09); the page logs
   // an error (failing this test) if replaying your own dials doesn't reproduce your table
   assert.match(await page.$eval('.what-if', (e) => e.textContent), /passing on (8|5)\/10 to everyone all the way through: you'd have ended with \d/, `${label}: the what-if`);
+  // what this table showed: moments with ideas and their sources
+  const showed = await page.$eval('.showed', (e) => e.textContent);
+  assert.doesNotMatch(showed, /undefined|NaN/, `${label}: what this table showed`);
+  assert.ok((await page.$$('.showed .moment')).length >= 1, `${label}: at least one moment`);
   // achievements: the card under the end card, and the strip at the top (Jason's play-test stake, 500)
   assert.match(await page.$eval('#extras', (e) => e.textContent), /Achievements[\s\S]*Six minutes, bonus and all[\s\S]*Who was the hero\?/, `${label}: the achievements card`);
   assert.match(await page.$eval('#ach-progress', (e) => e.textContent), /\d of 6/, `${label}: the achievements strip`);

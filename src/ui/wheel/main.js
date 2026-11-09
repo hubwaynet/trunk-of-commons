@@ -17,8 +17,10 @@ import { isUnlocked, resetControl } from '../progress-store.js';
 import { announce } from '../announce.js';
 import {
   NAMES, HUES, HUMAN_HUE, CELEBRATION_COLOURS, reduceMotion, el, esc, h, signed, toast, rememberToggle, wireCollapse, showTable,
-  achievementStore, progressHtml, achievementsCardHtml, achievementsListHtml, showAchievementsButton,
+  achievementStore, progressHtml, achievementsCardHtml, achievementsListHtml, showAchievementsButton, momentsCardHtml,
 } from '../common.js';
+import { pickMoments } from '../ideas.js';
+import { tableMoments } from './moments.js';
 import { fireworks } from '../fireworks.js';
 import { ACHIEVEMENTS, STORAGE_KEY, CELEBRATED_KEY, ACHIEVEMENT_STAKE, createTracker, endAchievements } from './achievements.js';
 import { createKnob } from './knob.js';
@@ -975,7 +977,11 @@ function showEnd() {
     <p><button class="btn" id="again" type="button">New table</button></p>
   </section>`);
   if (me) earn(endAchievements(s, G.tracker.facts));
-  $('#extras').replaceChildren(card, ...(me ? achievementsCards() : []));
+  // What this table showed: up to three moments, yours first, each with a checked source
+  const names = Object.fromEntries(s.players.map((p) => [p.id, p.id === 'you' ? 'you' : G.name[p.id]]));
+  const moments = pickMoments(tableMoments(s, { names, facts: G.tracker?.facts ?? null, lessons: G.lessons, first: G.first }), 3);
+  const showed = moments.length ? [h(momentsCardHtml(moments))] : [];
+  $('#extras').replaceChildren(card, ...showed, ...(me ? achievementsCards() : []));
   renderProgress();
   card.querySelector('#again').addEventListener('click', () => { newTable(); showTable({ ifHidden: true }); });
   if (G.allNow) { G.allNow = false; setTimeout(() => celebrate(5200), 400); toast('All six achievements: the Wheel mastered!'); }

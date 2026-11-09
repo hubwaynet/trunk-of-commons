@@ -87,7 +87,7 @@ test('every idea has a name, a sentence and a checked source (or none, by design
   for (const [k, idea] of Object.entries(IDEAS)) {
     assert.ok(idea.name && idea.text.length > 40, k);
     if (idea.source) assert.match(idea.source.url, /^https:\/\//, k);
-    else assert.equal(k, 'risingAmount');
+    else assert.ok(['risingAmount', 'cascade'].includes(k), `${k}: only the games' own lessons have no source`);
   }
 });
 
@@ -109,4 +109,32 @@ test('Game 2: a Commons run dry is always named, with what the table took', () =
   const short = moments2(play(3), { names }).find((x) => x.idea === 'commonsDrained');
   assert.match(short.line, /leaving 3: too little for the next round's bonus\.$/);
   assert.ok(IDEAS.commonsDrained.source.url.startsWith('https://'));
+});
+
+// ---------- The Wheel (Game 3) ----------
+import { tableMoments as wheelMoments } from '../src/ui/wheel/moments.js';
+import { createGame as wheelGame, step as wheelStep } from '../src/engine/wheel.js';
+import { createTracker as wheelTracker } from '../src/ui/wheel/achievements.js';
+
+test('Wheel: what this table showed names only checked ideas, and a bust is named', () => {
+  const ids6 = ['you', 'b', 'c', 'd', 'e', 'f'];
+  const names6 = Object.fromEntries(ids6.map((id) => [id, id === 'you' ? 'you' : id.toUpperCase()]));
+  const play = (balances, settings, stake = 500) => {
+    let s = wheelGame({ players: ids6.map((id) => ({ id, balance: balances[id], settings: settings[id] ?? settings.all })), stake });
+    const tr = wheelTracker('you');
+    while (s.status === 'playing') { const prev = s; s = wheelStep(s, { you: { vote: 2 } }); tr.tick(prev, s); }
+    return { s, facts: tr.facts };
+  };
+  const bust = play({ f: 20 }, { all: { share: 8, people: 6 } });
+  const m = wheelMoments(bust.s, { names: names6, facts: bust.facts });
+  assert.ok(m.some((x) => x.idea === 'rosca' && /couldn't pay at the black arrow/.test(x.line)), 'a bust is named');
+  const full = play({}, { all: { share: 8, people: 6 }, b: { share: 0, people: 1 } }, 2000);
+  assert.equal(full.s.endReason, 'time');
+  const n = wheelMoments(full.s, { names: names6, facts: full.facts, lessons: {}, first: {} });
+  assert.ok(n.some((x) => x.idea === 'difference'), 'the poorest player and the bonus');
+  assert.ok(n.some((x) => x.idea === 'equity' && /shared out by what each passed on/.test(x.line)), 'the fund by sharing');
+  for (const x of [...m, ...n]) {
+    assert.ok(IDEAS[x.idea], x.idea);
+    assert.doesNotMatch(x.line, /undefined|NaN|Keeper|Sharer|Learner/, x.line);
+  }
 });
